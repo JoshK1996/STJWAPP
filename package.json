@@ -1,0 +1,30 @@
+{
+  "name": "stjw-school-ops",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Internal school operations dashboard for attendance, reports, and FACTS-ready data sync.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "agent:api": "node scripts/agent-api-server.cjs",
+    "import:school-data": "node scripts/import-school-data.cjs",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "smoke:buttons": "node scripts/button-smoke.cjs"
+  },
+  "dependencies": {
+    "@types/three": "^0.184.1",
+    "@vitejs/plugin-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "three": "^0.184.0",
+    "typescript": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "pdf-parse": "^2.4.5",
+    "playwright": "^1.59.1"
+  }
+}
