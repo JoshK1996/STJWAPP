@@ -84,14 +84,14 @@ function InstallSteps({device}:{device:InstallPlatform}){
   </ol>;
 }
 
-export function InstallExperience({experience,update,onReload,onCheckForUpdate,reloadBlockedReason=''}:{
-  experience:InstallController;update:InstallUpdateState;onReload:()=>string|void;onCheckForUpdate:()=>void;reloadBlockedReason?:string;
+export function InstallExperience({experience,update,onReload,onCheckForUpdate,reloadBlockedReason='',compact=false}:{
+  experience:InstallController;update:InstallUpdateState;onReload:()=>string|void;onCheckForUpdate:()=>void;reloadBlockedReason?:string;compact?:boolean;
 }){
-  const [collapsed,setCollapsed]=useState(false),[checked,setChecked]=useState(false),[bannerHeight,setBannerHeight]=useState(0),[reloadMessage,setReloadMessage]=useState('');
+  const [collapsed,setCollapsed]=useState(compact),[checked,setChecked]=useState(false),[bannerHeight,setBannerHeight]=useState(0),[reloadMessage,setReloadMessage]=useState('');
   const banner=useRef<HTMLElement>(null),[online,setOnline]=useState(()=>navigator.onLine);
   useEffect(()=>{const changed=()=>setOnline(navigator.onLine);window.addEventListener('online',changed);window.addEventListener('offline',changed);return()=>{window.removeEventListener('online',changed);window.removeEventListener('offline',changed);};},[]);
-  useEffect(()=>{setCollapsed(false);setReloadMessage('');},[update.latestVersion,update.available]);
-  const showUpdate=update.available,showPromotion=!showUpdate&&experience.promotionVisible;
+  useEffect(()=>{setCollapsed(compact);setReloadMessage('');},[update.latestVersion,update.available,compact]);
+  const showUpdate=update.available,showPromotion=!compact&&!showUpdate&&experience.promotionVisible;
   useEffect(()=>{
     const element=banner.current;if(!element){setBannerHeight(0);return;}
     const measure=()=>setBannerHeight(Math.ceil(element.getBoundingClientRect().height)+24);

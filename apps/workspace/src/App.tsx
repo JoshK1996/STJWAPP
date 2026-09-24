@@ -141,6 +141,7 @@ export default function App() {
   const sidebarRef = useRef<HTMLElement>(null), navigationToggleRef = useRef<HTMLButtonElement>(null), mainRef = useRef<HTMLElement>(null);
   const focusDestination = useRef(false);
   const [smallScreen, setSmallScreen] = useState(() => matchMedia("(max-width: 720px)").matches);
+  const [compactClock, setCompactClock] = useState(() => matchMedia("(max-width: 720px), (max-width: 1024px) and (max-height: 500px)").matches);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [showPersonalCards, setShowPersonalCards] = useState(false);
   const [boardState,setBoardState]=useState<TeamBoardState>({receivedAt:null,unavailable:false});
@@ -189,10 +190,13 @@ export default function App() {
   const [scheduleRequestTarget, setScheduleRequestTarget] = useState<{ scheduleId?: string; requestId?: string } | null>(null);
   useEffect(() => { if (page !== "requests") setScheduleRequestTarget(null); }, [page]);
   useEffect(() => {
+    const clockMedia = matchMedia("(max-width: 720px), (max-width: 1024px) and (max-height: 500px)");
+    const updateClock = () => setCompactClock(clockMedia.matches);
+    clockMedia.addEventListener("change", updateClock);
     const media = matchMedia("(max-width: 720px)");
     const update = () => { setSmallScreen(media.matches); if (!media.matches) setMobile(false); };
     media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
+    return () => { media.removeEventListener("change", update); clockMedia.removeEventListener("change", updateClock); };
   }, []);
   useEffect(() => {
     if (focusDestination.current) { focusDestination.current = false; mainRef.current?.focus({ preventScroll: true }); }
@@ -296,7 +300,7 @@ export default function App() {
       setCsrf(data.actor.csrf);
       setMe(data);
       setPage(
-        data.actor.mode === "pin"
+        data.actor.mode === "pin" || matchMedia("(max-width: 720px), (pointer: coarse)").matches
           ? "clock"
           : (data.actor.preferences?.home ?? "overview"),
       );
@@ -310,6 +314,9 @@ export default function App() {
     if (setupToken) setLoading(false);
     else void loadMe();
   }, []);
+  useEffect(() => {
+    if (me) window.scrollTo({ top: 0, behavior: "instant" });
+  }, [me?.actor.id, me?.actor.mode]);
   const refresh = useCallback(async () => {
     if (!me || sessionEpoch.current !== workspaceEpoch) return;
     const reportRun = currentReportScope.current === scope ? ++reportGeneration.current : null;
@@ -409,7 +416,7 @@ export default function App() {
     if (!appUpdate.available) return 'Check for updates again before reloading.';
     window.location.reload();
   }
-  const updateNotice = <InstallExperience experience={installExperience} update={appUpdate} onReload={reloadForUpdate} onCheckForUpdate={() => { void updateMonitor.current?.check(); }} reloadBlockedReason={updateBlockReason({ pendingWrites, clockPending, unsavedChanges, busy, workflowOpen: false, formHasChanges: false, accountSetup: false })} />;
+  const updateNotice = <InstallExperience compact={Boolean(me && compactClock && page === "clock")} experience={installExperience} update={appUpdate} onReload={reloadForUpdate} onCheckForUpdate={() => { void updateMonitor.current?.check(); }} reloadBlockedReason={updateBlockReason({ pendingWrites, clockPending, unsavedChanges, busy, workflowOpen: false, formHasChanges: false, accountSetup: false })} />;
   function go(next: Page) {
     if (next === page) { if (mobile) setMobile(false); return true; }
     if (clockPendingRef.current) {
@@ -570,6 +577,28 @@ export default function App() {
     settings:
       "Personal preferences, account security, and tools for connected workflows.",
   };
+  const toastNotice = toast && (
+        <div
+          role={toast.error ? "alert" : "status"}
+          className={`toast ${toast.error ? "is-error" : ""}${compactClock && page === "clock" ? " clock-inline-notice" : ""}`}
+        >
+          {toast.error ? <X size={19} /> : <Check size={19} />}
+          <span>{toast.text}</span>
+          <button
+            className="icon-button"
+            aria-label="Dismiss notification"
+            onClick={() => setToast(null)}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      );
+  const workforceNavigation = me.actor.mode !== "pin" && me.permissions.report && ["overview","clock","time-records","payroll"].includes(page) && <nav className="workforce-workflow-nav" aria-label="Workforce workspace">
+            <button className={page === "overview" ? "active" : ""} onClick={() => go("overview")}><LayoutDashboard size={18}/><span>Workforce overview</span></button>
+            <button className={page === "clock" ? "active" : ""} onClick={() => go("clock")}><Clock3 size={18}/><span>My time clock</span></button>
+            <button className={page === "time-records" ? "active" : ""} onClick={() => go("time-records")}><History size={18}/><span>Time records</span></button>
+            <button className={page === "payroll" ? "active" : ""} onClick={() => go("payroll")}><Wallet size={18}/><span>Payroll</span></button>
+          </nav>;
   return (
     <div className="app-shell" data-page={page}>
       {!(smallScreen && mobile) && <a className="workspace-skip" href="#workspace-main" onClick={event => { event.preventDefault(); mainRef.current?.focus(); }}>Skip to main content</a>}
@@ -716,7 +745,7 @@ export default function App() {
             </button>
             <span>Workspace</span>
             <ChevronRight size={14} />
-            <strong>
+            <strong className="breadcrumb-current">
               {nav.find((x) => x[0] === page)?.[1] ??
                 (
                   {
@@ -730,6 +759,7 @@ export default function App() {
                   } as any
                 )[page]}
             </strong>
+            {page !== "clock" && <button type="button" className="mobile-clock-shortcut" aria-label="Open my time clock" onClick={() => go("clock")}><Clock3 size={18}/><span>Clock</span></button>}
           </div>
           <div className="top-actions">
             <WorkspaceTools key={`${me.actor.org_id}:${me.actor.id}:${me.actor.mode}`} me={me} onNavigate={go}/>
@@ -778,7 +808,8 @@ export default function App() {
                 <span className="day-line" />
                 {day().toFormat("cccc, LLLL d, yyyy")}
               </div>
-              <h1 id="workspace-heading">{page === "overview" && me.permissions.report ? "Your workforce, in focus." : title}</h1>
+              <h1 id="workspace-heading">{page === "clock" && compactClock ? "My time clock" : page === "overview" && me.permissions.report ? "Your workforce, in focus." : title}</h1>
+              {page === "clock" && <p className="clock-account-label">{me.actor.name}</p>}
               <p>{page === "overview" && me.permissions.report ? "Hours, people and patterns. Everything you need to see the working day clearly." : subtitles[page]}</p>
             </div>
             {page === "overview" && me.permissions.report && showPersonalCards ? (
@@ -822,12 +853,7 @@ export default function App() {
               </button>
             )}
           </div>
-          {me.actor.mode !== "pin" && me.permissions.report && ["overview","clock","time-records","payroll"].includes(page) && <nav className="workforce-workflow-nav" aria-label="Workforce workspace">
-            <button className={page === "overview" ? "active" : ""} onClick={() => go("overview")}><LayoutDashboard size={18}/><span>Workforce overview</span></button>
-            <button className={page === "clock" ? "active" : ""} onClick={() => go("clock")}><Clock3 size={18}/><span>My time clock</span></button>
-            <button className={page === "time-records" ? "active" : ""} onClick={() => go("time-records")}><History size={18}/><span>Time records</span></button>
-            <button className={page === "payroll" ? "active" : ""} onClick={() => go("payroll")}><Wallet size={18}/><span>Payroll</span></button>
-          </nav>}
+          {!(compactClock && page === "clock") && workforceNavigation}
           {((page === "overview" && !me.permissions.report) || page === "school") && (
             <WorkspaceHero
               school={page === "school"}
@@ -1044,7 +1070,6 @@ export default function App() {
           )}
           {page === "clock" && (
             <>
-              {me.actor.mode === "pin" && <p className="panel-note" role="status"><ShieldCheck size={16} /> PIN session · Time clock only. Sign out and use Password to open your full workspace.</p>}
               <ClockCard
                 state={clock}
                 onChange={refresh}
@@ -1053,6 +1078,9 @@ export default function App() {
                 onPendingChange={clockPendingChanged}
                 large
               />
+              {compactClock && toastNotice}
+              {compactClock && workforceNavigation}
+              {me.actor.mode === "pin" && <p className="panel-note" role="status"><ShieldCheck size={16} /> PIN session · Time clock only. Sign out and use Password to open your full workspace.</p>}
               {me.actor.mode !== "pin" && (
                 <div className="two-columns">
                   <Panel
@@ -1511,22 +1539,7 @@ export default function App() {
         </main>
       </div>
       {updateNotice}
-      {toast && (
-        <div
-          role={toast.error ? "alert" : "status"}
-          className={`toast ${toast.error ? "is-error" : ""}`}
-        >
-          {toast.error ? <X size={19} /> : <Check size={19} />}
-          <span>{toast.text}</span>
-          <button
-            className="icon-button"
-            aria-label="Dismiss notification"
-            onClick={() => setToast(null)}
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
+      {!(compactClock && page === "clock") && toastNotice}
       {dialog && (
         <Modal
           title={
