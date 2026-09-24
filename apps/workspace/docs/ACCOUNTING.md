@@ -30,7 +30,7 @@ Issue reviewed documents to retain their evidence. Accrual documents post receiv
 
 Preview a CSV statement with explicit dates, signed amounts and references. Review opening/closing balances before importing. Exact duplicate lines and overlapping active statement ranges are rejected. Source CSV evidence is retained separately from readable exports.
 
-Match statement lines to posted cash-account journal lines. Reconciliation verifies amounts and boundaries and preserves immutable evidence. A first statement with a nonzero opening requires reviewed ledger opening evidence. Later statements must continue the prior reconciled statement's dates and closing balance. An incorrect open statement can be canceled and reimported; reconciled statements retain their history. Live bank feeds and automatic money movement are not connected.
+Match each statement line to one or more posted lines on the same cash account; their signed amounts must sum exactly. Reconciliation verifies amounts and boundaries and preserves immutable evidence, including outstanding ledger lines. The first statement's opening review explicitly treats all unmatched pre-statement cash ledger lines as cleared opening evidence, whose sum must equal the statement opening balance. This bounded workflow does not infer arbitrary opening adjustments. Later statements must continue the prior reconciled statement's dates and closing balance. An incorrect open statement can be canceled and reimported; reconciled statements retain their history. Live bank feeds and automatic money movement are not connected.
 
 ## Budgets
 
@@ -54,6 +54,6 @@ This is a synthetic demonstration deployment until accountant acceptance, openin
 
 ## Remaining integrations and advanced automation
 
-Live bank feeds, payment processing, tax calculation/filing, attendance-driven tuition/childcare billing, donor receipting, automated allocations, currency conversion, consolidated multi-entity books and a statutory disclosure/close package require further provider/configuration work. The implemented workflows support manual reviewed accounting and exports; they do not establish those integrations or certify financial compliance.
+Live bank feeds, payment processing, tax calculation/filing, attendance-driven tuition/childcare billing, donor receipting, general allocation rules and donor-restriction releases, currency conversion, consolidated multi-entity books and a statutory disclosure/close package require further implementation and provider/configuration work. The implemented payroll fund allocation described above is narrower than a general allocation engine. The available workflows support manual reviewed accounting and exports; they do not establish those integrations or certify financial compliance.
 
 The architecture follows the existing [accounting roadmap](FINANCE-ROADMAP.md) and capability research: [Sage nonprofit accounting](https://www.sage.com/en-us/industry/nonprofit/) and [Xero financial reporting](https://www.xero.com/us/accounting-software/run-financial-reports/). Vendor capabilities inform product structure, not STJW policy.

@@ -2,7 +2,15 @@
 
 Railway hosts the app and its separate PostgreSQL database independently of the reference applications. The root prototype is not a deployment source for `apps/workspace`.
 
-## Current readable reports release
+## Current accounting release
+
+Deployment `e3bbb811-6c1e-49fa-9feb-30d399603e2c` is live, verified September 24, 2026 UTC. Separate maintenance dry-run and commit passed; schema 037 is deployed. Migrations 001–037 are now immutable. The web runtime passed startup schema/privilege checks using its restricted role, without migrations or seeding. Temporary maintenance access was revoked.
+
+All 329 staged runtime files match source commit `f3bdf309ea54496f0098c16d3d083e2f7452ccdc`, manifest SHA256 `dcee19b2c161575bdc8e9ac93393ef926346e5442593a69c9c9959cd2fa55cd8`. Build version `a56b89abd5659612ec8ee8457f207c2fe273141a9119fa77876635e3784b6063`; entry SHA256 `1c14b6eb27741c5b3db66f265269b9d0314e05cf82c5a565d7e6ef4f6fa77236`. Public acceptance passed 34 checks, 12 exact asset comparisons and 80 anonymous protected-route denials, with zero unexpected browser errors. See VALIDATION for the 1,068-test suite, normal-authentication accounting/reporting/clock browser checks and seven actual Excel-rendered pages.
+
+The accounting workspace supplies visibly unreviewed starter settings, exact ledger workflows, manual AP/AR and external payment recording, bank CSV reconciliation, budgets, reviewed payroll preparation and readable financial statements. It does not transmit money or calculate/file statutory taxes. Existing clients can use the guarded update prompt after finishing pending work. Roll forward with a reviewed schema-037-compatible release; do not deploy older schema expectations against this database or remove historical evidence.
+
+## Previous readable reports release
 
 Deployment `0f53d564-9184-4cb1-a059-e63d2ef773aa` is live, verified September 24, 2026 UTC. Separate maintenance dry-run and commit passed with schema034 unchanged. The runtime keeps its restricted role and verifies startup privileges without migrations or seeding. Temporary maintenance access was revoked.
 
