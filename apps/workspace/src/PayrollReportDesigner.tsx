@@ -19,7 +19,7 @@ export default function PayrollReportDesigner({report,options,onChange,busy,onEx
     </fieldset>
     <fieldset className="report-designer-settings" disabled={busy}><legend className="sr-only">Report appearance</legend>
       <label className="report-designer-title">Report title<input value={options.title} maxLength={100} onChange={e=>change({title:e.target.value})}/></label>
-      <label>Rows<select aria-label="Rows" value={options.grouping} onChange={e=>change({grouping:e.target.value as PayrollPresentationOptions['grouping']})}><option value="employees">One row per employee</option><option value="jobs">One row per employee and job</option></select></label>
+      <label>Rows<select aria-label="Rows" value={options.grouping} onChange={e=>change({grouping:e.target.value as PayrollPresentationOptions['grouping']})}><option value="employees">Employee</option><option value="jobs">Employee + job</option></select></label>
       <label>Order<select aria-label="Order" value={options.sortBy} onChange={e=>change({sortBy:e.target.value as PayrollPresentationOptions['sortBy']})}><option value="name">Employee name</option><option value="work_hours">Most work hours</option></select></label>
       <label>Decimal places<select aria-label="Decimal places" value={options.decimalPlaces} onChange={e=>change({decimalPlaces:Number(e.target.value) as 2|3|4})}><option value={2}>2 — 12.50 hours</option><option value={3}>3 — 12.500 hours</option><option value={4}>4 — 12.5000 hours</option></select></label>
     </fieldset>
