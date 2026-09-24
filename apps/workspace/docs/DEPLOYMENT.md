@@ -4,9 +4,9 @@ Railway hosts the app and its separate PostgreSQL database independently of the 
 
 ## Current readable reports release
 
-Deployment `8a000867-3c7c-45cf-b557-a2594c2712f2` is live, verified September 24, 2026 UTC. Separate maintenance dry-run and commit passed with schema034 unchanged. The runtime keeps its restricted role and verifies startup privileges without migrations or seeding. Temporary maintenance access was revoked.
+Deployment `0f53d564-9184-4cb1-a059-e63d2ef773aa` is live, verified September 24, 2026 UTC. Separate maintenance dry-run and commit passed with schema034 unchanged. The runtime keeps its restricted role and verifies startup privileges without migrations or seeding. Temporary maintenance access was revoked.
 
-All 307 runtime files match source commit `888812429a031a1c237bfde573d4ae524b06f3e7`, manifest SHA256 `7efb2c66fe98cb96e836557653f3d7d62fcfbee25695e2d981d6b9d52adebc2b`. Build version `9157d9d44ac4b4f3942c1faf7631313b2ceb0a518535c25515f6fc4ee585abc7`; entry SHA256 `062287ea5d0a1b6fd3a0cf5fe0d9df4d9167074afd093b3eee4894cc195b209d`. Public checks passed34, exact assets12 and anonymous denials62, with zero unexpected browser errors. See VALIDATION for 1,013 local application tests, actual Excel rendering, 58 normal-auth report checks and 84 clock checks.
+All 307 runtime files match source commit `665aa1c59757d6607345fbefff4c8fc0e1d1a641`, manifest SHA256 `ff6d3d326b4732b2fa3f160a4d2e03126eb566c3426060f4603efcf71e4f84aa`. Build version `ea2415c50d227ba91502b9906d1fb06bbd7d3593488f4514d9fd8877ee60c3b2`; entry SHA256 `d55dd7c2baf89c298f3911cc8a7bc2011ad210364f4c338a7c43afe2c5a9e7c5`. Public checks passed34, exact assets12 and anonymous denials62, with zero unexpected browser errors. See VALIDATION for 1,013 local application tests, actual Excel rendering, 58 normal-auth report checks and 84 clock checks.
 
 Presentation options are additive; exact CSV/JSON defaults remain stable. Saved-snapshot Excel explicitly uses layout version2. Existing clients can use the guarded update prompt after finishing pending work. This release does not implement a financial ledger, payment processing or wage calculations.
 
