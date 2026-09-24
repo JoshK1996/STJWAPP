@@ -35,7 +35,7 @@ export async function generateSnapshotXlsx(input: SnapshotXlsxInput, options: { 
       if (options.signal?.aborted) abort();
     });
     assertXlsxNotAborted(options.signal);
-    return { buffer, hash: createHash("sha256").update(buffer).digest("hex"), bytes: buffer.length, formatVersion: 1 as const };
+    return { buffer, hash: createHash("sha256").update(buffer).digest("hex"), bytes: buffer.length, formatVersion: 2 as const };
   } finally {
     if (timer) clearTimeout(timer); if (abort) options.signal?.removeEventListener("abort", abort);
     await worker.terminate();

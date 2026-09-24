@@ -195,7 +195,7 @@ export function installReportSnapshots(app: Express, db: Database) {
       req.once("aborted", cancel); res.once("close", cancel);
       try {
         const data = await exportReportSnapshotXlsx(db, x.actor, x.hash, x.reportId, id, controller.signal); assertXlsxNotAborted(controller.signal);
-        res.set({ "X-Export-SHA256": data.hash, "X-Snapshot-Payload-SHA256": data.payloadHash, "X-Export-Format-Version": "1", "Cache-Control": "private, no-store", "Content-Length": String(data.bytes), "X-Content-Type-Options": "nosniff" }).type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").attachment(`stjw-snapshot-${id}.xlsx`).send(data.buffer);
+        res.set({ "X-Export-SHA256": data.hash, "X-Snapshot-Payload-SHA256": data.payloadHash, "X-Export-Format-Version": "2", "Cache-Control": "private, no-store", "Content-Length": String(data.bytes), "X-Content-Type-Options": "nosniff" }).type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").attachment(`stjw-snapshot-${id}.xlsx`).send(data.buffer);
       } finally { req.off("aborted", cancel); res.off("close", cancel); }
       return;
     }

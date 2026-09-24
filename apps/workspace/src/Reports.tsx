@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Compensation from "./Compensation";
+import { formatReportHours } from "../shared/report-presentation";
+import { defaultWorkforcePresentationColumns, workforcePresentationLabels, workforcePresentationValue } from "../shared/workforce-presentation";
 import { DateTime } from "luxon";
 import {
   ArrowDownToLine,
@@ -47,34 +49,29 @@ function HourReports({
     [end, setEnd] = useState(today.toISODate()!),
     [group, setGroup] = useState("day"),
     [unit, setUnit] = useState("");
-  const [report, setReport] = useState<WorkforceReportV2|null>(null),
+  const [loadedReport, setReport] = useState<{key:string;data:WorkforceReportV2}|null>(null),
     [loadingReport,setLoadingReport]=useState(false),
     [busy, setBusy] = useState(false),
-    [columns, setColumns] = useState([
-      "employee_name",
-      "unit_name",
-      "job_title",
-      "kind",
-      "started_at",
-      "ended_at",
-      "clipped_started_at",
-      "clipped_ended_at",
-      "duration_microseconds",
-    ]),
+    [columns, setColumns] = useState([...defaultWorkforcePresentationColumns]),
+    [presentation,setPresentation]=useState<'readable'|'exact'>('readable'),
     [error, setError] = useState("");
+  const actorKey=`${me.actor.org_id}:${me.actor.id}:${me.actor.mode}:${me.actor.role}:${me.actor.csrf}:${JSON.stringify(me.actor.unit_ids??[])}`;
+  const active=useRef(true),actorRef=useRef(actorKey);actorRef.current=actorKey;
+  useLayoutEffect(()=>{active.current=true;return()=>{active.current=false;};},[]);
   const query = new URLSearchParams({
     start,
     end,
     group,
     ...(unit ? { unitId: unit } : {}),
   }).toString();
+  const reportKey=actorKey+query,report=loadedReport?.key===reportKey?loadedReport.data:null;
   useEffect(() => {
     let cancelled = false;
     setError("");
     setReport(null);setLoadingReport(true);
     void api("/reports/v2?" + query)
       .then((data) => {
-        if (!cancelled) setReport(workforceReportV2Schema.parse(data));
+        if (!cancelled) setReport({key:reportKey,data:workforceReportV2Schema.parse(data)});
       })
       .catch((e) => {
         if (!cancelled) {
@@ -85,15 +82,15 @@ function HourReports({
     return () => {
       cancelled = true;
     };
-  }, [query]);
-  async function execute(fn: () => Promise<void>) {
-    setBusy(true);
+  }, [query,actorKey]);
+  async function execute(fn: () => Promise<unknown>) {
+    const owner=actorKey;setBusy(true);
     try {
       await fn();
     } catch (e) {
-      notify((e as Error).message, true);
+      if(active.current&&actorRef.current===owner)notify((e as Error).message, true);
     } finally {
-      setBusy(false);
+      if(active.current&&actorRef.current===owner)setBusy(false);
     }
   }
   return (
@@ -101,7 +98,7 @@ function HourReports({
       <Panel
         className="exact-workforce-report-panel"
         title="Recorded time"
-        detail="Exact work and break durations, with the detail behind every total."
+        detail="Readable hours and local dates, with exact audit evidence available when needed."
         action={
           <div className="exact-workforce-export-actions">
           <button
@@ -110,8 +107,9 @@ function HourReports({
             onClick={() =>
               void execute(() =>
                 download(
-                  `/reports/v2/export?${query}&columns=${columns.join(",")}`,
-                  `stjw-time-v2-${start}-${end}.csv`,
+                  `/reports/v2/export?${query}&presentation=${presentation}&columns=${columns.join(",")}`,
+                  `stjw-time-${presentation}-${start}-${end}.csv`,
+                  ()=>active.current&&actorRef.current===actorKey,
                 ),
               )
             }
@@ -119,7 +117,7 @@ function HourReports({
             <ArrowDownToLine size={16} />
             Export CSV
           </button>
-          <button className="button secondary small" disabled={busy||!report} onClick={()=>void execute(()=>download(`/reports/v2/export?${query}&format=json`,`stjw-time-v2-evidence-${start}-${end}.json`))}>
+          <button className="button secondary small" disabled={busy||!report} onClick={()=>void execute(()=>download(`/reports/v2/export?${query}&format=json`,`stjw-time-v2-evidence-${start}-${end}.json`,()=>active.current&&actorRef.current===actorKey))}>
             <ArrowDownToLine size={16}/>Download evidence JSON
           </button>
           </div>
@@ -194,13 +192,13 @@ function HourReports({
               <div>
                 <small>Recorded work</small>
                 <strong>
-                  <ExactWorkforceDuration value={report.workMicroseconds}/>
+                  <span title={report.workMicroseconds+" exact microseconds"}>{formatReportHours(report.workMicroseconds)} h</span>
                 </strong>
               </div>
               <div>
                 <small>Recorded breaks</small>
                 <strong>
-                  <ExactWorkforceDuration value={report.breakMicroseconds}/>
+                  <span title={report.breakMicroseconds+" exact microseconds"}>{formatReportHours(report.breakMicroseconds)} h</span>
                 </strong>
               </div>
               <div>
@@ -239,7 +237,7 @@ function HourReports({
             )}
             <p className="panel-note">
               {report.notice} Open shifts contribute only through this report’s captured time:{" "}
-              <ExactWorkforceTimestamp value={report.asOf} zone={report.timezone}/>. Durations show hours, minutes and exact seconds; these are recorded time, not calculated pay.
+              <ExactWorkforceTimestamp value={report.asOf} zone={report.timezone}/>. Summary hours use two decimal places; exact values remain in the detail and source JSON. Recorded time is not calculated pay.
             </p>
             <details className="id-guide"><summary>Report time boundaries and precision</summary><dl>
               <dt>Time zone</dt><dd>{report.timezone}</dd>
@@ -255,7 +253,7 @@ function HourReports({
       <div className="two-columns">
         <Panel
           title="People in this report"
-          detail="Exact durations are added before formatting; fractional seconds are retained."
+          detail="Hours rounded to two places after exact aggregation. Hover for the recorded duration."
         >
           <div className="table-scroll">
             <table>
@@ -270,8 +268,8 @@ function HourReports({
                 {report?.staff.map((s) => (
                   <tr key={s.userId}>
                     <td>{s.name.replace(" (Demo)", "")}</td>
-                    <td className="numeric"><ExactWorkforceDuration value={s.workMicroseconds}/></td>
-                    <td className="numeric"><ExactWorkforceDuration value={s.breakMicroseconds}/></td>
+                    <td className="numeric"><span title={s.workMicroseconds+" exact microseconds"}>{formatReportHours(s.workMicroseconds)} h</span></td>
+                    <td className="numeric"><span title={s.breakMicroseconds+" exact microseconds"}>{formatReportHours(s.breakMicroseconds)} h</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -283,6 +281,7 @@ function HourReports({
           title="Build your export"
           detail="Choose the columns that belong in your report."
         >
+          <div className="report-readable-tools"><label>Report style<select value={presentation} onChange={event=>setPresentation(event.target.value as 'readable'|'exact')}><option value="readable">Readable report — hours & local dates</option><option value="exact">Audit CSV — exact source values</option></select></label><div><button className="button secondary small" type="button" onClick={()=>{setColumns([...defaultWorkforcePresentationColumns]);setPresentation('readable');}}>Everyday report</button><button className="button secondary small" type="button" onClick={()=>{setColumns(Object.keys(columnNames));setPresentation('exact');}}>All audit columns</button></div></div>
           <fieldset className="column-options">
             <legend className="sr-only">Export columns</legend>
             {Object.entries(columnNames).map(([key, label]) => (
@@ -298,14 +297,15 @@ function HourReports({
                     )
                   }
                 />
-                <span>{label}</span>
+                <span>{presentation==='readable'?workforcePresentationLabels[key]:label}</span>
               </label>
             ))}
           </fieldset>
           <p className="panel-note">
-            CSV uses your selected columns and exact microsecond integers. JSON includes the complete time range, time zone, captured time and source rows. Each download samples the current authorized records again and is recorded in the activity log; it may differ from the view above.
+            Readable CSV uses your selected columns, two-decimal hours, local dates and clear names. Audit CSV and JSON retain exact source values. Each download captures current permitted data again and is recorded in the activity log; it may differ from this preview.
           </p>
-          <p className="panel-note">For an Excel workbook, open Report library, save a reviewed report copy, and choose Download Excel.</p>
+          <p className="panel-note">Use Payroll for an accountant Excel summary, or Report library for a reusable layout and saved report copy.</p>
+          {report&&columns.length>0&&<div className="report-readable-preview"><h4>Export preview</h4><p>First {Math.min(5,report.rows.length)} of {report.rows.length.toLocaleString()} records. The readable download also identifies the period, time zone, capture time and display precision.</p><div className="table-scroll" tabIndex={0} role="region" aria-label="Recorded time export preview"><table><thead><tr>{columns.map(column=><th key={column}>{presentation==='readable'?workforcePresentationLabels[column]:columnNames[column]}</th>)}</tr></thead><tbody>{report.rows.slice(0,5).map(row=><tr key={row.id}>{columns.map(column=><td key={column}>{presentation==='readable'?workforcePresentationValue(column,row[column as keyof typeof row],report.timezone):String(row[column as keyof typeof row]??'')}</td>)}</tr>)}</tbody></table></div></div>}
         </Panel>
       </div>
       {me.permissions.manage && <StaffImport me={me} jobs={jobs} notify={notify} onChange={onChange} onDirty={onDirty} />}
@@ -313,7 +313,7 @@ function HourReports({
   );
 }
 
-export default function Reports(props: {
+function ReportWorkspace(props: {
   me: any;
   jobs: any[];
   notify: (message: string, error?: boolean) => void;
@@ -405,4 +405,11 @@ export default function Reports(props: {
       )}
     </>
   );
+}
+
+
+export default function Reports(props:Parameters<typeof ReportWorkspace>[0]){
+  const actor=props.me.actor;
+  const owner=`${actor.org_id}:${actor.id}:${actor.mode}:${actor.role}:${actor.csrf}:${JSON.stringify(actor.unit_ids??[])}`;
+  return <ReportWorkspace key={owner} {...props}/>;
 }

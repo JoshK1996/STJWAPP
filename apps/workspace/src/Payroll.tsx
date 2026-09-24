@@ -3,6 +3,9 @@ import { DateTime } from 'luxon';
 import { ArrowDownToLine, ArrowRight, ArrowRightLeft, Bookmark, ChartNoAxesCombined, CheckCircle2, ChevronDown, ChevronRight, Clock3, FileSpreadsheet, Fingerprint, Info, Layers3, Pencil, Plus, RefreshCw, Save, Search, ShieldCheck, Trash2, Users, Wallet } from 'lucide-react';
 import { api, download } from './api';
 import Compensation from './Compensation';
+import PayrollReportDesigner from './PayrollReportDesigner';
+import { defaultPayrollPresentationOptions, payrollPresentationOptionsSchema, type PayrollPresentationOptions } from '../shared/payroll-presentation';
+import { formatReportDecimal } from '../shared/report-presentation';
 import { Modal } from './components';
 import { payrollHoursReportSchema, type PayrollHoursReport } from '../shared/payroll-hours';
 import { createPayrollViewSchema, payrollViewListSchema, resolvedPayrollViewSchema, savedPayrollViewSchema, updatePayrollViewSchema, type PayrollViewFilters, type SavedPayrollView } from '../shared/payroll-views';
@@ -31,6 +34,7 @@ export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords 
   const [viewLibrary,setViewLibrary]=useState(false),[viewsVersion,setViewsVersion]=useState(0),[viewsLoading,setViewsLoading]=useState(true);
   const [savedViews,setSavedViews]=useState<{owner:string;views:SavedPayrollView[];limit:number}|null>(null),[viewsError,setViewsError]=useState<{owner:string;message:string}|null>(null);
   const [selectedView,setSelectedView]=useState(''),[viewTask,setViewTask]=useState<string|null>(null),[editor,setEditor]=useState<ViewEditor|null>(null),[editorError,setEditorError]=useState('');
+  const [customizeExport,setCustomizeExport]=useState(false),[exportOptions,setExportOptions]=useState<PayrollPresentationOptions>({...defaultPayrollPresentationOptions});
   const generation=useRef(0),mounted=useRef(true);
   const actorKey=`${me.actor.org_id}:${me.actor.id}:${me.actor.mode}:${me.actor.role}:${me.actor.csrf}:${JSON.stringify(me.actor.unit_ids??[])}`;
   const actorRef=useRef(actorKey),viewGeneration=useRef(0),resolveGeneration=useRef(0),viewTaskRef=useRef<string|null>(null),viewOperation=useRef(0);
@@ -44,7 +48,7 @@ export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords 
   const canPay=['developer','owner','admin','finance'].includes(me.actor.role);
   // Invalidate pending publications during unmount, before passive cleanup.
   useLayoutEffect(()=>{mounted.current=true;return()=>{mounted.current=false;generation.current++;viewGeneration.current++;resolveGeneration.current++;};},[]);
-  useEffect(()=>{setEditor(null);setEditorError('');setSelectedView('');setViewTask(null);setBusy(null);setDirty(false);viewTaskRef.current=null;viewOperation.current++;resolveGeneration.current++;},[actorKey]);
+  useEffect(()=>{setEditor(null);setEditorError('');setSelectedView('');setViewTask(null);setBusy(null);setDirty(false);setCustomizeExport(false);setExportOptions({...defaultPayrollPresentationOptions});viewTaskRef.current=null;viewOperation.current++;resolveGeneration.current++;},[actorKey]);
   useEffect(()=>{
     const current=++viewGeneration.current;setViewsLoading(true);setViewsError(null);setSavedViews(null);
     void api('/payroll/views').then(value=>{
@@ -138,14 +142,18 @@ export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords 
     finally{endViewTask(owner,operation);}
   }
   async function exportFile(format:'csv'|'xlsx'|'json') {
-    if(busy||!data)return;setBusy(format);const owner=actorKey;
-    try {const published=await download(`/payroll/hours/export?${query}&format=${format}`,`stjw-payroll-hours-${start}-${end}.${format}`,()=>mounted.current&&actorRef.current===owner);if(published&&mounted.current&&actorRef.current===owner)notify('Payroll hours downloaded.');}
+    if(busy||!data)return;
+    const presentation=payrollPresentationOptionsSchema.safeParse(exportOptions);
+    if(format!=='json'&&!presentation.success){setCustomizeExport(true);notify('Choose a report title of 1–100 characters on one line.',true);return;}
+    setBusy(format);const owner=actorKey;
+    const appearance=format==='json'?'':'&presentation='+encodeURIComponent(JSON.stringify(presentation.data));
+    try {const published=await download(`/payroll/hours/export?${query}&format=${format}${appearance}`,`stjw-payroll-hours-${start}-${end}.${format}`,()=>mounted.current&&actorRef.current===owner);if(published&&mounted.current&&actorRef.current===owner)notify('Payroll hours downloaded.');}
     catch(cause){if(mounted.current&&actorRef.current===owner)notify(cause instanceof Error?cause.message:'Download could not finish.',true);}
     finally{if(mounted.current&&actorRef.current===owner)setBusy(null);}
   }
   async function exportComparison(format:'csv'|'json') {
     if(busy||!review)return;setBusy('review-'+format);const owner=actorKey;
-    try {const published=await download(`/payroll/review/export?${query}&format=${format}`,`stjw-payroll-comparison-${start}-${end}.${format}`,()=>mounted.current&&actorRef.current===owner);if(published&&mounted.current&&actorRef.current===owner)notify('Period comparison downloaded.');}
+    try {const published=await download(`/payroll/review/export?${query}&format=${format}${format==='csv'?'&presentation=readable':''}`,`stjw-payroll-comparison-${start}-${end}.${format}`,()=>mounted.current&&actorRef.current===owner);if(published&&mounted.current&&actorRef.current===owner)notify('Period comparison downloaded.');}
     catch(cause){if(mounted.current&&actorRef.current===owner)notify(cause instanceof Error?cause.message:'Comparison download could not finish.',true);}
     finally{if(mounted.current&&actorRef.current===owner)setBusy(null);}
   }
@@ -199,12 +207,14 @@ export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords 
             <div className="payroll-check-row"><span className="checked"><Fingerprint size={19}/></span><div><strong>{review.evidence.currentSourceRows} source segments captured</strong><p>Recorded identities, time evidence and exact microseconds support this snapshot. Exports capture current permitted records again.</p></div></div></>}
             <div className="payroll-check-row"><span className="policy"><Wallet size={19}/></span><div><strong>Hours and pay rates in one workspace</strong><p>Gross/net pay, overtime, paid breaks, leave, taxes and deductions are not calculated. Confirm the organization’s rules before processing payroll.</p></div>{canPay&&<button onClick={()=>changeView('rates')}>Pay rates<ArrowRight size={15}/></button>}</div>
           </section>
-          <section className="payroll-export-card"><span className="eyebrow">03 · SEND TO YOUR ACCOUNTANT</span><h3>One click.<br/>A complete hours workbook.</h3><div className="payroll-export-mix"><div className="payroll-mini-donut" style={{background:`conic-gradient(#887bff 0 ${workRatio}%, #ffba83 ${workRatio}% 100%)`}} aria-hidden="true"><span><FileSpreadsheet size={23}/></span></div><div><strong>{totals.employeeCount} employee summaries</strong><p>Job breakdowns · original segments · source details</p></div></div>
+          <section className="payroll-export-card"><span className="eyebrow">03 · SEND TO YOUR ACCOUNTANT</span><h3>Clear reports.<br/>Ready to hand over.</h3><div className="payroll-export-mix"><div className="payroll-mini-donut" style={{background:`conic-gradient(#887bff 0 ${workRatio}%, #ffba83 ${workRatio}% 100%)`}} aria-hidden="true"><span><FileSpreadsheet size={23}/></span></div><div><strong>{totals.employeeCount} employee summaries</strong><p>Readable names · formatted hours · organized sheets</p></div></div>
+            <button className="button secondary" type="button" disabled={!!busy} aria-expanded={customizeExport} aria-controls="payroll-export-customization" onClick={()=>setCustomizeExport(value=>!value)}><Pencil size={17}/>{customizeExport?'Hide report designer':'Customize report & preview'}</button>
             <button className="payroll-download-main" disabled={!!busy} onClick={()=>void exportFile('xlsx')}><FileSpreadsheet size={20}/>{busy==='xlsx'?'Preparing Excel…':'Download Excel'}<ArrowDownToLine size={18}/></button>
             <div className="payroll-download-more"><button disabled={!!busy} onClick={()=>void exportFile('csv')}>{busy==='csv'?'Preparing…':'Download CSV'}</button><button disabled={!!busy} onClick={()=>void exportFile('json')}>{busy==='json'?'Preparing…':'Source JSON'}</button></div>
-            <p className="payroll-export-note">Downloads capture the latest permitted records again. Display filters below do not change the export. Hours are not payroll approval.</p>
+            <p className="payroll-export-note">Excel and CSV use your report layout (2 decimal places by default). Choose Customize report for columns, job rows, and optional Excel audit sheets. Source JSON keeps exact evidence.</p>
           </section>
         </div>
+        {customizeExport&&<div id="payroll-export-customization"><PayrollReportDesigner report={data} options={exportOptions} onChange={setExportOptions} busy={!!busy} onExport={format=>void exportFile(format)}/></div>}
         <section className="payroll-people-card"><div className="payroll-section-title"><div><span className="eyebrow">THE PEOPLE BEHIND THE TOTAL</span><h3>Employee hours</h3><p>Select a person to see their jobs and communities.</p></div><span className="payroll-count">{employees.length} of {data.employees.length}</span></div>
           <div className="payroll-people-controls"><label className="payroll-search"><Search size={17}/><input aria-label="Search displayed employees" placeholder="Find an employee…" value={search} onChange={e=>setSearch(e.target.value)}/></label><label>Sort<select value={order} onChange={e=>setOrder(e.target.value as typeof order)}><option value="hours">Most work hours</option><option value="name">Employee name</option><option value="breaks">Most break hours</option></select></label></div>
           <div className="payroll-employee-heading" aria-hidden="true"><span>Employee / job</span><span>Work hours</span><span>Break hours</span><span>Shifts</span></div>
@@ -214,7 +224,7 @@ export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords 
             return <article className="payroll-employee" key={employee.userId}><button className="payroll-employee-row" aria-expanded={open} onClick={()=>setExpanded(ids=>open?ids.filter(id=>id!==employee.userId):[...ids,employee.userId])}>
               <span className="payroll-employee-identity"><span className={`payroll-avatar tint-${index%4}`}>{employee.name.trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('')}</span><span><strong>{employee.name}</strong><small>{employee.jobs.length} {employee.jobs.length===1?'job':'jobs'}{employee.ongoingSegmentCount?' · ongoing time included':''}</small><i className="payroll-person-bar"><b style={{width:`${percent}%`}}/></i></span>{open?<ChevronDown size={17}/>:<ChevronRight size={17}/>}</span>
               <span title={formatWorkforceDuration(employee.workMicroseconds)}><small className="payroll-mobile-label">Work </small><strong>{displayHours(employee.workMicroseconds)}</strong><small> h</small></span><span title={formatWorkforceDuration(employee.breakMicroseconds)}><small className="payroll-mobile-label">Break </small>{displayHours(employee.breakMicroseconds)}<small> h</small></span><span><small className="payroll-mobile-label">Shifts </small>{employee.shiftCount}</span>
-            </button>{open&&<div className="payroll-job-detail"><div className="table-scroll" tabIndex={0} role="region" aria-label={`${employee.name} job breakdown`}><table><thead><tr><th>Job / community</th><th>Work</th><th>Break</th><th>Included shifts</th></tr></thead><tbody>{employee.jobs.slice(0,100).map(job=><tr key={job.jobId}><th>{job.jobTitle}<small>{job.unitName}</small></th><td title={formatWorkforceDuration(job.workMicroseconds)}>{displayHours(job.workMicroseconds)} h</td><td title={formatWorkforceDuration(job.breakMicroseconds)}>{displayHours(job.breakMicroseconds)} h</td><td>{job.shiftCount}</td></tr>)}</tbody></table></div><p>{employee.jobs.length>100&&<>Showing the first 100 jobs; the export includes all {employee.jobs.length}. </>}Shown to 2 decimal places after aggregation. Excel and CSV include 6-decimal hours and exact microseconds. A shift can include several jobs.</p></div>}</article>;
+            </button>{open&&<div className="payroll-job-detail"><div className="table-scroll" tabIndex={0} role="region" aria-label={`${employee.name} job breakdown`}><table><thead><tr><th>Job / community</th><th>Work</th><th>Break</th><th>Included shifts</th></tr></thead><tbody>{employee.jobs.slice(0,100).map(job=><tr key={job.jobId}><th>{job.jobTitle}<small>{job.unitName}</small></th><td title={formatWorkforceDuration(job.workMicroseconds)}>{displayHours(job.workMicroseconds)} h</td><td title={formatWorkforceDuration(job.breakMicroseconds)}>{displayHours(job.breakMicroseconds)} h</td><td>{job.shiftCount}</td></tr>)}</tbody></table></div><p>{employee.jobs.length>100&&<>Showing the first 100 jobs; the export includes all {employee.jobs.length}. </>}Shown to 2 decimal places after aggregation. Customize the download to choose decimal places and optional exact Excel audit sheets. A shift can include several jobs.</p></div>}</article>;
           })}
           {employees.length>50&&<div className="payroll-pagination"><button className="button secondary small" disabled={page===0} onClick={()=>setPage(p=>p-1)}>Previous</button><span>Employees {page*50+1}–{Math.min((page+1)*50,employees.length)} of {employees.length}</span><button className="button secondary small" disabled={(page+1)*50>=employees.length} onClick={()=>setPage(p=>p+1)}>Next</button></div>}
           {!employees.length&&<div className="payroll-no-people"><Users size={31}/><h4>{data.employees.length?'No matching employees':'No recorded hours in this period'}</h4><p>{data.employees.length?'Try another name or clear the search.':'Choose a different date range or review your time records.'}</p></div>}
@@ -236,7 +246,7 @@ function PayrollComparison({review,busy,onExport}:{review:PayrollReview;busy:str
   const people=review.employees.filter(row=>row.name.toLocaleLowerCase().includes(find.trim().toLocaleLowerCase()));
   const greatest=review.employees.reduce((max,row)=>{const a=BigInt(row.current[field]),b=BigInt(row.previous[field]);return [max,a,b].reduce((largest,value)=>value>largest?value:largest);},0n).toString();
   const pages=Math.max(1,Math.ceil(people.length/8)),currentPage=Math.min(page,pages-1);
-  const percent=values.delta.workPercentChange,percentText=percent===null?'No previous work baseline':(percent.startsWith('-')?'':BigInt(values.delta.workMicroseconds)>0n?'+':'')+percent.replace(/\.?0+$/,'')+'% work change';
+  const percent=values.delta.workPercentChange,percentText=percent===null?'No previous work baseline':(percent.startsWith('-')?'':BigInt(values.delta.workMicroseconds)>0n?'+':'')+formatReportDecimal(percent,2)+'% work change';
   const partial=review.periods.current.status!=='complete'||review.periods.previous.status!=='complete';
   const range=(side:'current'|'previous')=>`${DateTime.fromISO(review.periods[side].start).toFormat('LLL d, yyyy')} – ${DateTime.fromISO(review.periods[side].end).toFormat('LLL d, yyyy')}`;
   return <>
@@ -254,7 +264,7 @@ function PayrollComparison({review,busy,onExport}:{review:PayrollReview;busy:str
     <div className="payroll-comparison-people">{people.slice(currentPage*8,(currentPage+1)*8).map(row=><button type="button" key={row.userId} className={'payroll-comparison-person'+(row.userId===selected?' selected':'')} aria-label={`Compare ${row.name}`} aria-pressed={row.userId===selected} onClick={()=>setSelected(row.userId)}><span className="payroll-comparison-identity"><strong>{row.name}</strong><small>{row.current.segmentCount===0?'Previous period only':row.previous.segmentCount===0?'Selected period only':'Recorded in both periods'}</small></span><span className="payroll-employee-pair" aria-hidden="true"><i className="current"><b style={{width:workforceBarPercent(row.current[field],greatest)+'%'}}/></i><i className="previous"><b style={{width:workforceBarPercent(row.previous[field],greatest)+'%'}}/></i></span><span className="payroll-pair-values"><strong>Selected {displayHours(row.current[field])} h</strong><small>Previous {displayHours(row.previous[field])} h</small></span></button>)}</div>
     {!people.length&&<p className="payroll-capture">{review.employees.length?'No names match this search.':'Neither period has recorded employees in this selection.'}</p>}
     {pages>1&&<div className="payroll-comparison-pagination"><button type="button" disabled={currentPage===0} onClick={()=>setPage(value=>value-1)}>Previous people</button><span>Page {currentPage+1} of {pages}</span><button type="button" disabled={currentPage+1>=pages} onClick={()=>setPage(value=>value+1)}>Next people</button></div>}
-    <p className="payroll-comparison-footnote">Chart hours are rounded to two places; percentages to six. Exact durations remain available above. Chart focus and name search do not change export filters. Both periods were captured together at {DateTime.fromISO(review.asOf).setZone(review.timezone).toFormat('LLL d, h:mm:ss a')}; payroll-hours downloads take a fresh capture.</p>
+    <p className="payroll-comparison-footnote">Chart hours and percentages are rounded to two places; exact values remain in source JSON. Exact durations remain available above. Chart focus and name search do not change export filters. Both periods were captured together at {DateTime.fromISO(review.asOf).setZone(review.timezone).toFormat('LLL d, h:mm:ss a')}; payroll-hours downloads take a fresh capture.</p>
     <div className="payroll-comparison-downloads"><button type="button" disabled={!!busy} onClick={()=>void onExport('csv')}><ArrowDownToLine size={16}/>{busy==='review-csv'?'Preparing…':'Comparison CSV'}</button><button type="button" disabled={!!busy} onClick={()=>void onExport('json')}><ArrowDownToLine size={16}/>{busy==='review-json'?'Preparing…':'Comparison JSON'}</button></div>
     <details className="payroll-comparison-notes"><summary>How to read this comparison</summary><p>{review.notice}</p></details>
   </>;

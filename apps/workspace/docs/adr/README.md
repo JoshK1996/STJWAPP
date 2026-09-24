@@ -11,3 +11,5 @@ ADRs preserve a decision, the reasons for it, and its consequences. **Accepted**
 | [0005](0005-personal-payroll-views-and-comparisons.md) | Save personal payroll filters and compare exact recorded hours without inferring wage policy | Accepted; see implementation and release evidence in STATUS |
 
 For a new decision, add the next numbered file with date, status, context, decision, consequences, and verification or rollout gates. Change an accepted decision through a superseding ADR rather than silently rewriting its rationale. Correct factual errors openly; implementation updates belong in the feature documents and release record.
+
+- [0006: Readable report presentations](0006-readable-report-presentations.md)

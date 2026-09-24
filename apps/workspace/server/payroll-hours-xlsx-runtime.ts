@@ -2,16 +2,20 @@ import { Worker } from 'node:worker_threads';
 import { createHash } from 'node:crypto';
 import { payrollHoursLimits } from '../shared/payroll-hours';
 import { Problem } from './security';
+import { payrollPresentationOptionsSchema, type PayrollPresentationOptions } from '../shared/payroll-presentation';
 
 const unavailable = () => new Problem(422, 'This hours report cannot be represented exactly as Excel. Download JSON or CSV instead.');
-export async function generatePayrollHoursXlsx(payloadText: string, options: { signal?: AbortSignal; deadlineMs?: number; maxBytes?: number } = {}) {
+export async function generatePayrollHoursXlsx(payloadText: string, options: { signal?: AbortSignal; deadlineMs?: number; maxBytes?: number; presentation?: PayrollPresentationOptions } = {}) {
   if (options.signal?.aborted) throw new Problem(499, 'Spreadsheet download was cancelled.');
   if (typeof payloadText !== 'string' || Buffer.byteLength(payloadText) > payrollHoursLimits.inputBytes) throw new Problem(413, 'Choose a smaller hours report.');
   const deadline = options.deadlineMs ?? payrollHoursLimits.deadlineMs, cap = options.maxBytes ?? payrollHoursLimits.outputBytes;
   if (!Number.isSafeInteger(deadline) || deadline < 1 || deadline > payrollHoursLimits.deadlineMs || !Number.isSafeInteger(cap) || cap < 1 || cap > payrollHoursLimits.outputBytes) throw unavailable();
+  const parsed = options.presentation === undefined ? undefined : payrollPresentationOptionsSchema.safeParse(options.presentation);
+  if (parsed && !parsed.success) throw unavailable();
+  const presentation = parsed?.success ? parsed.data : undefined;
   // Fixed entry and explicitly resolved loader; no inherited application arguments or secrets.
   const worker = new Worker(new URL('./payroll-hours-xlsx-worker.mjs', import.meta.url), {
-    workerData: { payloadText, maxBytes: cap }, env: {}, execArgv: [], argv: [], stdout: true, stderr: true,
+    workerData: { payloadText, maxBytes: cap, presentation }, env: {}, execArgv: [], argv: [], stdout: true, stderr: true,
     resourceLimits: { maxOldGenerationSizeMb: payrollHoursLimits.heapMb, stackSizeMb: 4 },
   });
   let timer: ReturnType<typeof setTimeout> | undefined, abort: (() => void) | undefined;

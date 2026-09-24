@@ -172,7 +172,7 @@ test("HTTP XLSX download has independent byte/source hashes and private MIME res
   const value = frozen.get("finance")!, path = `/api/report-library/${value.report.id}/snapshots/${value.id}/export?format=xlsx`;
   const response = await request(app).get(path).set("Cookie", auth.cookie).buffer(true).parse((res, callback) => { const chunks: Buffer[] = []; res.on("data", chunk => chunks.push(Buffer.from(chunk))); res.on("end", () => callback(null, Buffer.concat(chunks))); });
   assert.equal(response.status, 200); assert.equal(response.headers["content-type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  assert.equal(response.headers["x-export-sha256"], digest(response.body)); assert.equal(Number(response.headers["content-length"]), response.body.length); assert.equal(response.headers["x-export-format-version"], "1");
+  assert.equal(response.headers["x-export-sha256"], digest(response.body)); assert.equal(Number(response.headers["content-length"]), response.body.length); assert.equal(response.headers["x-export-format-version"], "2");
   assert.match(response.headers["content-disposition"], new RegExp(`stjw-snapshot-${value.id}\\.xlsx`)); assert.equal(response.headers["cache-control"], "private, no-store"); assert.equal(response.headers["x-snapshot-sha256"], undefined);
   assert.equal((await request(app).get(path)).status, 401);
   const pin = await request(app).post("/api/auth/login").set("Origin", origin).send({ email: owner.email, mode: "pin", credential: "7391286" }); assert.equal(pin.status, 200);

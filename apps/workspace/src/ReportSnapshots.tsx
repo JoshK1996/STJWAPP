@@ -1,24 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Archive, Download, FileCheck2, Printer, RefreshCw } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { api, ApiError, download } from './api';
 import { Badge, Empty, Modal, Panel } from './components';
 import { sourceCatalog } from '../shared/report-library';
-import { ExactWorkforceCell, ExactWorkforceTimestamp, WorkforcePrecisionEvidence, workforceColumnLabel } from './ExactWorkforceTime';
+import { ExactWorkforceCell, WorkforcePrecisionEvidence, workforceColumnLabel } from './ExactWorkforceTime';
 import type { SnapshotCapture, SnapshotData, SnapshotDetail, SnapshotList, SnapshotPreview, SnapshotSummary } from '../shared/report-snapshots';
 import './report-snapshots.css';
+import { formatReportValue, readableReportColumns, reportColumnLabel, reportFilename } from '../shared/report-presentation';
 
 type Props = {
   reportId: string; version: number; archived: boolean; clean: boolean; parentBusy: boolean;
-  timezone: string; onDirty: (value: boolean) => void;
+  timezone: string; ownerKey: string; onDirty: (value: boolean) => void;
   notify: (message: string, error?: boolean) => void;
 };
 type CaptureAttempt = { version: number; previewId: string; payloadHash: string; commandId: string; reviewed: true; reason: string };
 const display = (value: unknown) => value == null ? '—' : typeof value === 'boolean' ? value ? 'Yes' : 'No' : String(value);
 const stamp = (iso: string, zone: string) => DateTime.fromISO(iso).setZone(zone).toFormat('LLL d, yyyy h:mm:ss a ZZZZ');
 
-function Rows({ data, all = false }: { data: SnapshotData; all?: boolean }) {
+function Rows({ data, all = false, auditView = false }: { data: SnapshotData; all?: boolean; auditView?: boolean }) {
+  const columns = auditView ? data.columns : readableReportColumns(data.columns);
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(data.rows.length / 25));
   const actualPage = Math.min(page, pages - 1);
@@ -26,8 +28,8 @@ function Rows({ data, all = false }: { data: SnapshotData; all?: boolean }) {
   if (!data.rows.length) return <p className="panel-note">This report contains no matching records.</p>;
   return <>
     <div className="snapshot-table" role={all ? undefined : 'region'} aria-label={all ? undefined : 'Saved report data; scroll horizontally for more columns'} tabIndex={all ? undefined : 0}>
-      <table><thead><tr>{data.columns.map(column => <th scope="col" key={column.key}>{data.schemaVersion === 2 ? workforceColumnLabel(column.label) : column.label}</th>)}</tr></thead>
-        <tbody>{rows.map((row, index) => <tr key={index}>{data.columns.map(column => <td key={column.key}>{data.schemaVersion === 2 ? <ExactWorkforceCell column={column.key} value={row[column.key]} zone={data.timezone}/> : display(row[column.key])}</td>)}</tr>)}</tbody>
+      <table><thead><tr>{columns.map(column => <th scope="col" key={column.key}>{auditView ? data.schemaVersion === 2 ? workforceColumnLabel(column.label) : column.label : reportColumnLabel(column)}</th>)}</tr></thead>
+        <tbody>{rows.map((row, index) => <tr key={index}>{columns.map(column => <td key={column.key}>{auditView ? data.schemaVersion === 2 ? <ExactWorkforceCell column={column.key} value={row[column.key]} zone={data.timezone}/> : display(row[column.key]) : formatReportValue(column.key, row[column.key], {timezone: data.timezone, source: data.source, row, currency: "currency" in data.provenance ? data.provenance.currency : undefined})}</td>)}</tr>)}</tbody>
       </table>
     </div>
     {!all && <nav className="snapshot-pagination" aria-label="Saved report rows">
@@ -42,13 +44,13 @@ function SourceEvidence({ data }: { data: SnapshotData }) {
   return <div className="snapshot-source">
     <div className="snapshot-facts">
       <div><span>Source</span><strong>{sourceCatalog[data.source].label}</strong></div>
-      <div><span>Data as of</span><strong>{data.schemaVersion === 2 ? <ExactWorkforceTimestamp value={data.asOf} zone={data.timezone}/> : stamp(data.asOf, data.timezone)}</strong></div>
+      <div><span>Data as of</span><strong>{stamp(data.asOf, data.timezone)}</strong></div>
       <div><span>Results</span><strong>{data.rowCount.toLocaleString()} rows · {data.sourceRowCount.toLocaleString()} source records</strong></div>
       <div><span>Saved layout</span><strong>Version {data.reportVersion}</strong></div>
     </div>
     {data.range && <p className="panel-note">{data.range.from} through {data.range.to} · {data.timezone}</p>}
     <p className="snapshot-notice">{data.notice}</p>
-    {data.schemaVersion === 2 && <WorkforcePrecisionEvidence asOf={data.asOf} zone={data.timezone} provenance={data.provenance}/>}
+    {data.schemaVersion === 2 && <details className="report-audit-evidence"><summary>Exact source timing and audit evidence</summary><WorkforcePrecisionEvidence asOf={data.asOf} zone={data.timezone} provenance={data.provenance}/></details>}
     {data.schemaVersion === 1 && data.source === 'workforce' && <p className="panel-note">Legacy millisecond report. Its original values and saved files remain unchanged.</p>}
     {data.source === 'grades' && <p className="panel-note">Gradebook: {display(data.provenance.bookStatus)} · version {display(data.provenance.bookVersion)} · policy {display(data.provenance.policyVersion)}. Saving this report does not issue a report card or approve grades.</p>}
     {data.source === 'attendance' && <p className="panel-note">Recorded attendance is preserved as reviewed. Missing or draft attendance is not converted into an absence.</p>}
@@ -57,8 +59,10 @@ function SourceEvidence({ data }: { data: SnapshotData }) {
   </div>;
 }
 
-export default function ReportSnapshots({ reportId, version, archived, clean, parentBusy, timezone, onDirty, notify }: Props) {
+export default function ReportSnapshots({ reportId, version, archived, clean, parentBusy, timezone, ownerKey, onDirty, notify }: Props) {
   const base = `/report-library/${reportId}`;
+  const [auditView, setAuditView] = useState(false), currentOwner = useRef(ownerKey);
+  currentOwner.current = ownerKey;
   const [rows, setRows] = useState<SnapshotSummary[]>([]), [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [preview, setPreview] = useState<SnapshotPreview | null>(null), [detail, setDetail] = useState<SnapshotDetail | null>(null);
@@ -66,7 +70,7 @@ export default function ReportSnapshots({ reportId, version, archived, clean, pa
   const [now, setNow] = useState(Date.now());
   const active = useRef(true), busyRef = useRef(false), attemptRef = useRef<CaptureAttempt | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
-  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  useLayoutEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   useEffect(() => { onDirty(Boolean(preview) || busy); return () => onDirty(false); }, [preview, busy, onDirty]);
   useEffect(() => {
     if (!preview) return;
@@ -156,6 +160,11 @@ export default function ReportSnapshots({ reportId, version, archived, clean, pa
     await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     if (active.current) window.print();
   }
+  async function exportSaved(format: 'csv' | 'json' | 'xlsx') {
+    if (!detail) return;
+    const expectedOwner = ownerKey;
+    await download(`${base}/snapshots/${detail.snapshot.id}/export?format=${format}`, reportFilename(detail.snapshot.data.name, format), () => active.current && currentOwner.current === expectedOwner);
+  }
   const expired = Boolean(preview && now >= Date.parse(preview.expiresAt));
   const changed = Boolean(preview && (preview.data.reportVersion !== version || !clean || archived));
   const data = preview?.data ?? detail?.snapshot.data;
@@ -172,7 +181,7 @@ export default function ReportSnapshots({ reportId, version, archived, clean, pa
       {error && !preview && !detail && <p className="form-error" role="alert">{error}</p>}
       {loaded && rows.length === 0 && <Empty title="No saved copies yet" detail="Review the full result, add a reason, then save an immutable copy for later comparison or download." />}
       {rows.length > 0 && <ul className="snapshot-list">{rows.map(row => <li key={row.id}>
-        <div><strong>{row.name}</strong><span>Saved {stamp(row.capturedAt, timezone)}</span><small>Data as of {row.precisionVersion === 2 ? <ExactWorkforceTimestamp value={row.asOf} zone={timezone}/> : stamp(row.asOf, timezone)} · layout v{row.reportVersion} · {row.rowCount.toLocaleString()} rows{row.source === 'workforce' ? row.precisionVersion === 2 ? ' · Exact microseconds' : ' · Legacy milliseconds' : ''}</small></div>
+        <div><strong>{row.name}</strong><span>Saved {stamp(row.capturedAt, timezone)}</span><small>Data as of {stamp(row.asOf, timezone)} · layout v{row.reportVersion} · {row.rowCount.toLocaleString()} rows{row.source === 'workforce' ? row.precisionVersion === 2 ? ' · Exact microseconds' : ' · Legacy milliseconds' : ''}</small></div>
         <button className="button secondary small" disabled={disabled} onClick={event => void perform(() => open(row.id), event.currentTarget)} aria-label={`Open ${row.name} saved ${stamp(row.capturedAt, timezone)}`}>Open saved copy</button>
       </li>)}</ul>}
       {nextOffset !== null && <button className="button secondary small" disabled={disabled} onClick={() => void perform(() => load(nextOffset))}>Load older saved copies</button>}
@@ -187,7 +196,8 @@ export default function ReportSnapshots({ reportId, version, archived, clean, pa
           <p className="snapshot-expiry" role="status">{expired ? 'This review has expired.' : `Review expires ${stamp(preview.expiresAt, data.timezone)}.`}{attempt ? ' You can retry the same save to recover its receipt.' : ' Prepare another copy if you need fresh data.'}</p>
           {changed && <p className="snapshot-notice">The saved layout changed or has unsaved edits. This review still contains its original results. {attempt ? 'Retrying checks the original save only.' : 'Close this review and save the layout before preparing a new copy.'}</p>}
         </>}
-        <Rows data={data} key={preview?.id ?? detail?.snapshot.id} />
+        <div className="report-preview-settings"><div><strong>Readable report preview</strong><p>Hours and amounts use 2 decimal places. Original values remain available in the audit view.</p></div><label className="check-label"><input type="checkbox" checked={auditView} onChange={event => setAuditView(event.target.checked)} />Audit view · exact values and IDs</label></div>
+        <Rows data={data} auditView={auditView} key={preview?.id ?? detail?.snapshot.id} />
         {preview && <form className="snapshot-confirm" onSubmit={event => { event.preventDefault(); if (!disabled && (attempt || (!expired && !changed && reviewed && reason.trim().length >= 5))) void perform(capture); }}>
           <label>Why are you saving this report?<textarea value={reason} minLength={5} maxLength={500} required disabled={disabled || Boolean(attempt)} onChange={event => setReason(event.target.value)} placeholder="For example: September staffing review" /></label>
           <label className="check-label"><input type="checkbox" checked={reviewed} disabled={disabled || Boolean(attempt)} onChange={event => setReviewed(event.target.checked)} /><span>I reviewed the source dates, selected fields, and results shown above.</span></label>
@@ -196,18 +206,18 @@ export default function ReportSnapshots({ reportId, version, archived, clean, pa
         </form>}
         {detail && <>
           <div className="library-actions">
-            <button className="button secondary" disabled={disabled} onClick={() => void perform(() => download(`${base}/snapshots/${detail.snapshot.id}/export?format=csv`, `stjw-report-${detail.snapshot.id}.csv`))}><Download size={16} />Download saved CSV</button>
-            <button className="button secondary" disabled={disabled} onClick={() => void perform(() => download(`${base}/snapshots/${detail.snapshot.id}/export?format=json`, `stjw-report-${detail.snapshot.id}.json`))}>Download saved JSON</button>
-            <button className="button secondary" disabled={disabled} onClick={() => void perform(() => download(`${base}/snapshots/${detail.snapshot.id}/export?format=xlsx`, `stjw-snapshot-${detail.snapshot.id}.xlsx`))}>Download Excel</button>
+            <button className="button secondary" disabled={disabled} onClick={() => void perform(() => exportSaved('csv'))}><Download size={16} />Exact source CSV</button>
+            <button className="button secondary" disabled={disabled} onClick={() => void perform(() => exportSaved('json'))}>Source JSON</button>
+            <button className="button secondary" disabled={disabled} onClick={() => void perform(() => exportSaved('xlsx'))}>Download formatted Excel</button>
             <button className="button secondary" disabled={disabled || data.rowCount > 1000} onClick={() => void perform(printSaved)}><Printer size={16} />Print saved copy</button>
           </div>
-          <p className="panel-note">JSON and CSV are the original saved files. Excel is generated from this saved copy and keeps values as text to preserve exact amounts and times, with separate source-evidence sheets. Printing supports up to 1,000 rows.</p>
+          <p className="panel-note">JSON and CSV are the original saved files. Excel opens with a formatted Report sheet showing names, readable dates and rounded amounts. Data, Provenance and Source JSON retain the exact values and evidence. The audit-view switch changes the on-screen table and print layout; Excel always includes both views. Printing supports up to 1,000 rows.</p>
           <details className="snapshot-files"><summary>File details</summary><dl><dt>Report copy</dt><dd>{detail.snapshot.id}</dd><dt>Reviewed data SHA-256</dt><dd>{detail.payloadHash}</dd><dt>JSON SHA-256</dt><dd>{detail.jsonHash}</dd><dt>CSV SHA-256</dt><dd>{detail.csvHash}</dd><dt>Retained size</dt><dd>{detail.bytes.toLocaleString()} bytes</dd></dl></details>
         </>}
       </div>
     </Modal>}
     {data && createPortal(<section className="library-print-root snapshot-print-root">
-      {detail && data.rowCount <= 1000 ? <><h1>{data.name}</h1><p>Saved {detail.snapshot.capturedAt} · Data as of {data.asOf} · {data.timezone}</p><p>Reason: {detail.snapshot.reason}</p><SourceEvidence data={data} /><Rows data={data} all /><p>Saved copy {detail.snapshot.id} · reviewed data SHA-256: {detail.payloadHash}</p></> : <p>{preview ? 'This review has not been saved. Save the reviewed report to print its retained copy.' : 'This saved report exceeds the 1,000-row printing limit. Download its CSV or JSON instead.'}</p>}
+      {detail && data.rowCount <= 1000 ? <><h1>{data.name}</h1><p>Saved {stamp(detail.snapshot.capturedAt, data.timezone)} · Data as of {stamp(data.asOf, data.timezone)} · {data.timezone}</p><p>Reason: {detail.snapshot.reason}</p><SourceEvidence data={data} /><Rows data={data} all auditView={auditView} />{auditView && <p>Saved copy {detail.snapshot.id} · reviewed data SHA-256: {detail.payloadHash}</p>}</> : <p>{preview ? 'This review has not been saved. Save the reviewed report to print its retained copy.' : 'This saved report exceeds the 1,000-row printing limit. Download its CSV or JSON instead.'}</p>}
     </section>, document.body)}
   </>;
 }

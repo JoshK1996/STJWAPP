@@ -1,5 +1,5 @@
 import "./attendance-reports.css";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowDown,
@@ -17,7 +17,7 @@ import { DateTime } from "luxon";
 import { api, download } from "./api";
 import { Panel, Badge, Empty } from "./components";
 import ReportSnapshots from "./ReportSnapshots";
-import { ExactWorkforceCell, ExactWorkforceDuration, WorkforcePrecisionEvidence, workforceColumnLabel } from './ExactWorkforceTime';
+import { ExactWorkforceCell, WorkforcePrecisionEvidence, workforceColumnLabel } from './ExactWorkforceTime';
 import { workforceBarPercent, workforceChartScale } from '../shared/workforce-display';
 import {
   initialDefinition,
@@ -31,6 +31,7 @@ import {
   type ReportSource,
 } from "../shared/report-library";
 import "./report-library.css";
+import { formatReportValue, readableReportColumns, reportColumnIsTechnical, reportColumnLabel, reportFilename } from "../shared/report-presentation";
 type Props = {
   me: any;
   notify: (message: string, error?: boolean) => void;
@@ -74,6 +75,14 @@ const definitionSignature = (value: ReportDefinition) => {
 };
 
 export default function ReportLibrary({ me, notify, onDirty }: Props) {
+  const [auditView, setAuditView] = useState(false), [decimals, setDecimals] = useState<2 | 4>(2);
+  const mounted = useRef(true), owner = `${me.actor.org_id}:${me.actor.id}:${me.actor.role}:${me.actor.mode}:${me.actor.csrf}:${JSON.stringify(me.actor.unit_ids ?? [])}`, currentOwner = useRef(owner);
+  currentOwner.current = owner;
+  useLayoutEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  async function exportCurrent(format: "csv" | "json", exact = false) {
+    const expectedOwner = owner;
+    await download(`/report-library/${editor.id}/export?version=${editor.version}&format=${format}${format === "csv" && !exact ? `&presentation=readable&decimals=${decimals}&includeTechnical=${auditView}` : ""}`, reportFilename(editor.name, format), () => mounted.current && currentOwner.current === expectedOwner);
+  }
   const [editor, setEditor] = useState<Editor>(fresh),
     [baseline, setBaseline] = useState(""),
     [saved, setSaved] = useState<any[]>([]),
@@ -237,25 +246,26 @@ export default function ReportLibrary({ me, notify, onDirty }: Props) {
     setResult(null); setResultDefinition(''); setHistory(null); setPage(0); setMetric('record_count');
   }
   const canExport = editor.version > 0 && !dirty && !editor.archived;
+  const shownColumns = result ? auditView ? result.columns : readableReportColumns(result.columns) : [];
   function table(rows: any[]) {
     return (
       <table>
         <thead>
           <tr>
-            {result.columns.map((c: any) => (
-              <th key={c.key}>{result.precisionVersion === 2 ? workforceColumnLabel(c.label) : c.label}</th>
+            {shownColumns.map((c: any) => (
+              <th key={c.key}>{auditView ? result.precisionVersion === 2 ? workforceColumnLabel(c.label) : c.label : reportColumnLabel(c)}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rows.map((row: any, index: number) => (
             <tr key={index}>
-              {result.columns.map((c: any) => (
+              {shownColumns.map((c: any) => (
                 <td
                   key={c.key}
                   className={typeof row[c.key] === "number" ? "numeric" : ""}
                 >
-                  {result.precisionVersion === 2 ? <ExactWorkforceCell column={c.key} value={row[c.key]} zone={result.timezone}/> : display(row[c.key])}
+                  {auditView ? result.precisionVersion === 2 ? <ExactWorkforceCell column={c.key} value={row[c.key]} zone={result.timezone}/> : display(row[c.key]) : formatReportValue(c.key, row[c.key], {timezone: result.timezone, source: result.source, row, currency: result.provenance?.currency, decimals})}
                 </td>
               ))}
             </tr>
@@ -274,6 +284,7 @@ export default function ReportLibrary({ me, notify, onDirty }: Props) {
     );
   return (
     <div className="report-library">
+      <section className="report-studio-intro" aria-label="Report studio"><div><span className="eyebrow">REPORT STUDIO</span><h2>Clear reports. Ready to share.</h2><p>Choose your source, shape the columns, then preview a readable report before downloading.</p></div><ol><li><span>1</span>Choose data</li><li><span>2</span>Customize layout</li><li><span>3</span>Preview & export</li></ol><FileBarChart2 aria-hidden="true" /></section>
       <Panel
         title="Your report library"
         detail="Save a reusable layout with the source and fields you need."
@@ -766,6 +777,7 @@ export default function ReportLibrary({ me, notify, onDirty }: Props) {
           </div>
           {def.layout === "details" && (
             <div className="library-columns">
+              <div className="report-column-presets"><strong>Start with a column set</strong><button className="button secondary small" type="button" onClick={() => {const next = catalog.columns.filter(c => !reportColumnIsTechnical(c.key)).map(c => c.key); updateDef({columns: next, sort: {key: next.includes(def.sort.key) ? def.sort.key : next[0], direction: def.sort.direction}});}}>Reader essentials</button><button className="button secondary small" type="button" onClick={() => updateDef({columns: catalog.columns.map(c => c.key)})}>All source fields</button><p className="panel-note">Select fields below, then move them into the order you want. Reader essentials leaves out internal IDs and revision numbers.</p></div>
               <fieldset className="column-options">
                 <legend>Include columns</legend>
                 {catalog.columns.map((c) => (
@@ -775,7 +787,7 @@ export default function ReportLibrary({ me, notify, onDirty }: Props) {
                       checked={def.columns.includes(c.key)}
                       onChange={() => toggleColumn(c.key)}
                     />
-                    {c.label}
+                    {reportColumnLabel(c)}{reportColumnIsTechnical(c.key) ? " · audit" : ""}
                   </label>
                 ))}
               </fieldset>
@@ -785,7 +797,7 @@ export default function ReportLibrary({ me, notify, onDirty }: Props) {
                   {def.columns.map((key, index) => (
                     <li key={key}>
                       <span>
-                        {catalog.columns.find((c) => c.key === key)?.label}
+                        {reportColumnLabel(catalog.columns.find((c) => c.key === key) ?? {key, label:key})}
                       </span>
                       <button
                         type="button"
@@ -823,7 +835,7 @@ export default function ReportLibrary({ me, notify, onDirty }: Props) {
               >
                 {columns.map((c) => (
                   <option key={c.key} value={c.key}>
-                    {c.label}
+                    {reportColumnLabel(c)}
                   </option>
                 ))}
               </select>
@@ -978,7 +990,7 @@ export default function ReportLibrary({ me, notify, onDirty }: Props) {
       </Panel>
       <ReportSnapshots key={editor.id} reportId={editor.id} version={editor.version}
         archived={editor.archived} clean={!dirty} parentBusy={busy}
-        timezone={me.organization.timezone} onDirty={setSnapshotDirty} notify={notify} />
+        timezone={me.organization.timezone} ownerKey={owner} onDirty={setSnapshotDirty} notify={notify} />
       {result && (
         <Panel
           title={result.name}
@@ -1015,41 +1027,38 @@ export default function ReportLibrary({ me, notify, onDirty }: Props) {
             </p>
           )}
           <p className="panel-note">{result.notice}</p>
-          {result.precisionVersion === 2 && <WorkforcePrecisionEvidence asOf={result.asOf} zone={result.timezone} provenance={result.provenance}/>}
+          {result.precisionVersion === 2 && <details className="report-audit-evidence"><summary>Exact source timing and audit evidence</summary><WorkforcePrecisionEvidence asOf={result.asOf} zone={result.timezone} provenance={result.provenance}/></details>}
           {result.source === 'workforce' && result.precisionVersion !== 2 && <p className="panel-note">Legacy millisecond report. This layout and its original values remain unchanged.</p>}
           {result.source === "compensation" && <p className="panel-note">
             {result.provenance.recordCount} pay records · {result.sourceRowCount} rate entries · {result.provenance.includeVoided ? "Voided entries included" : "Voided entries excluded"}
           </p>}
+          <div className="report-preview-settings"><div><strong>Preview & export settings</strong><p>Readable dates and amounts, with exact source values retained.</p></div><label>Decimal places<select aria-label="Report decimal places" value={decimals} onChange={event => setDecimals(Number(event.target.value) as 2 | 4)}><option value="2">2 · standard</option><option value="4">4 · additional detail</option></select></label><label className="check-label"><input type="checkbox" checked={auditView} onChange={event => setAuditView(event.target.checked)} />Audit view · exact values and IDs</label></div>
+          <p className="panel-note">Readable CSV uses the selected columns and decimal places. Audit view shows exact values on screen; use Exact source CSV or Source JSON for unrounded evidence.</p>
           <div className="library-actions">
             <button
               className="button secondary small"
               disabled={busy || !canExport || resultStale}
               onClick={() =>
                 void execute(() =>
-                  download(
-                    `/report-library/${editor.id}/export?version=${editor.version}`,
-                    "stjw-saved-report.csv",
-                  ),
+                  exportCurrent("csv"),
                 )
               }
             >
               <Download size={16} />
-              Download current CSV
+              Download readable CSV
             </button>
             <button
               className="button secondary small"
               disabled={busy || !canExport || resultStale}
               onClick={() =>
                 void execute(() =>
-                  download(
-                    `/report-library/${editor.id}/export?version=${editor.version}&format=json`,
-                    "stjw-saved-report.json",
-                  ),
+                  exportCurrent("json", true),
                 )
               }
             >
-              Download current JSON
+              Source JSON
             </button>
+            <button className="button secondary small" disabled={busy || !canExport || resultStale} onClick={() => void execute(() => exportCurrent("csv", true))}>Exact source CSV</button>
             <button
               className="button secondary small"
               disabled={busy || resultStale || result.rowCount > 1000}
@@ -1061,7 +1070,7 @@ export default function ReportLibrary({ me, notify, onDirty }: Props) {
           </div>
           <p className="panel-note">
             Save your layout to enable downloads. Downloads rerun it with
-            authorized sources and include source/version metadata. Financial
+            authorized sources. Readable CSV is a display export; exact CSV and JSON include source/version evidence. Financial
             sources keep the selected published version. Printing uses the
             displayed result, with a 1,000-row limit. Use Saved reports to retain an exact reviewed copy.
           </p>
@@ -1094,17 +1103,17 @@ export default function ReportLibrary({ me, notify, onDirty }: Props) {
                     />
                   </div>
                   <strong>
-                    {exactMetric ? <ExactWorkforceDuration value={r[metric]}/> : metric === "duration_ms"
+                    {exactMetric ? formatReportValue(metric, r[metric], {timezone: result.timezone, decimals}) : metric === "duration_ms"
                       ? new Intl.NumberFormat("en-US", {
                           maximumFractionDigits: 2,
                         }).format((r[metric] ?? 0) / 3600000)
                       : metric === "amount"
-                        ? `${r.amount} ${r.currency}`
+                        ? formatReportValue("amount", r.amount, {timezone: result.timezone, row:r, decimals})
                         : r[metric]}
                   </strong>
                 </div>
               ))}
-              {exactMetric && <p className="panel-note">Bar widths are approximate. Duration labels and exports retain the exact values.</p>}
+              {exactMetric && <p className="panel-note">Bar widths are approximate. Hours are rounded for this chart; exact values remain in the audit view and source exports.</p>}
               {metric === "amount" && (
                 <p className="panel-note">
                   Bar lengths show magnitude; labels retain each amount’s sign.
@@ -1162,7 +1171,7 @@ export default function ReportLibrary({ me, notify, onDirty }: Props) {
             <h1>{result.name}</h1>
             <p>
               {sourceCatalog[result.source as ReportSource].label} ·{" "}
-              {result.timezone} · As of {result.asOf}
+              {result.timezone} · As of {formatReportValue("captured_at", result.asOf, {timezone: result.timezone})}
             </p>
             {result.range && (
               <p>

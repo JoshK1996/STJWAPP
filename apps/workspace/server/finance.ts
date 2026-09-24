@@ -24,6 +24,8 @@ import {
   compareFinancialReports,
 } from "./finance-engine";
 import { toCsv } from "./reports";
+import { financeViewSchema } from '../shared/finance-presentation';
+import { financeReadableCsv } from './finance-presentation';
 
 /** Transaction-only source permission; callers own actual session/publication proof. */
 async function access(tx: Queryable, actor: Actor, unitId?: string) {
@@ -414,18 +416,24 @@ export function installFinance(app: Express, db: Database) {
   });
   app.get("/api/finance/reports/:id/versions/:version", async (req, res) => {
     const id = z.uuid().parse(req.params.id), version = z.coerce.number().int().min(1).parse(req.params.version),
-      format = z.enum(["json", "csv", "source"]).default("json").parse(req.query.format);
+      format = z.enum(["json", "csv", "source", "readable_csv"]).default("json").parse(req.query.format);
+    const presentation = format === 'readable_csv' ? financeViewSchema.parse({
+      columns: req.query.columns === undefined ? undefined : z.string().max(120).parse(req.query.columns).split(','),
+      search: req.query.search, group: req.query.group, rowKind: req.query.rowKind, sort: req.query.sort,
+      decimalPlaces: req.query.decimalPlaces === undefined ? undefined : z.enum(['2','4']).transform(value=>Number(value) as 2|4).parse(req.query.decimalPlaces),
+    }) : undefined;
     const file = await finance(req, async (tx, current) => {
       const row = await versionRecord(tx, current, id, version, format === "source");
-      const content = format === "source" ? row.source_text : format === "json" ? JSON.stringify(row) : toCsv(
+      const community = presentation ? (await tx.query('SELECT u.name FROM units u JOIN financial_reports r ON r.unit_id=u.id AND r.org_id=u.org_id WHERE r.org_id=$1 AND r.id=$2', [current.org_id, id])).rows[0]?.name : undefined;
+      const content = presentation ? financeReadableCsv(row as any, presentation, community ?? 'Selected community') : format === "source" ? row.source_text : format === "json" ? JSON.stringify(row) : toCsv(
         row.lines.map((line: Row) => ({ ...line, report_id: id, version, source_hash: row.source_hash, currency: row.metadata.currency })),
         [...financeColumns, "currency", "report_id", "version", "source_hash"]);
-      await audit(tx, current, "finance.report_read", id, { version, format, sourceHash: row.source_hash });
+      await audit(tx, current, "finance.report_read", id, { version, format, sourceHash: row.source_hash, ...(presentation ? { presentation } : {}) });
       return { content, sourceHash: row.source_hash };
     });
     res.set("X-Source-Hash", file.sourceHash);
     if (format === "source") res.type("text/plain").attachment("financial-report-original-source.txt").send(file.content);
-    else if (format === "csv") res.type("text/csv").attachment("financial-report-v" + version + ".csv").send(file.content);
+    else if (format === "csv" || format === 'readable_csv') res.type("text/csv").attachment("financial-report-v" + version + (presentation ? '-view' : '') + ".csv").send(file.content);
     else res.type("application/json").send(file.content);
   });
   app.post("/api/finance/reports/:id/archive", async (req, res) => {

@@ -1,0 +1,17 @@
+# Readable report studio
+
+Report Library retains its saved source, date, grouping, sort and ordered-column definitions. Reader essentials selects named fields and leaves internal IDs/revision numbers out; All source fields restores the full catalog. Existing definitions and retained snapshot evidence are unchanged.
+
+The preview defaults to human-readable dates in the source timezone, decimal hours, grouped amounts and words for supported status values. The live-report preview offers two or four decimal places and an audit view for exact values/identifiers. Rounding uses integer arithmetic on each supplied amount or already-aggregated duration; it never changes or recomputes source totals. Student numbers and other text identifiers keep their leading zeros. Missing values remain missing.
+
+The normal UI download is readable CSV. Its fields follow the selected layout, with presentation labels and spreadsheet-formula protection. Exact source CSV and Source JSON remain available with their original metadata and unrounded values. A live export reruns the saved layout under current access; use a reviewed saved copy when a fixed observation is required. Presentation decimal/audit choices are local to the open screen; source/filter/column layouts are saved across sessions. These presentation settings are not payroll rounding policy.
+
+`GET /api/report-library/:id/export` retains exact output by default. Optional `presentation=readable`, `decimals=2|4` and `includeTechnical=true|false` affect CSV presentation only; JSON remains the source representation. Existing source authorization, version checks and audit transactions apply. Downloads are prevented from publishing after leaving the view or changing account scope.
+
+Saved snapshots show a readable preview with an optional audit view. Excel export format **2** opens with a formatted **Report** sheet: report name, period/source/timezone, notice, readable labels, two-decimal values, alternating row colors, wrapping, frozen/filterable headers and print settings. **Data**, **Provenance** and **Source JSON** retain original exact values and reconstruction evidence. Their sheet names remain stable; the new Report sheet comes first. Saved CSV and JSON are still the original immutable files. Excel is a derived workbook, not a replacement retained artifact. Its readable cells are presentation text; use the original source fields for exact downstream processing. Print follows the selected readable/audit view and remains limited to 1,000 rows.
+
+The bounded fixed worker, input/output/row/cell caps, cancellation, source-integrity checks and post-generation access recheck remain in place. No formula, macro or external-link objects are generated. No organization grading/payroll policy or financial approval is inferred from a report.
+
+The readable Excel sheet uses explicit wrapping and content-based row heights. Text beyond its bounded display height is marked as abbreviated, with the original value in Data or the full report description/notice in Source JSON. Full source cells and retained payload bytes are unchanged; no source text is discarded.
+
+Validation includes exact rounding beyond JavaScript's safe integer range, DST display offsets, leading-zero identifiers, CSV formula shielding, route ownership/PIN denial, independent OOXML inspection, 20,000-row worker output, cancellation and untouched saved-source hashes. Release-level build/browser/test results are recorded in STATUS and VALIDATION.

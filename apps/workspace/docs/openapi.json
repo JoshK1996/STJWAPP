@@ -720,7 +720,7 @@
       "get": {
         "operationId": "get_payroll_hours_export",
         "summary": "Download current payroll hours as Excel, CSV or JSON",
-        "description": "Rechecks current reporting authority before publication; exports are audited and private/no-store. Excel contains employee/job/totals/source/provenance sheets. CSV row_kind separates employee/job/total rows: do not sum different row kinds together. Downloads read fresh sources and may differ from a prior screen. XLSX is generated in a fixed bounded worker. No pay policies are inferred.",
+        "description": "Rechecks current reporting authority before publication; exports are audited and private/no-store. Excel contains employee/job/totals/source/provenance sheets. CSV row_kind separates employee/job/total rows: do not sum different row kinds together. Downloads read fresh sources and may differ from a prior screen. XLSX is generated in a fixed bounded worker. No pay policies are inferred. Optional presentation selects a readable summary workbook or flat human-facing CSV. It never changes exact source values or pay policy. Readable Excel can append the original audit sheets.",
         "security": [
           {
             "Session": []
@@ -1438,6 +1438,16 @@
                 "json"
               ],
               "default": "csv"
+            }
+          },
+          {
+            "name": "presentation",
+            "in": "query",
+            "required": false,
+            "description": "JSON object: title (1–100 characters), decimalPlaces (2,3,4), grouping (employees,jobs), sortBy (name,work_hours), columns (unique subset of workHours,breakHours,totalHours,shiftCount,ongoingSegmentCount; workHours required), includeAudit (boolean). CSV/XLSX only. Defaults are readable summary, two decimal places, name order, no audit sheets. Omit presentation entirely for the established exact export.",
+            "schema": {
+              "type": "string",
+              "maxLength": 3000
             }
           }
         ]
@@ -3236,6 +3246,20 @@
                 "json"
               ],
               "default": "csv"
+            }
+          },
+          {
+            "name": "presentation",
+            "in": "query",
+            "required": false,
+            "description": "CSV only: readable labels, local timestamps and two-decimal hours. Source JSON rejects readable presentation.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "readable"
+              ],
+              "default": "exact"
             }
           }
         ]
@@ -7907,6 +7931,20 @@
                 "json"
               ],
               "default": "csv"
+            }
+          },
+          {
+            "name": "presentation",
+            "in": "query",
+            "required": false,
+            "description": "CSV only: readable labels, local timestamps and two-decimal hours. Source JSON rejects readable presentation.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "readable"
+              ],
+              "default": "exact"
             }
           }
         ]
@@ -24821,7 +24859,7 @@
       "get": {
         "operationId": "get_finance_reports__id__versions__version_",
         "summary": "Read or download a financial source version",
-        "description": "Password session; current active owner/admin/finance role. Exact unit and organization scope; previews private to creator. Immutable source versions; no accounting ledger is implemented.",
+        "description": "Password session; current active owner/admin/finance role. Exact unit and organization scope; previews private to creator. Immutable source versions; no accounting ledger is implemented. readable_csv reauthorizes the source, applies validated view options and audits the export. Rounded display sums do not certify bookkeeping or wages.",
         "security": [
           {
             "Session": []
@@ -24899,7 +24937,8 @@
               "enum": [
                 "json",
                 "csv",
-                "source"
+                "source",
+                "readable_csv"
               ]
             }
           },
@@ -24919,6 +24958,82 @@
             "schema": {
               "type": "integer",
               "minimum": 1
+            }
+          },
+          {
+            "name": "columns",
+            "in": "query",
+            "required": false,
+            "description": "Readable CSV only: comma-separated unique columns lineLabel,amount,group,rowKind,note,lineCode; label and amount required.",
+            "schema": {
+              "type": "string",
+              "maxLength": 150
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Readable CSV: search report line names, codes, groups and notes.",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "description": "Readable CSV: exact group; omit for all, empty string for ungrouped.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "rowKind",
+            "in": "query",
+            "required": false,
+            "description": "Readable CSV line types.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "detail",
+                "subtotal",
+                "total"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Readable CSV row order.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "source",
+                "label",
+                "amount_desc",
+                "amount_asc"
+              ],
+              "default": "source"
+            }
+          },
+          {
+            "name": "decimalPlaces",
+            "in": "query",
+            "required": false,
+            "description": "Readable display precision; source values stay unchanged.",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                2,
+                4
+              ],
+              "default": 2
             }
           }
         ]
@@ -30086,6 +30201,48 @@
                 "json"
               ],
               "default": "csv"
+            }
+          },
+          {
+            "name": "presentation",
+            "in": "query",
+            "required": false,
+            "description": "Readable CSV presentation; exact source CSV/JSON remains unchanged.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "readable"
+              ],
+              "default": "exact"
+            }
+          },
+          {
+            "name": "decimals",
+            "in": "query",
+            "required": false,
+            "description": "Readable CSV decimal places.",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                2,
+                4
+              ],
+              "default": 2
+            }
+          },
+          {
+            "name": "includeTechnical",
+            "in": "query",
+            "required": false,
+            "description": "Include internal ID/revision columns in readable CSV.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "false"
             }
           }
         ]
@@ -35453,7 +35610,7 @@
                 "description": "XLSX format version",
                 "schema": {
                   "type": "integer",
-                  "const": 1
+                  "const": 2
                 }
               }
             },

@@ -340,6 +340,16 @@ test("employee reports retain self scope and exports preserve selected order and
   assert.equal(csv.status, 200);
   assert.match(csv.text, /^\uFEFF?"revision","employee_name","id","report_id"/);
   assert.match(csv.text, /report_as_of/);
+  const readable = await get(`/report-library/${row.id}/export?version=1&presentation=readable`, teacherAuth);
+  assert.equal(readable.status, 200);
+  assert.match(readable.text, /^\uFEFF?"Employee"\r\n/);
+  assert.ok(readable.text.includes(teacher.name));
+  assert.ok(!readable.text.includes("report_id"));
+  const technical = await get(`/report-library/${row.id}/export?version=1&presentation=readable&includeTechnical=true&decimals=4`, teacherAuth);
+  assert.equal(technical.status, 200);
+  assert.match(technical.text, /^\uFEFF?"Shift revision","Employee","Segment ID"/);
+  assert.equal((await get(`/report-library/${row.id}/export?version=1&presentation=readable&decimals=3`, teacherAuth)).status, 400);
+  assert.equal((await get(`/report-library/${row.id}/export?version=1&presentation=readable`, auth)).status, 404);
   const json = await get(
     `/report-library/${row.id}/export?version=1&format=json`,
     teacherAuth,
@@ -348,6 +358,7 @@ test("employee reports retain self scope and exports preserve selected order and
   assert.equal(json.body.reportId, row.id);
   const a = await session(teacher, "pin");
   assert.equal((await get("/report-library", a)).status, 403);
+  assert.equal((await get(`/report-library/${row.id}/export?version=1&presentation=readable`, a)).status, 403);
   await assert.rejects(
     runReport(db, { ...teacher, mode: "api" }, def),
     /password/i,

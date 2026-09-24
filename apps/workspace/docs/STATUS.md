@@ -2,6 +2,16 @@
 
 The app is a live synthetic demonstration workspace. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
 
+## Readable reports - September 24, 2026
+
+Live in deployment `0f53d564-9184-4cb1-a059-e63d2ef773aa`: customizable Payroll Excel/CSV with readable summaries and optional exact audit sheets; reader/audit modes and previews for workforce and Report Library; styled saved-snapshot Excel; and a financial source-report studio with selectable columns, filters, order, precision, interactive group charts and matching CSV/print views. Dashboard totals also use concise hours with exact durations available on hover. Internal IDs and long decimals no longer lead the new readable views. Exact source evidence remains available. See [READABLE-REPORTS](READABLE-REPORTS.md), [REPORT-STUDIO](REPORT-STUDIO.md), [accounting roadmap](FINANCE-ROADMAP.md) and [ADR0006](adr/0006-readable-report-presentations.md).
+
+The local application suite passed all 1,013 tests; the final export-focused rerun passed 32 tests. Production build and the production dependency audit passed (zero reported vulnerabilities). Normal synthetic authentication verified 58 reporting checks across 13 layouts, plus 84 mobile-clock checks across 14 samples, with zero browser runtime errors. Actual Excel rendered two Payroll variants and a long saved-report fixture; their five pages were visually inspected. Physical devices and customer-account hosted authentication are not claimed.
+
+Separate maintenance dry-run and commit passed with schema034 unchanged. All 307 staged runtime files match source commit `665aa1c59757d6607345fbefff4c8fc0e1d1a641`, manifest SHA256 `ff6d3d326b4732b2fa3f160a4d2e03126eb566c3426060f4603efcf71e4f84aa`. Hosted public acceptance passed 34 checks, 12 exact assets and 62 anonymous protected-route denials, with zero unexpected errors. Temporary maintenance access was revoked.
+
+Finance remains a reviewed-source reporting workspace. Ledger posting/closeout, bank reconciliation, AP/AR, tuition billing/payments, funds/grants and payroll calculations remain required future work. All accounting tracks remain in the plan; organization policies are not inferred from vendor features.
+
 ## Payroll preparation - September 24, 2026
 
 The live release adds personal saved Payroll filters, relative calendar periods, cross-device revision conflicts, explicit unavailable selections and Reset filters. The colorful comparison shows the preceding equal-calendar-day period, employee drilldowns, exact values, incomplete-period labels and CSV/JSON downloads alongside the existing Excel hours workbook. Pending corrections remain a separate Time records review, explicitly uncounted here. Gross/net pay, wage policy and payroll approval/closeout remain unimplemented. See [PAYROLL-PREPARATION](PAYROLL-PREPARATION.md) and [ADR0005](adr/0005-personal-payroll-views-and-comparisons.md).

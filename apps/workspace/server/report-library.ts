@@ -1,3 +1,4 @@
+import { readableReportCsv, reportFilename } from "../shared/report-presentation";
 import { financeTransaction } from "./finance-access";
 import { reportLayoutTransaction } from "./report-layout-access";
 import { lockLayoutSchoolSource } from "./report-layout-source-access";
@@ -660,6 +661,9 @@ export function installReportLibrary(app: Express, db: Database) {
         .object({
           version: z.coerce.number().int().positive(),
           format: z.enum(["csv", "json"]).default("csv"),
+          presentation: z.enum(["exact", "readable"]).default("exact"),
+          decimals: z.coerce.number().pipe(z.union([z.literal(2), z.literal(4)])).default(2),
+          includeTechnical: z.enum(["true", "false"]).default("false"),
         })
         .strict()
         .parse(req.query);
@@ -685,6 +689,7 @@ export function installReportLibrary(app: Express, db: Database) {
           .type("application/json")
           .attachment("stjw-saved-report.json")
           .send(JSON.stringify({ ...data, name: row.name }, null, 2));
+      if (query.presentation === "readable") return res.type("text/csv").attachment(reportFilename(row.name, "csv")).send(readableReportCsv(data, { decimals: query.decimals, includeTechnical: query.includeTechnical === "true" }));
       const metadata = {
         report_id: row.id,
         report_version: row.version,

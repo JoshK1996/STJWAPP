@@ -151,7 +151,7 @@ export function createApp(db: Database, config: AppConfig) {
   });
   app.get('/api/reports/v2/export',async(req,res)=>{
     const result=await exportAuthorizedWorkforceReportV2(db,actorOf(req),reportProofOf(req),req.query);
-    res.set('X-STJW-Report-Version','2').set('X-STJW-Duration-Unit','microsecond').set('X-STJW-Report-As-Of',result.asOf)
+    res.set('X-STJW-Report-Version','2').set('X-STJW-Duration-Unit',result.presentation==='readable'?'hour':'microsecond').set('X-STJW-Report-Presentation',result.presentation).set('X-STJW-Report-As-Of',result.asOf)
       .attachment(`stjw-segments-v2-${result.query.start}-${result.query.end}.${result.format}`)
       .type(result.format==='csv'?'text/csv':'application/json').send(result.body);
   });
