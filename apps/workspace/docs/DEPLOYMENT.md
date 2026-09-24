@@ -2,6 +2,14 @@
 
 Railway hosts the app and its separate PostgreSQL database independently of the reference applications. The root prototype is not a deployment source for `apps/workspace`.
 
+## Current payroll preparation release
+
+Deployment `b50f8e26-97a5-411e-9981-0f492e4afce4` is live, verified September 24, 2026 UTC. The separate maintenance dry-run and commit passed; schema034 is deployed and immutable. The web runtime still verifies restricted grants and never migrates or seeds. Temporary maintenance access was revoked after verification.
+
+All 294 runtime files match source commit `96f0059386efd6df76eb6041155fb32e1d0e723e`, manifest SHA256 `21eea6f395a807a9592b7ac325939d70332ed9548fb4aaaf7ac4eaec46326a8e`. The exact build version is `7b84fb7847cf6a89e8844c84ce25882228a1abf982291883cde8667b3a097f9b`; entry SHA256 `d0225073126b07537d2fe45de23e2f174f18f3a523613c725a568a930099f772`. Public checks passed34, exact assets12 and anonymous denials57, with zero unexpected browser errors. See VALIDATION for the976-test suite and separate synthetic browser evidence.
+
+Roll forward with a reviewed release retaining schema034 if a correction is needed. Do not delete the saved-view table/history or deploy a schema033 application against the new database. The new API operations are additive; existing clients retain their established clock and hours routes and can use the guarded update prompt.
+
 ## Reviewed source
 
 Use Node 22.12 or newer, `npm ci`, `npm test` and `npm run build`. Review the source, lockfile, assets and additive migrations. `scripts/stage-release.ps1` creates an explicitly bounded production directory and hash manifest from a clean application checkout. Do not stage a historical workspace containing paused experiments.

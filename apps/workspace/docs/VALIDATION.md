@@ -1,6 +1,6 @@
 # Validation evidence
 
-## Payroll preparation candidate - September 24, 2026
+## Payroll preparation release - September 24, 2026
 
 The final local suite passed all 976 tests, without failures, cancellations or skips. Production and separately staged builds passed and match entry SHA256 `d0225073126b07537d2fe45de23e2f174f18f3a523613c725a568a930099f772`, release version `7b84fb7847cf6a89e8844c84ce25882228a1abf982291883cde8667b3a097f9b`. The production dependency audit reported zero vulnerabilities at review time. The existing large-entry build warning remains; a passing local build is not a slow-network performance measurement.
 
@@ -8,7 +8,9 @@ Final normal-authentication browser checks used disposable synthetic databases: 
 
 The initial suite failure was an outdated schema-version expectation, corrected to34. The first layout probe incorrectly measured the checkbox alone; it now measures its full clickable label. A browser refresh assertion was corrected to wait for the rendered unavailable state rather than treating network-idle as React completion. Source review found delayed download publication after unmount; guarded blob publication and synchronous layout-effect cleanup fix it. These distinctions preserve failed checks and their actual causes.
 
-Jev screening/ranking receipts `8e1bc93e2244402f945850696a1591c9`, `2536162568ec47ef99728b3aaca5187c`, `3742e8dc765c435abedf61c917c32160`, `53085afa2b5d49ce9345c7c3eb342f0a`, `33b5bb69bb154a8dbfa472744ece0a4e`, `262fcaf420df46729f22652e6945813c`, `0007685817aa4b25a8d6cc5cfab40244` and `97ab725c973d493094bcea20e25326a8` were advisory hypotheses, independently verified against source and executable checks. Compact ranking and atomic checks follow [TypeSafe's selection cookbook](https://docs.typesafe.ai/cookbooks/skill_suggestion) and [question guidance](https://docs.typesafe.ai/introduction); model configuration and authority were not changed. Deployment evidence will be recorded after separate maintenance and hosted verification.
+Jev screening/ranking receipts `8e1bc93e2244402f945850696a1591c9`, `2536162568ec47ef99728b3aaca5187c`, `3742e8dc765c435abedf61c917c32160`, `53085afa2b5d49ce9345c7c3eb342f0a`, `33b5bb69bb154a8dbfa472744ece0a4e`, `262fcaf420df46729f22652e6945813c`, `0007685817aa4b25a8d6cc5cfab40244` and `97ab725c973d493094bcea20e25326a8` were advisory hypotheses, independently verified against source and executable checks. Compact ranking and atomic checks follow [TypeSafe's selection cookbook](https://docs.typesafe.ai/cookbooks/skill_suggestion) and [question guidance](https://docs.typesafe.ai/introduction); model configuration and authority were not changed.
+
+Separate maintenance dry-run rolled back to schema033, then the same plan committed schema034. All 294 source manifest entries (`21eea6f395a807a9592b7ac325939d70332ed9548fb4aaaf7ac4eaec46326a8e`) match commit `96f0059386efd6df76eb6041155fb32e1d0e723e`. Deployment `b50f8e26-97a5-411e-9981-0f492e4afce4` passed 34 public hosted checks, 12 exact asset comparisons and 57 anonymous protected GET denials, including the new views/comparison routes. Zero unexpected console/runtime errors. The hosted harness's old expected denial count was updated from52 to57 after adding five protected requests. This is separate from authenticated local acceptance. Temporary SSH registration and its matching public discovery copy were removed.
 
 Run `npm test` and `npm run build` from the current application. Run the publication hygiene checker against staged/tracked files before pushing. The CI workflow separately installs/tests/builds the local MCP bridge and runs its actual synthetic application acceptance.
 
