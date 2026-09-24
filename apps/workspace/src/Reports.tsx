@@ -12,7 +12,7 @@ import { api, download } from "./api";
 import { Panel, Empty } from "./components";
 import { MiniChart } from "./App";
 import ReportLibrary from "./ReportLibrary";
-import Finance from "./Finance";
+import Finance from "./FinanceWorkspace";
 import StaffImport from "./StaffImport";
 import {workforceReportV2Schema,type WorkforceReportV2} from '../shared/workforce-reports-v2';
 import {ExactWorkforceDuration,ExactWorkforceTimestamp} from './ExactWorkforceTime';
@@ -376,7 +376,7 @@ function ReportWorkspace(props: {
               setView("finance");
             }}
           >
-            Financial reports
+            Finance & accounting
           </button>
         )}
         {["developer", "owner", "admin", "finance"].includes(props.me.actor.role) && (

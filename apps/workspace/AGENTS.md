@@ -8,7 +8,7 @@ Obtain actor and organization from server-verified sessions. Use service-layer w
 
 Run `npm test`, `npm run build` and the repository hygiene checker. Meaningful changes require authorization/concurrency/date-boundary/import regressions where applicable. Use normal synthetic authentication for browser acceptance and label mocks separately.
 
-Web production uses only `stjw_runtime`. It verifies schema/privileges and never migrates or seeds. Review and stage an exact manifest; run separate database maintenance as a dry run, then commit; deploy that exact source. Migrations 001-034 are deployed and immutable. See `docs/DATABASE-OPERATIONS.md`.
+Web production uses only `stjw_runtime`. It verifies schema/privileges and never migrates or seeds. Review and stage an exact manifest; run separate database maintenance as a dry run, then commit; deploy that exact source. Migrations 001-037 are deployed and immutable. See `docs/DATABASE-OPERATIONS.md`.
 
 Academic scheduling mutations acquire `lockAcademics` before domain row locks, validate the resulting timetable and advance its revision in the same transaction. Attendance preserves captured identity/code snapshots and repeatable-read source evidence; missing/draft coverage is never an absence.
 

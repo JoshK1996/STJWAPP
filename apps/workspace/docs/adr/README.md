@@ -13,3 +13,5 @@ ADRs preserve a decision, the reasons for it, and its consequences. **Accepted**
 For a new decision, add the next numbered file with date, status, context, decision, consequences, and verification or rollout gates. Change an accepted decision through a superseding ADR rather than silently rewriting its rationale. Correct factual errors openly; implementation updates belong in the feature documents and release record.
 
 - [0006: Readable report presentations](0006-readable-report-presentations.md)
+
+- [0007: Accounting ledger and reviewed workflows](0007-accounting-ledger-and-reviewed-workflows.md)
