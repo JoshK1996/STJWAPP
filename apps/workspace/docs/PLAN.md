@@ -19,4 +19,4 @@ Server-verified accounts and organization scope control every action. Code owns 
 Use focused branches, passing CI, review and ADRs. Deploy an exact reviewed manifest after separate database maintenance; the web runtime never migrates production. See [development](DEVELOPMENT.md), [database operations](DATABASE-OPERATIONS.md), [status](STATUS.md) and [remaining scope](REMAINING-SCOPE.md).
 
 
-Next resume: finish the locally implemented school imagery/install/update release on `codex/install-school-identity`. Read the September24 saved-work section in STATUS before continuing; it lists verification and the remaining visual correction. Do not treat this branch as already deployed.
+Presentation priority: deliver the verified school imagery/install/update release, then rehearse [the employee and accountant walkthrough](PRESENTATION-DAY.md). Record actual deployment and acceptance in STATUS and VALIDATION. Confirm phone installation on the organization's physical devices before a wider rollout. Resume broader work from REMAINING-SCOPE after the presentation; do not infer payroll or school policy from demonstration data.

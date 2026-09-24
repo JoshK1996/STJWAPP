@@ -24,6 +24,8 @@ An available release produces a bottom **New version ready** prompt with **Reloa
 
 **App & updates / Install app → Check for updates** provides an explicit check. An unsuccessful check shows an error rather than claiming the app is current. An offline device cannot update. Build fingerprints are technical metadata and are not shown in the normal installation flow.
 
+For this first update-monitor release, finish pending work and refresh older open tabs once. An older client cannot discover updates until it receives the monitor. Later compatible deployed releases can then show the update prompt.
+
 ## Network and privacy boundaries
 
 This release does not register a service worker, add an offline response cache, or queue offline writes. Sign-in, time punches, reports and all other saves require the server. The manifest has a stable, query-free start URL; setup links, private report links and account tokens are not installation metadata. An installed icon is a convenient entry point, not a background notification or geolocation service.
