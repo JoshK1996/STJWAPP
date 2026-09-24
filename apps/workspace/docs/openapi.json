@@ -35610,7 +35610,7 @@
                 "description": "XLSX format version",
                 "schema": {
                   "type": "integer",
-                  "const": 1
+                  "const": 2
                 }
               }
             },

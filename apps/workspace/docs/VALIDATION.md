@@ -12,7 +12,7 @@ Initial checks found a foreign-organization test fixture missing its required cr
 
 Jev receipts `6b112eac141d4cc5b600a1a19818df0a`, `a553c79b8a6f48afbe8ca064a7545cba`, `0c992a53b11e4a05bb583bd7c60b5408`, `51479030f7204cd8b50ae883ac67d7d9`, `6850fd0155fc4065b1255b5fa1fce023` and `40738a1b8009400780c12b3100522c33` supported bounded evidence selection and invariant screening. Findings were hypotheses independently verified against source, tests and rendered artifacts. See [TypeSafe's progressive selection pattern](https://docs.typesafe.ai/cookbooks/skill_suggestion). No production records or customer credentials were used.
 
-Publication/deployment evidence will be recorded after the exact staged source passes hosted checks.
+Separate maintenance dry-run and commit passed with schema034 unchanged. The same reviewed plan was used for both operations. Deployment `8a000867-3c7c-45cf-b557-a2594c2712f2` serves all 307 reviewed runtime files from source commit `888812429a031a1c237bfde573d4ae524b06f3e7`, manifest `7efb2c66fe98cb96e836557653f3d7d62fcfbee25695e2d981d6b9d52adebc2b`. Public hosted acceptance passed 34 checks, 12 exact assets and 62 anonymous protected GET denials, with zero unexpected console/runtime errors. A test-harness character-encoding error in a text locator was corrected before the final passing run. Temporary SSH registration and its matching public discovery copy were removed; no private key was read or published. This is separate from the normal-authentication local workflows.
 
 ## Payroll preparation release - September 24, 2026
 

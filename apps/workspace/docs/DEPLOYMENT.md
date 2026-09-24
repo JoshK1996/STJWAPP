@@ -2,7 +2,15 @@
 
 Railway hosts the app and its separate PostgreSQL database independently of the reference applications. The root prototype is not a deployment source for `apps/workspace`.
 
-## Current payroll preparation release
+## Current readable reports release
+
+Deployment `8a000867-3c7c-45cf-b557-a2594c2712f2` is live, verified September 24, 2026 UTC. Separate maintenance dry-run and commit passed with schema034 unchanged. The runtime keeps its restricted role and verifies startup privileges without migrations or seeding. Temporary maintenance access was revoked.
+
+All 307 runtime files match source commit `888812429a031a1c237bfde573d4ae524b06f3e7`, manifest SHA256 `7efb2c66fe98cb96e836557653f3d7d62fcfbee25695e2d981d6b9d52adebc2b`. Build version `9157d9d44ac4b4f3942c1faf7631313b2ceb0a518535c25515f6fc4ee585abc7`; entry SHA256 `062287ea5d0a1b6fd3a0cf5fe0d9df4d9167074afd093b3eee4894cc195b209d`. Public checks passed34, exact assets12 and anonymous denials62, with zero unexpected browser errors. See VALIDATION for 1,013 local application tests, actual Excel rendering, 58 normal-auth report checks and 84 clock checks.
+
+Presentation options are additive; exact CSV/JSON defaults remain stable. Saved-snapshot Excel explicitly uses layout version2. Existing clients can use the guarded update prompt after finishing pending work. This release does not implement a financial ledger, payment processing or wage calculations.
+
+## Previous payroll preparation release
 
 Deployment `b50f8e26-97a5-411e-9981-0f492e4afce4` is live, verified September 24, 2026 UTC. The separate maintenance dry-run and commit passed; schema034 is deployed and immutable. The web runtime still verifies restricted grants and never migrates or seeds. Temporary maintenance access was revoked after verification.
 
