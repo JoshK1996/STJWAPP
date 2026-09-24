@@ -112,3 +112,24 @@ test('v2 selects repeatable read before authority/source and privately copies in
   const value=await getAuthorizedWorkforceReportV2(wrapped,r.actor,{mode:'password',hash:r.hash},input);
   assert.equal(events[0],'SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');assert.equal(value.query.start,query.start);assert.equal(value.workMicroseconds,'56');
 });
+
+
+test('readable segment CSV uses selected human headings/local dates while exact source stays untouched',async()=>{
+  const r=await reader();
+  const csv=await read(db,r,csvPath+'&presentation=readable&columns=employee_name,started_at,duration_microseconds');
+  assert.equal(csv.status,200);assert.equal(csv.headers['x-stjw-duration-unit'],'hour');assert.equal(csv.headers['x-stjw-report-presentation'],'readable');
+  assert.match(csv.text,/"Employee","Recorded start","Included hours"/);assert.match(csv.text,/Synthetic precise worker/);assert.match(csv.text,/Sep 20, 2026 10:00 AM EDT/);assert.match(csv.text,/"0.00"/);
+  assert.ok(!csv.text.includes(worker));assert.ok(!csv.text.includes('duration_microseconds'));assert.equal(await audits(r.actor.id),1);
+  assert.equal((await read(db,r)).body.rows[0].duration_microseconds,'56');
+  const details=(await db.query("SELECT detail FROM audit_events WHERE actor_id=$1 AND action='report.v2_exported'",[r.actor.id])).rows[0].detail;
+  assert.equal(details.presentation,'readable');
+  assert.equal((await read(db,r,csvPath+'&presentation=readable&format=json')).status,400);
+});
+test('readable segment export rechecks scope and revocation before publication',async()=>{
+  const r=await reader();await db.query("UPDATE users SET role='manager' WHERE id=$1",[r.actor.id]);
+  const moved=afterAuthentication(()=>db.query('UPDATE user_units SET unit_id=$1 WHERE user_id=$2',[otherUnit,r.actor.id]));
+  const empty=await read(moved,r,csvPath+'&presentation=readable&columns=employee_name,duration_microseconds');
+  assert.equal(empty.status,200);assert.ok(!empty.text.includes('Synthetic precise worker'));
+  const revoked=afterAuthentication(()=>db.query('DELETE FROM sessions WHERE token_hash=$1',[r.hash]));
+  const denied=await read(revoked,r,csvPath+'&presentation=readable');assert.equal(denied.status,401);assert.equal(denied.headers['content-disposition'],undefined);
+});

@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { buildPayrollHoursReport, payrollHoursLimits, payrollHoursReportSchema } from '../shared/payroll-hours';
 import { xlsxText } from './report-snapshot-xlsx';
 import { XlsxFailure } from './report-snapshot-xlsx-contract';
+import { payrollPresentationOptionsSchema, type PayrollPresentationOptions } from '../shared/payroll-presentation';
+import { writePayrollPresentationSheets } from './payroll-presentation-xlsx';
 
 const amountColumns = ['workHours', 'breakHours', 'totalHours', 'workMicroseconds', 'breakMicroseconds', 'totalMicroseconds', 'shiftCount', 'segmentCount', 'ongoingSegmentCount'] as const;
 const numericColumns = ['workHoursNumeric', 'breakHoursNumeric', 'totalHoursNumeric'] as const;
@@ -34,10 +36,11 @@ function chunks(value: string) {
 }
 /** Fixed workbook with exact text evidence and clearly named approximate numeric
  * hours companions; production calls this only in the bounded worker. */
-export async function serializePayrollHoursXlsx(payloadText: string, maxBytes = payrollHoursLimits.outputBytes): Promise<Buffer> {
+export async function serializePayrollHoursXlsx(payloadText: string, maxBytes = payrollHoursLimits.outputBytes, presentation?: PayrollPresentationOptions): Promise<Buffer> {
   if (typeof payloadText !== 'string' || Buffer.byteLength(payloadText) > payrollHoursLimits.inputBytes || !Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > payrollHoursLimits.outputBytes) throw new XlsxFailure('limit');
   let value;
   try {
+    if (presentation !== undefined) presentation = payrollPresentationOptionsSchema.parse(presentation);
     value = payrollHoursReportSchema.parse(JSON.parse(payloadText));
     if (JSON.stringify(buildPayrollHoursReport(value.report)) !== JSON.stringify(value)) throw new Error('Summary source mismatch');
   } catch { throw new XlsxFailure('invalid'); }
@@ -65,10 +68,11 @@ export async function serializePayrollHoursXlsx(payloadText: string, maxBytes = 
     if (bytes > maxBytes) callback(new XlsxFailure('limit')); else { buffers.push(part); callback(); }
   } });
   sink.on('error', error => { failure = error; });
-  const book = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: sink, useSharedStrings: false, useStyles: false });
+  const book = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: sink, useSharedStrings: false, useStyles: presentation !== undefined });
   const failed = new Promise<never>((_, reject) => sink.once('error', reject)); void failed.catch(() => {});
   try {
-    for (const data of sheets) {
+    if (presentation) writePayrollPresentationSheets(book, value, presentation);
+    for (const data of presentation && !presentation.includeAudit ? [] : sheets) {
       const sheet = book.addWorksheet(data.name, { views: [{ state: 'frozen', ySplit: 1 }] });
       sheet.columns = data.headers.map(() => ({ width: 26 })); sheet.addRow([...data.headers]).commit();
       for (const row of data.rows) sheet.addRow(row).commit(); sheet.commit();

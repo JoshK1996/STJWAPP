@@ -282,3 +282,48 @@ test('installed HTTP routes publish private typed downloads and deny committed p
   }
   assert.equal(await auditCount(reader.id), 0);
 });
+
+test('readable HTTP payroll exports honor options and current explicit unit scope', async () => {
+  const presentation = { title: 'School hours for review', decimalPlaces: 2, grouping: 'jobs', sortBy: 'name', columns: ['workHours', 'breakHours'], includeAudit: false };
+  const suffix = new URLSearchParams({ ...query, presentation: JSON.stringify(presentation) });
+  const reader = await person('manager', [units[0]]), auth = await login(reader);
+  const selectedUnit = (await db.query('SELECT name FROM units WHERE id=$1', [units[0]])).rows[0].name;
+  const excludedUnit = (await db.query('SELECT name FROM units WHERE id=$1', [units[1]])).rows[0].name;
+  for (const format of ['csv', 'xlsx']) {
+    const pending = request(app()).get('/api/payroll/hours/export?' + suffix + '&format=' + format).set('Cookie', auth.cookie);
+    if (format === 'xlsx') pending.buffer(true).parse((response, done) => {
+      const chunks: Buffer[] = []; response.on('data', chunk => chunks.push(Buffer.from(chunk)));
+      response.on('end', () => done(null, Buffer.concat(chunks))); response.on('error', done);
+    });
+    const response = await pending;
+    assert.equal(response.status, 200); assert.match(response.headers['cache-control'], /private.*no-store/);
+    if (format === 'csv') {
+      assert.match(response.text, /"Employee","Job","Department","Work hours","Break hours"/);
+      assert.ok(response.text.includes(selectedUnit)); assert.ok(!response.text.includes(excludedUnit));
+      assert.ok(!response.text.includes(target.id)); assert.ok(!response.text.includes('work_microseconds'));
+      assert.equal(response.text.split('\r\n').length, 2);
+    } else {
+      const zip = await JSZip.loadAsync(response.body);
+      const workbook = await zip.file('xl/workbook.xml')!.async('string');
+      assert.match(workbook, /Report overview/); assert.match(workbook, /Hours by job/); assert.doesNotMatch(workbook, /Source JSON/);
+      const detail = await zip.file('xl/worksheets/sheet2.xml')!.async('string');
+      assert.ok(detail.includes(selectedUnit)); assert.ok(!detail.includes(excludedUnit)); assert.ok(!detail.includes(target.id));
+    }
+  }
+  const evidence = (await db.query("SELECT detail FROM audit_events WHERE actor_id=$1 AND action='payroll.hours_exported'", [reader.id])).rows;
+  assert.equal(evidence.length, 2); assert.deepEqual(evidence[0].detail.presentation, presentation);
+  assert.equal(evidence[0].detail.employees, undefined); assert.equal(evidence[0].detail.sourceRowCount, 1);
+  await change(reader, { role: 'employee' });
+  const fresh = await login(reader);
+  assert.equal((await request(app()).get('/api/payroll/hours/export?' + suffix + '&format=csv').set('Cookie', fresh.cookie)).status, 403);
+});
+
+test('HTTP payroll exports reject invalid options and preserve exact JSON contract without a publication audit', async () => {
+  const before = await auditCount(owner.id);
+  for (const [format, presentation] of [['csv', '{broken'], ['csv', '{}'+ ' '.repeat(3001)], ['csv', JSON.stringify({ decimalPlaces: 99 })], ['csv', JSON.stringify({ columns: ['workHours', 'workHours'] })], ['json', '{}']]) {
+    const suffix = new URLSearchParams({ ...query, format, presentation });
+    const response = await request(app()).get('/api/payroll/hours/export?' + suffix).set('Cookie', ownerAuth.cookie);
+    assert.equal(response.status, 400); assert.equal(response.headers['content-disposition'], undefined);
+  }
+  assert.equal(await auditCount(owner.id), before);
+});

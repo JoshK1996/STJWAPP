@@ -4,7 +4,7 @@ import {buildPayrollHoursReport,payrollDecimalHours,payrollHoursLimits} from './
 import {workforceBucketV2Schema,workforceInstantMicroseconds,workforceLocalDateSchema,workforceReportQueryV2Schema,workforceUtcMicrosSchema,workforceV2Limits,type WorkforceReportV2} from './workforce-reports-v2';
 
 export const payrollReviewQuerySchema=workforceReportQueryV2Schema;
-export const payrollReviewExportQuerySchema=workforceReportQueryV2Schema.safeExtend({format:z.enum(['csv','json']).default('csv')});
+export const payrollReviewExportQuerySchema=workforceReportQueryV2Schema.safeExtend({format:z.enum(['csv','json']).default('csv'),presentation:z.enum(['readable','exact']).default('exact')});
 export const payrollReviewLimits=Object.freeze({responseBytes:payrollHoursLimits.inputBytes,outputBytes:payrollHoursLimits.outputBytes,employees:workforceV2Limits.staff*2});
 const nonnegative=z.string().regex(/^(0|[1-9][0-9]{0,20})$/);
 const signed=z.string().regex(/^(0|-?[1-9][0-9]{0,20})$/);

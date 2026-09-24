@@ -9,8 +9,13 @@ import {
   Upload,
   Archive,
   RefreshCw,
+  Search,
+  Layers3,
+  Coins,
 } from "lucide-react";
-import { api, download, downloadPost } from "./api";
+import { api, ApiError, download, downloadPost } from "./api";
+import FinanceReportStudio, { FinanceViewTable } from './FinanceReportStudio';
+import { financeBasisLabel, financeDefaultView, financeFilename, financeKindLabels, financeMagnitudePercent, financePeriod, financeRowKindLabels, financeSelectionSummary, financeUnits, financeViewQuery, financeVisibleLines, formatFinanceAmount, type FinanceViewOptions } from '../shared/finance-presentation';
 import { createPortal } from 'react-dom';
 import { Panel, Badge, Empty } from "./components";
 import WorkbookImport from './WorkbookImport';
@@ -30,12 +35,7 @@ const blankMetadata = {
   to: "",
   note: "",
 };
-const basisLabel = (value: string) =>
-  ({
-    period_activity: "Period activity",
-    as_of_balance: "As-of balance",
-    other: "Other basis",
-  })[value] ?? value;
+const basisLabel = financeBasisLabel;
 function Amount({
   value,
   currency = "",
@@ -44,8 +44,8 @@ function Amount({
   currency?: string;
 }) {
   return (
-    <span className="finance-amount">
-      {value === null ? "—" : (currency ? currency + " " : "") + value}
+    <span className="finance-amount" title={value===null?'Not present in this source':'Exact source amount: '+value}>
+      {formatFinanceAmount(value, currency)}
     </span>
   );
 }
@@ -65,11 +65,11 @@ function Lines({ rows, currency }: { rows: any[]; currency: string }) {
         {rows.map((row) => (
           <tr key={row.lineCode}>
             <td>
-              <small>{row.lineCode}</small>
               <strong>{row.lineLabel}</strong>
+              <small>Source code: {row.lineCode}</small>
             </td>
             <td>{row.group || "—"}</td>
-            <td>{row.rowKind}</td>
+            <td>{financeRowKindLabels[row.rowKind]}</td>
             <td>
               <Amount value={row.amount} />
             </td>
@@ -86,8 +86,8 @@ function ComparisonTable({ rows }: { rows: any[] }) {
       <thead>
         <tr>
           <th>Report line</th>
-          <th>Left</th>
-          <th>Right</th>
+          <th>Baseline</th>
+          <th>Compared report</th>
           <th>Difference</th>
           <th>Change %</th>
           <th>Matching</th>
@@ -97,8 +97,8 @@ function ComparisonTable({ rows }: { rows: any[] }) {
         {rows.map((row) => (
           <tr key={row.lineCode}>
             <td>
-              <small>{row.lineCode}</small>
               <strong>{row.rightLabel ?? row.leftLabel}</strong>
+              <small>Source code: {row.lineCode}</small>
               {row.labelChanged && (
                 <small>Earlier label: {row.leftLabel}</small>
               )}
@@ -136,13 +136,7 @@ function ComparisonChart({
   const shown = rows
       .filter((x) => x.leftKind === "detail" || x.rightKind === "detail")
       .slice(0, 16),
-    largest = Math.max(
-      1,
-      ...shown.flatMap((x) => [
-        Math.abs(Number(x.leftAmount ?? 0)),
-        Math.abs(Number(x.rightAmount ?? 0)),
-      ]),
-    );
+    largest = shown.flatMap(row=>[financeUnits(row.leftAmount??'0'),financeUnits(row.rightAmount??'0')]).reduce((largest,value)=>{const absolute=value<0n?-value:value;return absolute>largest?absolute:largest;},0n);
   return (
     <figure
       className="finance-chart"
@@ -153,28 +147,26 @@ function ComparisonChart({
         {currency}
       </figcaption>
       <div className="finance-chart-legend">
-        <span>Left report</span>
-        <span>Right report</span>
+        <span>Baseline report</span>
+        <span>Compared report</span>
       </div>
       {shown.map((row) => (
         <div className="finance-chart-row" key={row.lineCode}>
           <strong>
-            {row.lineCode} · {row.rightLabel ?? row.leftLabel}
+            {row.rightLabel ?? row.leftLabel}
           </strong>
           {(["left", "right"] as const).map((side) => (
             <div className={"finance-chart-series " + side} key={side}>
               <span
                 style={{
                   width:
-                    (Math.abs(Number(row[side + "Amount"] ?? 0)) / largest) *
-                      100 +
-                    "%",
+                    financeMagnitudePercent(financeUnits(row[side+'Amount']??'0'),largest)+'%',
                 }}
               />
               <small>
                 {row[side + "Amount"] === null
                   ? "Missing"
-                  : row[side + "Amount"]}
+                  : formatFinanceAmount(row[side + "Amount"])}
               </small>
             </div>
           ))}
@@ -187,7 +179,11 @@ function ComparisonChart({
     </figure>
   );
 }
-export default function Finance({ me, notify, onDirty }: Props) {
+export default function Finance(props: Props) {
+  const actor=props.me.actor;
+  return <FinanceWorkspace key={`${actor.org_id}:${actor.id}:${actor.mode}:${actor.role}:${actor.csrf}:${JSON.stringify(actor.unit_ids??[])}`} {...props}/>;
+}
+function FinanceWorkspace({ me, notify, onDirty }: Props) {
   const [unitId, setUnitId] = useState(me.units[0]?.id ?? ""),
     [archived, setArchived] = useState(false),
     [reports, setReports] = useState<any[]>([]),
@@ -196,6 +192,8 @@ export default function Finance({ me, notify, onDirty }: Props) {
     ),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [librarySearch,setLibrarySearch]=useState(''),[libraryKind,setLibraryKind]=useState(''),[libraryCurrency,setLibraryCurrency]=useState(''),[libraryOrder,setLibraryOrder]=useState('latest'),[listLoading,setListLoading]=useState(true);
+  const [reportView,setReportView]=useState<FinanceViewOptions>(financeDefaultView),[printView,setPrintView]=useState(false);
   const [metadata, setMetadata] = useState<any>({ ...blankMetadata }),
     [reportId, setReportId] = useState(""),
     [expectedVersion, setExpectedVersion] = useState(0),
@@ -222,6 +220,9 @@ export default function Finance({ me, notify, onDirty }: Props) {
   const requestGeneration = useRef(0),
     comparisonGeneration = useRef(0),
     accessGeneration = useRef(0);
+  const mounted=useRef(true), libraryKey=unitId+':'+archived, libraryKeyRef=useRef(libraryKey);
+  libraryKeyRef.current=libraryKey;
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;accessGeneration.current++;requestGeneration.current++;comparisonGeneration.current++;fileGeneration.current++;};},[]);
   const dirty =
     mode === "import" &&
     (!!csv || !!metadata.title || !!metadata.sourceName || !!reason || workbookPending);
@@ -243,6 +244,7 @@ export default function Finance({ me, notify, onDirty }: Props) {
     let current = true;
     const generation = accessGeneration.current;
     setReports([]);
+    setListLoading(true);
     void api(
       "/finance/reports?" +
         new URLSearchParams({ unitId, archived: String(archived) }),
@@ -251,8 +253,10 @@ export default function Finance({ me, notify, onDirty }: Props) {
         if (current && generation === accessGeneration.current) setReports(result.rows);
       })
       .catch((e) => {
-        if (current && generation === accessGeneration.current) setError(e.message);
-      });
+        if (current && generation === accessGeneration.current) {
+          if(e instanceof ApiError&&(e.status===401||e.status===403))clearFinanceAccess(e.status);else setError(e.message);
+        }
+      }).finally(()=>{if(current&&mounted.current&&generation===accessGeneration.current)setListLoading(false);});
     return () => {
       current = false;
     };
@@ -271,7 +275,7 @@ export default function Finance({ me, notify, onDirty }: Props) {
           }
         })
         .catch((e) => {
-          if (current && generation === accessGeneration.current) setError(e.message);
+          if (current && generation === accessGeneration.current) {if(e instanceof ApiError&&(e.status===401||e.status===403))clearFinanceAccess(e.status);else setError(e.message);}
         });
     return () => {
       current = false;
@@ -291,7 +295,7 @@ export default function Finance({ me, notify, onDirty }: Props) {
           }
         })
         .catch((e) => {
-          if (current && generation === accessGeneration.current) setError(e.message);
+          if (current && generation === accessGeneration.current) {if(e instanceof ApiError&&(e.status===401||e.status===403))clearFinanceAccess(e.status);else setError(e.message);}
         });
     return () => {
       current = false;
@@ -319,7 +323,7 @@ export default function Finance({ me, notify, onDirty }: Props) {
     setReports([]); setDetail(null); setRecord(null); setHistory([]); setArchiveReason('');
     setComparison(null); setLeftId(''); setRightId(''); setLeftVersion(0); setRightVersion(0);
     setLeftOptions([]); setRightOptions([]); setPeriodsReviewed(false);
-    setPage(0); setBusy(false); setMode('list'); onDirty(false);
+    setPage(0); setBusy(false); setListLoading(false); setMode('list'); onDirty(false);
     setError(status === 401
       ? 'Your sign-in expired or changed. Sign in again to open financial reports.'
       : 'Your access to financial reports changed. Financial data and the import draft have been cleared.');
@@ -331,11 +335,17 @@ export default function Finance({ me, notify, onDirty }: Props) {
     try {
       await action();
     } catch (e) {
-      if (generation === accessGeneration.current) setError((e as Error).message);
+      if (generation === accessGeneration.current) {
+        if(e instanceof ApiError&&(e.status===401||e.status===403))clearFinanceAccess(e.status);else setError((e as Error).message);
+      }
     } finally {
       if (generation === accessGeneration.current) setBusy(false);
     }
   }
+  async function financeDownload(path:string,name:string){const current=accessGeneration.current;await download(path,name,()=>mounted.current&&accessGeneration.current===current);}
+  async function financeDownloadPost(path:string,body:unknown,name:string){const current=accessGeneration.current;await downloadPost(path,body,name,()=>mounted.current&&accessGeneration.current===current);}
+  function printReport(filtered:boolean){setPrintView(filtered);}
+  useEffect(()=>{if(printView){window.print();setPrintView(false);}},[printView]);
   function leave(next: typeof mode) {
     if (dirty && !window.confirm("Discard this unsaved financial import?"))
       return;
@@ -346,12 +356,12 @@ export default function Finance({ me, notify, onDirty }: Props) {
     setError("");
   }
   async function refresh() {
-    const generation = accessGeneration.current;
+    const generation = accessGeneration.current, requestedLibrary=libraryKey;
     const result = await api(
       "/finance/reports?" +
         new URLSearchParams({ unitId, archived: String(archived) }),
     );
-    if (generation === accessGeneration.current) setReports(result.rows);
+    if (generation === accessGeneration.current && requestedLibrary===libraryKeyRef.current) setReports(result.rows);
   }
   function beginRevision(source?: any) {
     fileGeneration.current++;
@@ -385,6 +395,7 @@ export default function Finance({ me, notify, onDirty }: Props) {
       if (generation !== requestGeneration.current) return;
       setDetail(info);
       setRecord(source);
+      setReportView(financeDefaultView());
       setHistory(events.rows);
       setArchiveReason("");
       setPage(0);
@@ -489,13 +500,15 @@ export default function Finance({ me, notify, onDirty }: Props) {
   }
   const rows =
       mode === "detail"
-        ? record?.lines
+        ? (record?financeVisibleLines(record.lines,reportView):[])
         : mode === "import"
           ? preview?.lines
           : comparison?.rows,
     totalPages = Math.ceil((rows?.length ?? 0) / 50),
     pageRows = (rows ?? []).slice(page * 50, (page + 1) * 50),
     community = me.units.find((x: any) => x.id === unitId)?.name ?? "";
+  const libraryRows=reports.filter(item=>(!libraryKind||item.metadata.kind===libraryKind)&&(!libraryCurrency||item.metadata.currency===libraryCurrency)&&[item.metadata.title,item.metadata.sourceName,item.metadata.from,item.metadata.to].some(value=>String(value).toLocaleLowerCase().includes(librarySearch.trim().toLocaleLowerCase()))).sort((a,b)=>libraryOrder==='title'?a.metadata.title.localeCompare(b.metadata.title):libraryOrder==='period'?b.metadata.to.localeCompare(a.metadata.to):0);
+  const libraryCurrencies=[...new Set(reports.map(item=>item.metadata.currency))] as string[];
   const pagination = totalPages > 1 && (
     <div className="finance-pagination">
       <span>
@@ -598,6 +611,8 @@ export default function Finance({ me, notify, onDirty }: Props) {
           title="Source report library"
           detail="Every published revision retains its original source and review reason."
         >
+          <div className="finance-library-overview" aria-label="Source library overview"><article><FileBarChart2 size={22}/><div><strong>{reports.length}</strong><span>{archived?'Archived':'Active'} source reports</span></div></article><article><Layers3 size={22}/><div><strong>{reports.filter(item=>item.metadata.kind==='actual').length}</strong><span>Actual report sources</span></div></article><article><Coins size={22}/><div><strong>{libraryCurrencies.length?libraryCurrencies.join(' · '):'—'}</strong><span>Currencies kept separate</span></div></article></div>
+          <div className="finance-library-filters"><label>Find a source<span><Search size={16}/><input aria-label="Find a financial source report" value={librarySearch} maxLength={160} placeholder="Report name, source or dates" onChange={event=>setLibrarySearch(event.target.value)}/></span></label><label>Report type<select value={libraryKind} onChange={event=>setLibraryKind(event.target.value)}><option value="">All report types</option>{Object.entries(financeKindLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label>Currency<select value={libraryCurrency} onChange={event=>setLibraryCurrency(event.target.value)}><option value="">All currencies</option>{libraryCurrencies.map(value=><option key={value}>{value}</option>)}</select></label><label>Order<select value={libraryOrder} onChange={event=>setLibraryOrder(event.target.value)}><option value="latest">Recently updated</option><option value="title">Report name</option><option value="period">Latest report period</option></select></label></div>
           <div className="finance-list-toolbar">
             <label className="finance-check">
               <input
@@ -605,7 +620,7 @@ export default function Finance({ me, notify, onDirty }: Props) {
                 checked={archived}
                 onChange={(e) => setArchived(e.target.checked)}
               />
-              Show archived reports
+              Show archived reports only
             </label>
             <button
               className="button ghost"
@@ -615,28 +630,28 @@ export default function Finance({ me, notify, onDirty }: Props) {
               Refresh
             </button>
           </div>
-          {!reports.length ? (
+          {listLoading?<p className="finance-library-state" role="status">Loading source reports…</p>:!reports.length ? (
             <Empty
               title="Start with a source report"
               detail="Download the template, enter your report lines, then preview the data before publishing."
             />
           ) : (
             <div className="finance-report-grid">
-              {reports.map((item) => (
+              {libraryRows.map((item) => (
                 <button
-                  className="finance-report-card"
+                  className={'finance-report-card kind-'+item.metadata.kind}
                   key={item.id}
                   onClick={() => void openReport(item.id)}
                   disabled={busy}
                 >
                   <span>
                     <FileBarChart2 size={22} />
-                    <Badge>{item.metadata.kind}</Badge>
+                    <Badge>{financeKindLabels[item.metadata.kind]}{item.archived?' · archived':''}</Badge>
                   </span>
                   <h3>{item.metadata.title}</h3>
                   <p>{item.metadata.sourceName}</p>
                   <small>
-                    {item.metadata.from} → {item.metadata.to}
+                    {financePeriod(item.metadata)}
                   </small>
                   <strong>
                     {item.metadata.currency} · {item.line_count} lines · Version{" "}
@@ -647,12 +662,13 @@ export default function Finance({ me, notify, onDirty }: Props) {
               ))}
             </div>
           )}
+          {!listLoading&&reports.length>0&&<p className="finance-library-state" role="status">{libraryRows.length?`${libraryRows.length} of ${reports.length} reports match this view.`:'No reports match these filters.'} <button type="button" onClick={()=>{setLibrarySearch('');setLibraryKind('');setLibraryCurrency('');setLibraryOrder('latest');}}>Reset library filters</button></p>}
           <div className="finance-footer">
             <button
               className="button"
               onClick={() =>
                 void perform(() =>
-                  download(
+                  financeDownload(
                     "/finance/template",
                     "financial-report-template.csv",
                   ),
@@ -728,14 +744,14 @@ export default function Finance({ me, notify, onDirty }: Props) {
                   </select>
                 </label>
                 <label>
-                  Reporting basis
+                  Period type
                   <select
-                    aria-label="Reporting basis"
+                    aria-label="Period type"
                     value={metadata.basis}
                     required
                     onChange={(e) => edit("basis", e.target.value)}
                   >
-                    <option value="">Choose a basis</option>
+                    <option value="">Choose how these dates apply</option>
                     {["period_activity", "as_of_balance", "other"].map((x) => (
                       <option key={x} value={x}>
                         {basisLabel(x)}
@@ -802,7 +818,7 @@ export default function Finance({ me, notify, onDirty }: Props) {
                   className="button"
                   onClick={() =>
                     void perform(() =>
-                      download(
+                      financeDownload(
                         "/finance/template",
                         "financial-report-template.csv",
                       ),
@@ -851,7 +867,7 @@ export default function Finance({ me, notify, onDirty }: Props) {
             >
               <div className="finance-metrics">
                 <div>
-                  <small>Sum of detail lines</small>
+                  <small>Full source detail sum</small>
                   <strong>
                     <Amount
                       value={preview.totals.detailSum}
@@ -916,15 +932,15 @@ export default function Finance({ me, notify, onDirty }: Props) {
                 ))}
               </select>
             </label>
-            <Badge>{record.metadata.kind}</Badge>
+            <Badge>{financeKindLabels[record.metadata.kind]}</Badge>
             <span>
-              {record.metadata.from} → {record.metadata.to} ·{" "}
+              {financePeriod(record.metadata)} ·{" "}
               {basisLabel(record.metadata.basis)}
             </span>
           </div>
           <div className="finance-metrics">
             <div>
-              <small>Sum of detail lines</small>
+              <small>Full source detail sum</small>
               <strong>
                 <Amount
                   value={record.totals.detailSum}
@@ -941,12 +957,15 @@ export default function Finance({ me, notify, onDirty }: Props) {
             {record.reason}
             {record.metadata.note && " · " + record.metadata.note}
           </p>
+          <p className="finance-description">Currency: {record.metadata.currency}. The period type describes the source dates; cash or accrual accounting method is not recorded by this import.</p>
+          <FinanceReportStudio lines={record.lines} currency={record.metadata.currency} view={reportView} onChange={value=>{setReportView(value);setPage(0);}}/>
+          <div className="finance-actions finance-view-downloads"><button type="button" className="button primary" disabled={busy} onClick={()=>void perform(()=>financeDownload('/finance/reports/'+record.report_id+'/versions/'+record.version+'?'+financeViewQuery(reportView),financeFilename(record.metadata.title,record.version)))}><ArrowDownToLine size={16}/>Download this view CSV</button><button type="button" className="button" disabled={busy} onClick={()=>printReport(true)}><Printer size={16}/>Print this view</button><span>{rows?.length??0} selected lines · chosen column order · {reportView.decimalPlaces} decimal places</span></div>
           <div className="finance-actions">
             <button
               className="button"
               onClick={() =>
                 void perform(() =>
-                  download(
+                  financeDownload(
                     "/finance/reports/" +
                       record.report_id +
                       "/versions/" +
@@ -958,13 +977,13 @@ export default function Finance({ me, notify, onDirty }: Props) {
               }
             >
               <ArrowDownToLine size={16} />
-              CSV
+              Full source CSV
             </button>
             <button
               className="button"
               onClick={() =>
                 void perform(() =>
-                  download(
+                  financeDownload(
                     "/finance/reports/" +
                       record.report_id +
                       "/versions/" +
@@ -974,13 +993,13 @@ export default function Finance({ me, notify, onDirty }: Props) {
                 )
               }
             >
-              JSON
+              Full source JSON
             </button>
             <button
               className="button"
               onClick={() =>
                 void perform(() =>
-                  download(
+                  financeDownload(
                     "/finance/reports/" +
                       record.report_id +
                       "/versions/" +
@@ -1008,8 +1027,9 @@ export default function Finance({ me, notify, onDirty }: Props) {
               )}
           </div>
           <p className="finance-table-hint">Scroll the table sideways to see all columns.</p><div className="finance-table-scroll" tabIndex={0} role="region" aria-label="Financial data table">
-            <Lines rows={pageRows} currency={record.metadata.currency} />
+            <FinanceViewTable rows={pageRows} currency={record.metadata.currency} columns={reportView.columns} decimalPlaces={reportView.decimalPlaces}/>
           </div>
+          {!rows?.length&&<p className="finance-library-state">No lines match this view. Reset the view or adjust its filters.</p>}
           {pagination}
           <details className="finance-provenance">
             <summary>Source and revision history</summary>
@@ -1158,13 +1178,13 @@ export default function Finance({ me, notify, onDirty }: Props) {
               )}
               <div className="finance-metrics">
                 <div>
-                  <small>Left detail sum · {comparison.currency}</small>
+                  <small>Baseline detail sum · {comparison.currency}</small>
                   <strong>
                     <Amount value={comparison.leftTotals.detailSum} />
                   </strong>
                 </div>
                 <div>
-                  <small>Right detail sum · {comparison.currency}</small>
+                  <small>Compared detail sum · {comparison.currency}</small>
                   <strong>
                     <Amount value={comparison.rightTotals.detailSum} />
                   </strong>
@@ -1177,13 +1197,14 @@ export default function Finance({ me, notify, onDirty }: Props) {
                 </div>
               </div>
               <p className="finance-description">{comparison.notice}</p>
+              <div className="finance-comparison-sources">{(['left','right'] as const).map(side=><article key={side}><small>{side==='left'?'Baseline':'Compared report'} · version {comparison[side].version}</small><strong>{comparison[side].metadata.title}</strong><span>{financePeriod(comparison[side].metadata)} · {basisLabel(comparison[side].metadata.basis)} · {comparison.currency}</span></article>)}</div>
               <div className="finance-actions">
                 <button
                   className="button"
                   disabled={!comparisonFresh || busy}
                   onClick={() =>
                     void perform(() =>
-                      downloadPost(
+                      financeDownloadPost(
                         "/finance/compare/export",
                         comparison.input,
                         "financial-comparison.csv",
@@ -1198,7 +1219,7 @@ export default function Finance({ me, notify, onDirty }: Props) {
                   disabled={!comparisonFresh || busy}
                   onClick={() =>
                     void perform(() =>
-                      downloadPost(
+                      financeDownloadPost(
                         "/finance/compare/export?format=json",
                         comparison.input,
                         "financial-comparison.json",
@@ -1240,8 +1261,8 @@ export default function Finance({ me, notify, onDirty }: Props) {
             <p>
               {record.metadata.sourceName} · {record.reason}
             </p>
-            <Lines rows={record.lines} currency={record.metadata.currency} />
-            <p>Source SHA256: {record.source_hash}</p>
+            {printView?<><p>Customized view · {rows?.length??0} of {record.lines.length} lines · {basisLabel(record.metadata.basis)}. Cash/accrual method is not recorded.</p><p>{financeSelectionSummary(reportView)}</p><FinanceViewTable rows={rows??[]} currency={record.metadata.currency} columns={reportView.columns} decimalPlaces={reportView.decimalPlaces}/></>:<Lines rows={record.lines} currency={record.metadata.currency}/>}
+            {!printView&&<p>Source SHA256: {record.source_hash}</p>}
           </>
         ) : mode === "compare" && comparisonFresh ? (
           <>

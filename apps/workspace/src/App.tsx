@@ -54,7 +54,7 @@ import {
 } from "./components";
 import Auth from "./Auth";
 import ClockCard from "./ClockCard";
-import {ExactWorkforceDuration} from './ExactWorkforceTime';
+import {ReadableWorkforceDuration} from './ExactWorkforceTime';
 import {formatWorkforceDuration,workforceBarPercent,workforceChartScale} from '../shared/workforce-display';
 import {workforceReportV2Schema,type WorkforceReportV2,type WorkforceBucketV2} from '../shared/workforce-reports-v2';
 import Reports from "./Reports";
@@ -883,12 +883,12 @@ export default function App() {
                               value={
                                 me.permissions.report
                                   ? scopedBoard.length
-                                  : report ? <ExactWorkforceDuration value={report.workMicroseconds}/> : reportPlaceholder
+                                  : report ? <ReadableWorkforceDuration value={report.workMicroseconds}/> : reportPlaceholder
                               }
                               detail={
                                 me.permissions.report
                                   ? `${scopedBoard.filter((x) => x.kind === "break").length} currently on a break`
-                                  : "Exact recorded work, excluding breaks"
+                                  : "Recorded work, excluding breaks · 2 decimal places"
                               }
                               icon={<Clock3 size={19} />}
                               tone="green"
@@ -897,7 +897,7 @@ export default function App() {
                               label="Recorded work this week"
                               value={
                                 <>
-                                  {report ? <ExactWorkforceDuration value={report.workMicroseconds}/> : reportPlaceholder}
+                                  {report ? <ReadableWorkforceDuration value={report.workMicroseconds}/> : reportPlaceholder}
                                 </>
                               }
                               detail="Monday through today"
@@ -1085,10 +1085,10 @@ export default function App() {
                 <div className="two-columns">
                   <Panel
                     title="Your work this week"
-                    detail="Exact recorded duration, including fractional seconds."
+                    detail="Recorded hours rounded to two places. Hover for exact time."
                   >
                     <div className="big-hours">
-                      {report ? <ExactWorkforceDuration value={report.staff.find(x=>x.userId===me.actor.id)?.workMicroseconds??(me.permissions.report?'0':report.workMicroseconds)}/> : reportPlaceholder}
+                      {report ? <ReadableWorkforceDuration value={report.staff.find(x=>x.userId===me.actor.id)?.workMicroseconds??(me.permissions.report?'0':report.workMicroseconds)}/> : reportPlaceholder}
                       <span>recorded work</span>
                     </div>
                     <p className="panel-note">

@@ -1,9 +1,10 @@
 import { z } from 'zod';
+import { payrollPresentationOptionsSchema } from './payroll-presentation';
 import { workforceReportQueryV2Schema, workforceReportV2Schema, workforceV2Limits, type WorkforceReportV2 } from './workforce-reports-v2';
 
 export const payrollHoursLimits = Object.freeze({ inputBytes: 16 * 1024 * 1024, outputBytes: 32 * 1024 * 1024, deadlineMs: 15000, heapMb: 192 });
 export const payrollHoursQuerySchema = workforceReportQueryV2Schema;
-export const payrollHoursExportQuerySchema = workforceReportQueryV2Schema.safeExtend({ format: z.enum(['csv', 'xlsx', 'json']).default('csv') });
+export const payrollHoursExportQuerySchema = workforceReportQueryV2Schema.safeExtend({ format: z.enum(['csv', 'xlsx', 'json']).default('csv'), presentation: z.preprocess(value => { if(typeof value!=='string')return value; if(value.length>3000)return null; try{return JSON.parse(value);}catch{return null;} }, payrollPresentationOptionsSchema.optional()) });
 const micros = z.string().regex(/^(0|[1-9][0-9]{0,20})$/);
 const hours = z.string().regex(/^(0|[1-9][0-9]{0,17})\.[0-9]{6}$/);
 const count = z.number().int().min(0).max(workforceV2Limits.rows);

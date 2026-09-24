@@ -167,3 +167,14 @@ test('HTTP comparison query rejects untrusted capture, duplicate dates and unsup
   }
   assert.equal((await request(app()).get('/api/payroll/review/export').set('Cookie',ownerAuth.cookie).query({...selected,format:'xlsx'})).status,400);
 });
+
+
+test('readable comparison CSV gives one row per employee and preserves exact JSON separately',async()=>{
+  const response=await request(app()).get('/api/payroll/review/export').set('Cookie',ownerAuth.cookie).query({...selected,format:'csv',presentation:'readable'});
+  assert.equal(response.status,200);assert.match(response.text,/"Employee","Selected work hours","Previous work hours"/);assert.match(response.text,/"1.00"/);assert.ok(!response.text.includes('3600000001'));assert.ok(!response.text.includes(target.id));assert.ok(!response.text.includes('row_kind'));
+  assert.match(response.text,/Sep 20, 2026/);assert.match(response.text,/No pay calculation or approval/);
+  const invalid=await request(app()).get('/api/payroll/review/export').set('Cookie',ownerAuth.cookie).query({...selected,format:'json',presentation:'readable'});
+  assert.equal(invalid.status,400);assert.equal(invalid.headers['content-disposition'],undefined);
+  const original=await request(app()).get('/api/payroll/review/export').set('Cookie',ownerAuth.cookie).query({...selected,format:'json'});
+  assert.equal(original.body.totals.current.breakMicroseconds,'3600000001');
+});

@@ -1,4 +1,5 @@
 import type { Database } from './db';
+import { payrollPresentationCsv } from './payroll-presentation';
 import { audit, canReport, requireCondition, type Actor } from './security';
 import { readWorkforceReportSourceV2 } from './reports-v2';
 import { toCsv } from './reports';
@@ -38,16 +39,17 @@ export function getAuthorizedPayrollHours(db: Database, actor: Actor, proof: Wor
   }, async (_tx, _current, source) => { const result = buildPayrollHoursReport(source); payload(result); return result; }, { repeatableRead: true });
 }
 export function exportAuthorizedPayrollHours(db: Database, actor: Actor, proof: WorkforceReportProof, raw: unknown, options: { signal?: AbortSignal } = {}) {
-  const { format, ...query } = payrollHoursExportQuerySchema.parse(raw);
+  const { format, presentation, ...query } = payrollHoursExportQuerySchema.parse(raw);
+  requireCondition(format !== 'json' || presentation === undefined,400,'Source JSON keeps exact evidence; presentation options apply only to Excel and CSV.');
   const run = () => withAuthorizedWorkforceSource(db, actor, proof, async (tx, current) => {
     requireCondition(canReport(current), 403, 'A current reporting role is required for payroll hours.');
     return readWorkforceReportSourceV2(tx, current, query);
   }, async (tx, current, source) => {
     const result = buildPayrollHoursReport(source), text = payload(result);
-    const body = format === 'xlsx' ? (await generatePayrollHoursXlsx(text, options)).buffer : format === 'json' ? text : payrollHoursCsv(result);
+    const body = format === 'xlsx' ? (await generatePayrollHoursXlsx(text, { ...options, presentation })).buffer : format === 'json' ? text : presentation ? payrollPresentationCsv(result,presentation) : payrollHoursCsv(result);
     requireCondition(!options.signal?.aborted, 499, 'Hours download was cancelled.');
     requireCondition(Buffer.byteLength(body) <= payrollHoursLimits.outputBytes, 413, 'This hours export is too large. Choose a shorter range or a single employee/unit.');
-    await audit(tx, current, 'payroll.hours_exported', null, { query, format, schemaVersion: 1, sourceSchemaVersion: 2, precisionVersion: 2,
+    await audit(tx, current, 'payroll.hours_exported', null, { query, format, ...(presentation ? { presentation } : {}), schemaVersion: 1, sourceSchemaVersion: 2, precisionVersion: 2,
       durationUnit: 'microsecond', sourceRowCount: source.rows.length, employeeCount: result.employees.length, asOf: source.asOf });
     requireCondition(!options.signal?.aborted, 499, 'Hours download was cancelled.');
     return { body, format, asOf: source.asOf, query };

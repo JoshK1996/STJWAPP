@@ -1,4 +1,5 @@
 import type {Database,Queryable} from './db';
+import {payrollReviewPresentationCsv} from './payroll-review-presentation';
 import {audit,canReport,requireCondition,type Actor} from './security';
 import {readWorkforceReportSourceV2} from './reports-v2';
 import {toCsv} from './reports';
@@ -39,11 +40,12 @@ export function payrollReviewCsv(value:PayrollReview):string{
   return toCsv([...value.employees.map(employee=>({row_kind:'employee',user_id:employee.userId,employee_name:employee.name,...row(employee),...evidence})),{row_kind:'total',...row(value.totals),...evidence}],payrollReviewCsvColumns);
 }
 export function exportAuthorizedPayrollReview(db:Database,actor:Actor,proof:WorkforceReportProof,raw:unknown){
-  const {format,...query}=payrollReviewExportQuerySchema.parse(raw);
+  const {format,presentation,...query}=payrollReviewExportQuerySchema.parse(raw);
+  requireCondition(format!=='json'||presentation==='exact',400,'Source JSON preserves exact evidence; readable presentation applies to CSV only.');
   return withReview(db,actor,proof,query,async(value,tx,current)=>{
-    const body=format==='json'?payload(value):payrollReviewCsv(value);
+    const body=format==='json'?payload(value):presentation==='readable'?payrollReviewPresentationCsv(value):payrollReviewCsv(value);
     requireCondition(Buffer.byteLength(body)<=payrollReviewLimits.outputBytes,413,'This comparison export is too large. Choose a shorter range or a single employee/unit.');
-    await audit(tx,current,'payroll.review_exported',null,{query,format,schemaVersion:1,sourceSchemaVersion:2,precisionVersion:2,durationUnit:'microsecond',asOf:value.asOf,currentSourceRows:value.evidence.currentSourceRows,previousSourceRows:value.evidence.previousSourceRows,employeeCount:value.employees.length});
+    await audit(tx,current,'payroll.review_exported',null,{query,format,presentation,schemaVersion:1,sourceSchemaVersion:2,precisionVersion:2,durationUnit:'microsecond',asOf:value.asOf,currentSourceRows:value.evidence.currentSourceRows,previousSourceRows:value.evidence.previousSourceRows,employeeCount:value.employees.length});
     return {body,format,asOf:value.asOf,query};
   });
 }

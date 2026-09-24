@@ -1,5 +1,19 @@
 # Validation evidence
 
+## Readable reporting iteration - September 24, 2026
+
+The final local suite passed all 1,013 tests without failures, cancellations or skips. The final export-focused run passed 32 tests after layout/query refinements. Production build passed; production dependency audit reported zero vulnerabilities at review time. The source-based build version is `9157d9d44ac4b4f3942c1faf7631313b2ceb0a518535c25515f6fc4ee585abc7`, entry SHA256 `062287ea5d0a1b6fd3a0cf5fe0d9df4d9167074afd093b3eee4894cc195b209d`. The existing large-entry build warning remains.
+
+Normal password authentication against disposable synthetic databases passed 58 report checks across 13 layout samples. Checks cover actual customized Payroll Excel/CSV downloads; optional audit sheets; readable versus exact workforce exports; a saved library layout and retained snapshot workbook; finance source import/publication; column order, search, precision and chart-driven filtering; desktop/320/390/768 widths; dark/flat enlarged-text finance; and a real finance response deliberately held until after leaving the workspace, with no late download. Separate final clock acceptance passed 84 checks across 14 samples, retaining the first-screen actions. Zero runtime errors. These are Chromium emulation checks, not physical-device or hosted customer-account acceptance.
+
+Actual installed Excel opened synthetic Payroll workbooks for an eight-column job breakdown and a two-column long-title layout, plus a saved-report fixture with long metadata and multiline content. Five rendered PDF pages were visually inspected. Explicit wrapping and marked abbreviation preserve readable layout while original evidence sheets retain full values. The single-page snapshot visual fixture does not prove all multipage layouts; an OOXML regression verifies that only the column header row repeats. Maximum-row worker, size, expiry and access-revocation regressions remain in the automated suite.
+
+Initial checks found a foreign-organization test fixture missing its required creator, a preview wrapper widening mobile Payroll, narrow workforce filters exceeding their cell, and a desktop archived checkbox label below the target-size check. These were corrected and rechecked. Browser locator/HTTP-status fixture mistakes were separately corrected; they were not production defects. Source review also required synchronous actor-bound report remounting and query-bound results to prevent stale visible reports after ownership/filter changes. Rounding and source identity/permission checks remain deterministic.
+
+Jev receipts `6b112eac141d4cc5b600a1a19818df0a`, `a553c79b8a6f48afbe8ca064a7545cba`, `0c992a53b11e4a05bb583bd7c60b5408`, `51479030f7204cd8b50ae883ac67d7d9`, `6850fd0155fc4065b1255b5fa1fce023` and `40738a1b8009400780c12b3100522c33` supported bounded evidence selection and invariant screening. Findings were hypotheses independently verified against source, tests and rendered artifacts. See [TypeSafe's progressive selection pattern](https://docs.typesafe.ai/cookbooks/skill_suggestion). No production records or customer credentials were used.
+
+Publication/deployment evidence will be recorded after the exact staged source passes hosted checks.
+
 ## Payroll preparation release - September 24, 2026
 
 The final local suite passed all 976 tests, without failures, cancellations or skips. Production and separately staged builds passed and match entry SHA256 `d0225073126b07537d2fe45de23e2f174f18f3a523613c725a568a930099f772`, release version `7b84fb7847cf6a89e8844c84ce25882228a1abf982291883cde8667b3a097f9b`. The production dependency audit reported zero vulnerabilities at review time. The existing large-entry build warning remains; a passing local build is not a slow-network performance measurement.

@@ -39,11 +39,21 @@ export async function download(path:string,name:string,canPublish?:()=>boolean):
   }
 }
 
-export async function downloadPost(path:string,body:unknown,name:string) {
+export function downloadPost(path:string,body:unknown,name:string):Promise<void>;
+export function downloadPost(path:string,body:unknown,name:string,canPublish:()=>boolean):Promise<boolean>;
+export async function downloadPost(path:string,body:unknown,name:string,canPublish?:()=>boolean):Promise<void|boolean> {
  const finish = beginWrite('POST');
+ const mayPublish=canPublish??(()=>true);
  try {
  const response=await fetch(`/api${path}`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});
+ if(!mayPublish())return false;
  if(!response.ok)throw await responseError(response,'Download failed.');
- const url=URL.createObjectURL(await response.blob()),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ const blob=await response.blob();if(!mayPublish())return false;
+ const url=URL.createObjectURL(blob);let published=false;
+ try {
+   const link=document.createElement('a');link.href=url;link.download=name;
+   if(!mayPublish())return false;
+   link.click();published=true;return canPublish?true:undefined;
+ } finally {if(published)setTimeout(()=>URL.revokeObjectURL(url),1000);else URL.revokeObjectURL(url);}
  } finally { finish(); }
 }

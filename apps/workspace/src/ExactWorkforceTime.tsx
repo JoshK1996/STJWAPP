@@ -1,3 +1,4 @@
+import {formatReportHours} from '../shared/report-presentation';
 import {formatWorkforceDuration,exactWorkforceTimestamp} from '../shared/workforce-display';
 import './exact-workforce-time.css';
 
@@ -25,4 +26,8 @@ export function WorkforcePrecisionEvidence({asOf,zone,provenance}:{asOf:string;z
   <p>Recorded work: <ExactWorkforceDuration value={provenance.workMicroseconds}/> · Recorded breaks: <ExactWorkforceDuration value={provenance.breakMicroseconds}/></p>
   <details><summary>Exact source timestamps and units</summary><p>UTC range: <code>{provenance.range.from}</code> through <code>{provenance.range.toExclusive}</code> (end excluded).</p><p>Source observation: <code>{asOf}</code> · Timezone: {zone} · Precision version 2 · Duration unit: microsecond.</p></details>
  </div>;
+}
+
+export function ReadableWorkforceDuration({value}:{value:string}){
+ return <span className="exact-workforce-time" title={formatWorkforceDuration(value)} aria-label={`${formatReportHours(value)} hours, rounded for display. Exact duration: ${formatWorkforceDuration(value,true)}`}>{formatReportHours(value)} h</span>;
 }

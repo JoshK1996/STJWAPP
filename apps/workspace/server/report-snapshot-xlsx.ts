@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { addReadableSnapshotSheet } from "./report-readable-sheet";
 import { Writable } from "node:stream";
 import { createHash } from "node:crypto";
 import { snapshotEnvelopeSchema } from "../shared/report-snapshots";
@@ -51,7 +52,7 @@ export async function serializeSnapshotXlsx(raw: SnapshotXlsxInput, maxBytes?: n
   const headers = data.columns.map(c => xlsxText(c.label));
   for (const row of data.rows) for (const column of data.columns) scalar(row[column.key]);
   const metadata: Record<string, unknown> = {
-    export_format_version: "1", writer: "exceljs 4.4.0", artifact_kind: "Derived workbook; original JSON/CSV remain the retained artifacts",
+    export_format_version: "2", writer: "exceljs 4.4.0", artifact_kind: "Derived workbook; original JSON/CSV remain the retained artifacts",
     snapshot_id: envelope.id, report_id: data.reportId, report_version: data.reportVersion,
     envelope_schema_version: envelope.schemaVersion, data_schema_version: data.schemaVersion, source: data.source,
     name: data.name, description: data.description, as_of: data.asOf, source_read_started_at: data.sourceReadStartedAt,
@@ -78,10 +79,11 @@ export async function serializeSnapshotXlsx(raw: SnapshotXlsxInput, maxBytes?: n
   // Register before ExcelJS begins writing. Consume all error branches, including an early stream failure.
   let failure: unknown;
   sink.on("error", error => { failure = error; });
-  const book = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: sink, useSharedStrings: false, useStyles: false });
+  const book = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: sink, useSharedStrings: false, useStyles: true });
   const failurePromise = new Promise<never>((_, reject) => sink.once("error", reject));
   void failurePromise.catch(() => {});
   try {
+    addReadableSnapshotSheet(book, data, xlsxText);
     const sheet = book.addWorksheet("Data", { views: [{ state: "frozen", ySplit: 1 }] });
     sheet.columns = data.columns.map(() => ({ width: 26 }));
     sheet.addRow(headers).commit();
