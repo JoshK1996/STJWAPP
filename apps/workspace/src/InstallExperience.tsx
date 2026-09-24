@@ -1,6 +1,8 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {ArrowDownToLine,Check,Download,Ellipsis,ExternalLink,Plus,RefreshCw,Share,Smartphone,Wifi} from 'lucide-react';
 import {Modal} from './components';
+import {APP_BUILD_VERSION} from './pwa-runtime';
 import './install-experience.css';
 
 type NativeInstallEvent=Event & {
@@ -97,7 +99,8 @@ export function InstallExperience({experience,update,onReload,onCheckForUpdate,r
   },[showUpdate,showPromotion,collapsed]);
   const blockedReason=!online?'Reconnect to the internet before updating.':reloadBlockedReason;
   return <>
-    {(showUpdate||showPromotion)&&<div className="install-reserved-space" style={{height:bannerHeight}} aria-hidden="true"/>}
+    {/* App uses a horizontal flex shell. Reserve document space outside that shell. */}
+    {(showUpdate||showPromotion)&&createPortal(<div className="install-reserved-space" style={{height:bannerHeight}} aria-hidden="true"/>,document.body)}
     {showUpdate?<aside ref={banner} className={'install-notice update-notice'+(collapsed?' install-notice-collapsed':'')} aria-label="App update">
       {collapsed?<button type="button" className="install-update-chip" onClick={()=>setCollapsed(false)}><RefreshCw size={18}/><span>Update available</span></button>:<>
         <span className="install-notice-symbol" aria-hidden="true"><RefreshCw size={23}/></span>
@@ -121,7 +124,7 @@ export function InstallExperience({experience,update,onReload,onCheckForUpdate,r
         {experience.message&&<p className="install-feedback" role="status">{experience.message}</p>}
         <div className="install-connection"><Wifi size={17}/><p>Internet is required to sign in, clock in or out, and save changes.</p></div>
         <section className="install-update-settings" aria-labelledby="install-update-heading"><div><h3 id="install-update-heading">App updates</h3><p>{update.available?'A newer version is available. Close this panel to review the update prompt.':'STJW checks for new versions when you open or return to the app.'}</p></div><button type="button" className="install-secondary" disabled={update.checking||!online} onClick={()=>{setChecked(true);onCheckForUpdate();}}><RefreshCw size={15}/>{update.checking?'Checking…':'Check for updates'}</button>
-          {(update.error||(checked&&!update.checking&&!update.available))&&<p className="install-check-result" role="status">{update.error||(update.latestVersion?'You’re using the latest version available from the server.':'A version check has not completed. Try again when connected.')}</p>}
+          {(update.error||(checked&&!update.checking&&!update.available))&&<p className="install-check-result" role="status">{update.error||(update.latestVersion?'You’re using the latest version available from the server.':APP_BUILD_VERSION==='development'?'Update checks are available in deployed builds.':'A version check has not completed. Try again when connected.')}</p>}
         </section>
       </div>
     </Modal>}

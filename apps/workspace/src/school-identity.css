@@ -26,7 +26,9 @@
  .campus-crest-tile img{width:37px;height:42px}
 }
 @media(max-width:380px){.auth-campus.campus-photography{height:168px}.auth-story:has(.campus-photography) .auth-message h1{font-size:27px}}
-@media(prefers-reduced-motion:reduce){.campus-crest-tile{transform:none}}
+@media(prefers-reduced-motion:reduce){.campus-crest-tile,.campus-photography .art-image-layer{transform:none}.campus-photography .art-rig{transform-style:flat}}
+[data-reduced-motion="true"] .campus-photography .art-image-layer,[data-reduced-motion="true"] .campus-crest-tile{transform:none}
+[data-reduced-motion="true"] .campus-photography .art-rig{transform-style:flat}
 
 .campus-crest-tile{z-index:3}
 .auth-install-entry{margin-top:16px}
