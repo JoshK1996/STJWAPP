@@ -64,7 +64,8 @@ export function allowedPublicationPath(file) {
   if (/^tests\/[a-z0-9][a-z0-9-]*\.test\.(?:ts|mjs)$/.test(file)) return true;
   if (/^scripts\/[a-z0-9][a-z0-9-]*\.(?:ts|mjs|ps1|py)$/.test(file)) return true;
   if (/^docs\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.md$/.test(file) || file === 'docs/openapi.json') return true;
-  if (file === 'public/fonts.css' || /^public\/art\/stjw-(?:community|day)\.(?:png|webp)$/.test(file)) return true;
+  if (file === 'public/fonts.css' || file === 'public/manifest.webmanifest' || /^public\/art\/stjw-(?:community|day)\.(?:png|webp)$/.test(file)) return true;
+  if (['public/art/school-front.webp', 'public/art/school-front-640.webp', 'public/art/chapel-window.webp', 'public/art/school-crest.png', 'public/icons/stjw-192.png', 'public/icons/stjw-512.png', 'public/icons/stjw-maskable-512.png', 'public/icons/apple-touch-icon.png'].includes(file)) return true;
   if (/^integrations\/mcp\/(?:package(?:-lock)?\.json|tsconfig\.json|README\.md|\.gitignore)$/.test(file)) return true;
   if (/^integrations\/mcp\/(?:src|tests|scripts)\/[a-z0-9][a-z0-9-]*(?:\.test)?\.(?:ts|mjs)$/.test(file)) return true;
   return false;

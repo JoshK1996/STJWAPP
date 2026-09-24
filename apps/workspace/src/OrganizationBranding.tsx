@@ -39,7 +39,7 @@ function StylePreview({ settings, dark }: { settings: OrganizationBrandingSettin
   return <div className={`branding-preview ${dark ? 'is-dark' : ''} ${settings.depth ? 'has-depth' : ''}`} style={{ '--branding-color': color } as CSSProperties} data-artwork-preview={settings.artwork} aria-label={`${dark ? 'Dark' : 'Light'} organization style preview`}>
     <div className="branding-preview-identity"><span className="branding-preview-mark"><Church size={23} /></span><span><strong>{settings.shortName || 'Short name'}</strong><small>COMMUNITY WORKSPACE</small></span></div>
     <h3>{settings.displayName || 'Display name'}</h3><p>{settings.subtitle}</p>
-    <div className="branding-preview-scene">{settings.artwork !== 'none' && <img src="/art/stjw-day.webp" alt="" aria-hidden="true" />}<div><span>YOUR SHARED STARTING POINT</span><strong>A clear view of the day.</strong><p>Time, people and community, together.</p></div></div>
+    <div className="branding-preview-scene">{settings.artwork !== 'none' && <img src="/art/school-front-640.webp" alt="" aria-hidden="true" />}<div><span>YOUR SHARED STARTING POINT</span><strong>A clear view of the day.</strong><p>Time, people and community, together.</p></div></div>
     <div className="branding-preview-cards" aria-hidden="true"><span>My time clock<i /></span><span>Community calendar<i /></span></div>
     <p className="branding-preview-caption">Preview only · Each person chooses whether to adopt this style.</p>
   </div>;

@@ -1,5 +1,5 @@
 import Organization from "./Organization";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   Check,
   KeyRound,
@@ -20,11 +20,13 @@ export default function Settings({
   notify,
   onChange,
   branding, reloadBranding, onSessionExpired, isSessionCurrent, onDirty,
+  appEntry,
 }: BrandingAccess & {
   me: any;
   notify: (text: string, error?: boolean) => void;
   onChange: (preferences?: Preferences) => Promise<void>;
   onDirty: (value: boolean) => void;
+  appEntry?: ReactNode;
 }) {
   const [personalDirty, setPersonalDirty] = useState(false), [brandingDirty, setBrandingDirty] = useState(false);
   const personalChanged = useCallback((value: boolean) => setPersonalDirty(value), []);
@@ -81,6 +83,7 @@ export default function Settings({
   }
   return (
     <>
+      {appEntry && <Panel title="STJW on your device" detail="Add a Home Screen icon and check for the latest app improvements.">{appEntry}</Panel>}
       <Personalization me={me} notify={notify} onChange={onChange} branding={branding} reloadBranding={reloadBranding} onSessionExpired={onSessionExpired} isSessionCurrent={isSessionCurrent} onDirty={personalChanged} />
       {me.permissions.owner && <OrganizationBranding branding={branding} reloadBranding={reloadBranding} onSessionExpired={onSessionExpired} isSessionCurrent={isSessionCurrent} onDirty={brandingChanged} />}
       <Authenticator notify={notify} onChange={onChange}/>

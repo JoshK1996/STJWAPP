@@ -17,3 +17,6 @@ The visual direction is a colorful dimensional dashboard with interactive charts
 Server-verified accounts and organization scope control every action. Code owns authorization, arithmetic, validation, execution and audit writes. AI may advise mappings/classifications; it cannot grant access, approve pay or release a child. Preserve exact history and immutable migrations.
 
 Use focused branches, passing CI, review and ADRs. Deploy an exact reviewed manifest after separate database maintenance; the web runtime never migrates production. See [development](DEVELOPMENT.md), [database operations](DATABASE-OPERATIONS.md), [status](STATUS.md) and [remaining scope](REMAINING-SCOPE.md).
+
+
+Next resume: finish the locally implemented school imagery/install/update release on `codex/install-school-identity`. Read the September24 saved-work section in STATUS before continuing; it lists verification and the remaining visual correction. Do not treat this branch as already deployed.

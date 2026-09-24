@@ -13,4 +13,6 @@ import './care.css';
 import './dismissal.css';
 import './experience-polish.css';
 import './mobile-refinements.css';
+import './school-identity.css';
+import './install-experience.css';
 createRoot(document.getElementById('root')!).render(<App/>);

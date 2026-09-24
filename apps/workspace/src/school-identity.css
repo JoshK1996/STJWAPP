@@ -1,0 +1,32 @@
+/* Institutional photography is framed by the interface; the place is never invented. */
+.campus-photography .art-image-layer{inset:16px 12px 25px;border:6px solid color-mix(in srgb,var(--surface,#fff) 94%,transparent);border-radius:22px;overflow:hidden;background:#e9eff2;box-shadow:0 9px 0 color-mix(in srgb,var(--scene-color,#526783) 25%,#d4dce5),0 22px 36px #17294b26}
+.campus-photography .art-image-layer img{object-fit:cover;filter:none;transform:none}
+.campus-photography.art-day .art-image-layer img{object-position:center 44%}
+.campus-photo-caption{position:absolute;bottom:0;left:0;right:0;padding:26px 14px 12px;background:linear-gradient(transparent,#101a2bed);color:#fff;font-size:11px;font-weight:750;line-height:1.4;text-shadow:0 1px 2px #000;letter-spacing:.2px}
+.campus-crest-tile{position:absolute;right:0;top:0;display:grid;place-items:center;width:61px;height:68px;border:4px solid #fff;border-radius:15px;background:#fff;box-shadow:0 5px 0 #bdc7da,0 10px 22px #1123442b;transform:translateZ(48px) rotate(7deg)}
+.campus-crest-tile img{width:46px;height:50px;object-fit:contain}
+.campus-photography .art-orbit{opacity:.35}
+.community-card-art.campus-photography .art-image-layer{inset:4px 6px 15px}
+.community-card-art .campus-photo-caption{font-size:9px;padding:18px 8px 8px}
+.community-card-art .campus-crest-tile{width:38px;height:44px;border-width:2px;right:-3px;top:-3px}
+.community-card-art .campus-crest-tile img{width:28px;height:33px}
+.auth-campus.campus-photography{margin:16px 0 12px;height:clamp(245px,26vw,390px)}
+.auth-campus.campus-photography .art-image-layer{inset:12px 8px 22px}
+.branding-preview-scene>img{object-fit:cover;border-radius:12px}
+[data-artwork="subtle"] .campus-crest-tile{display:none}
+[data-depth="false"] .campus-photography .art-image-layer{box-shadow:none}
+[data-depth="false"] .campus-crest-tile{transform:none;box-shadow:none}
+@media(max-width:720px){
+ .auth-story .auth-message:has(.campus-photography){min-height:0;padding-top:20px}
+ .auth-campus.campus-photography{position:relative;right:auto;bottom:auto;width:100%;height:200px;margin:10px 0 0;opacity:1}
+ .auth-campus.campus-photography .art-image-layer{inset:8px 0 18px}
+ .auth-story:has(.campus-photography) .auth-message h1{max-width:none;font-size:32px;line-height:1.13}
+ .campus-photo-caption{font-size:10px}
+ .campus-crest-tile{width:49px;height:55px;right:2px;top:0}
+ .campus-crest-tile img{width:37px;height:42px}
+}
+@media(max-width:380px){.auth-campus.campus-photography{height:168px}.auth-story:has(.campus-photography) .auth-message h1{font-size:27px}}
+@media(prefers-reduced-motion:reduce){.campus-crest-tile{transform:none}}
+
+.campus-crest-tile{z-index:3}
+.auth-install-entry{margin-top:16px}
