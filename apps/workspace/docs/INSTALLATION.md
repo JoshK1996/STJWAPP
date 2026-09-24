@@ -8,7 +8,7 @@ Open the live STJW site in the device's browser. Use **Install app** at sign-in 
 
 - **Android:** When the browser supplies a native installation prompt, the app's install button opens it. Otherwise, open the browser menu and choose **Install app** or **Add to Home screen**, then follow the browser's confirmation steps. Available options vary by browser and device management.
 - **iPhone or iPad:** Open **Share** in the browser; in Safari this can be inside the Page Menu. Choose **Add to Home Screen**, keep **Open as Web App** enabled if offered, then tap **Add**. If the action is missing in Safari, use **Edit Actions** in the share menu. Safari is the fallback when another browser does not offer the action. iOS does not expose the Chromium native install prompt to this app.
-- **Desktop:** Supported Chrome/Edge browsers offer an install control or browser-menu action. Supported Safari on Mac offers **File → Add to Dock**. Other browsers can offer a shortcut instead.
+- **Desktop:** Supported Chrome/Edge browsers offer an install control or browser-menu action. Supported Safari on Mac offers **File â†’ Add to Dock**. Other browsers can offer a shortcut instead.
 
 Apple documents the [iPhone share-menu steps](https://support.apple.com/guide/iphone/bookmark-a-website-iph42ab2f3a7/ios). WebKit documents [third-party browser share-menu support from iOS/iPadOS 16.4](https://webkit.org/blog/13966/webkit-features-in-safari-16-4/). Google documents the [native install event, single-use prompt and installed-display detection](https://web.dev/articles/customize-install).
 
@@ -20,9 +20,9 @@ An installed window hides redundant installation suggestions; its persistent ent
 
 The client compares its build fingerprint with a small same-origin version document at startup, on returning to the app or reconnecting, and periodically while visible. Checks are best effort and need a network connection; mobile operating systems can suspend background pages. A deployment is detected after the new version becomes available from the server, rather than merely when source is pushed to GitHub.
 
-An available release produces a bottom **New version ready** prompt with **Reload to update**. **Later** collapses it into an **Update available** button. The app never reloads automatically. The application blocks reload while there are unfinished changes, a clock command needing reconciliation, an active save, or another protected workflow. Finish or resolve that work first. A recorded ongoing shift remains on the server across a normal reload; an unconfirmed command must be resolved first.
+An available release produces a bottom **New version ready** prompt with **Reload to update**. On the compact clock page it initially appears as an **Update available** chip; tap the chip to expand the prompt. The optional automatic install suggestion is suppressed on that clock layout, while the persistent installation entry remains available. **Later** collapses it into an **Update available** button. The app never reloads automatically. The application blocks reload while there are unfinished changes, a clock command needing reconciliation, an active save, or another protected workflow. Finish or resolve that work first. A recorded ongoing shift remains on the server across a normal reload; an unconfirmed command must be resolved first.
 
-**App & updates / Install app → Check for updates** provides an explicit check. An unsuccessful check shows an error rather than claiming the app is current. An offline device cannot update. Build fingerprints are technical metadata and are not shown in the normal installation flow.
+**App & updates / Install app â†’ Check for updates** provides an explicit check. An unsuccessful check shows an error rather than claiming the app is current. An offline device cannot update. Build fingerprints are technical metadata and are not shown in the normal installation flow.
 
 For this first update-monitor release, finish pending work and refresh older open tabs once. An older client cannot discover updates until it receives the monitor. Later compatible deployed releases can then show the update prompt.
 
