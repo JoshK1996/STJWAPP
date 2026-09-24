@@ -14,7 +14,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
+import { installPublicWeb } from './web-static';
 import type { Database } from './db';
 import { installAuth, type AppRequest } from './auth';
 import { audit, canReport, digest, manages, opaqueToken, orgWide, Problem, requireCondition } from './security';
@@ -189,8 +189,7 @@ export function createApp(db: Database, config: AppConfig) {
   installGradeImports(app,db);
   installOrganization(app,db);
   app.use('/api',(_req,res)=>res.status(404).json({error:'Endpoint not found.'}));
-  app.use(express.static(resolve('dist'),{index:false,maxAge:'1h'}));
-  app.get('/{*path}',(_req,res)=>{res.set('Cache-Control','no-cache');res.sendFile(resolve('dist/index.html'));});
+  installPublicWeb(app);
   app.use((error:any,_req:Request,res:Response,_next:NextFunction)=>{
     if(error instanceof z.ZodError) return res.status(400).json({error:error.issues.map(x=>`${x.path.join('.')}: ${x.message}`).join('; ')});
     if(error instanceof Problem)return res.status(error.status).json({error:error.message});

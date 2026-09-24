@@ -5,6 +5,7 @@ import {
   useRef,
   lazy,
   Suspense,
+  useSyncExternalStore,
   type FormEvent,
 } from "react";
 import { DateTime } from "luxon";
@@ -63,6 +64,10 @@ import "./workforce-shell.css";
 import {WorkspaceTools,type TeamBoardState} from "./WorkspaceTools";
 import "./experience-polish.css";
 import Settings from "./Settings";
+import { InstallEntry, InstallExperience, useInstallExperience } from './InstallExperience';
+import { createUpdateMonitor, type UpdateState } from './pwa-runtime';
+import { getPendingWriteCount, subscribePendingWrites } from './pending-writes';
+import { updateBlockReason } from '../shared/update-safety';
 const Calendar = lazy(() => import("./Calendar"));
 const Messages = lazy(() => import("./Messages"));
 const School = lazy(() => import("./School"));
@@ -122,6 +127,15 @@ const dateText = (value: string) =>
   DateTime.fromISO(value).setZone(zone).toFormat("LLL d, h:mm a");
 const dateOnly = (value: string) => value.slice(0, 10);
 export default function App() {
+  const installExperience = useInstallExperience();
+  const [appUpdate, setAppUpdate] = useState<UpdateState>({ available: false, checking: false, error: null, latestVersion: null });
+  const updateMonitor = useRef<ReturnType<typeof createUpdateMonitor> | null>(null);
+  const pendingWrites = useSyncExternalStore(subscribePendingWrites, getPendingWriteCount, getPendingWriteCount);
+  useEffect(() => {
+    const monitor = createUpdateMonitor({ onChange: setAppUpdate });
+    updateMonitor.current = monitor;
+    return () => { monitor.dispose(); updateMonitor.current = null; };
+  }, []);
   const sessionEpoch = useRef(0);
   const workspaceEpoch = sessionEpoch.current;
   const sidebarRef = useRef<HTMLElement>(null), navigationToggleRef = useRef<HTMLButtonElement>(null), mainRef = useRef<HTMLElement>(null);
@@ -374,6 +388,28 @@ export default function App() {
       if (sessionEpoch.current === workspaceEpoch) setBusy(false);
     }
   }
+  function reloadForUpdate(): string | void {
+    // Recheck at the click boundary; an action may have begun since the last render.
+    const controls = Array.from(document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('form input,form textarea,form select'));
+    const formHasChanges = controls.some(control => {
+      if (control instanceof HTMLInputElement) {
+        if (['hidden', 'submit', 'button', 'reset'].includes(control.type)) return false;
+        if (['checkbox', 'radio'].includes(control.type)) return control.checked !== control.defaultChecked;
+        return control.closest('.auth-layout') ? control.value !== '' : control.value !== control.defaultValue;
+      }
+      if (control instanceof HTMLTextAreaElement) return control.value !== control.defaultValue;
+      const defaults = Array.from(control.options).filter(option => option.defaultSelected);
+      const expected = defaults.length ? defaults.map(option => option.value) : control.multiple ? [] : [control.options[0]?.value];
+      return JSON.stringify(Array.from(control.selectedOptions).map(option => option.value)) !== JSON.stringify(expected);
+    });
+    const workflowOpen = Array.from(document.querySelectorAll('dialog[open],[aria-modal="true"]')).some(dialog => !dialog.querySelector('.install-guide'));
+    const reason = updateBlockReason({ pendingWrites: getPendingWriteCount(), clockPending: clockPendingRef.current, unsavedChanges, busy, workflowOpen, formHasChanges, accountSetup: Boolean(document.querySelector('.auth-layout[data-account-workflow="true"]')) });
+    if (reason) return reason;
+    if (!navigator.onLine) return 'Reconnect to the internet before updating.';
+    if (!appUpdate.available) return 'Check for updates again before reloading.';
+    window.location.reload();
+  }
+  const updateNotice = <InstallExperience experience={installExperience} update={appUpdate} onReload={reloadForUpdate} onCheckForUpdate={() => { void updateMonitor.current?.check(); }} reloadBlockedReason={updateBlockReason({ pendingWrites, clockPending, unsavedChanges, busy, workflowOpen: false, formHasChanges: false, accountSetup: false })} />;
   function go(next: Page) {
     if (next === page) { if (mobile) setMobile(false); return true; }
     if (clockPendingRef.current) {
@@ -474,13 +510,17 @@ export default function App() {
     );
   if (!me)
     return (
+      <>
       <Auth
         setupToken={setupToken}
+        appEntry={<InstallEntry experience={installExperience} />}
         onSignedIn={() => {
           setSetupToken("");
           void loadMe();
         }}
       />
+      {updateNotice}
+      </>
     );
   const firstName = me.actor.name.split(" ")[0];
   const workspaceIdentity = me.actor.mode !== 'pin' && branding.status === 'ready' && branding.current ? branding.current.settings : unconfiguredBrandingSettings;
@@ -693,6 +733,7 @@ export default function App() {
           </div>
           <div className="top-actions">
             <WorkspaceTools key={`${me.actor.org_id}:${me.actor.id}:${me.actor.mode}`} me={me} onNavigate={go}/>
+            <InstallEntry experience={installExperience} compact />
             {me.permissions.report && (
               <label className="search">
                 <Search size={16} />
@@ -1440,6 +1481,7 @@ export default function App() {
           {page === "settings" && (
             <Settings
               me={me}
+              appEntry={<InstallEntry experience={installExperience} />}
               notify={notify}
               branding={branding}
               reloadBranding={reloadBranding}
@@ -1468,6 +1510,7 @@ export default function App() {
           </footer>
         </main>
       </div>
+      {updateNotice}
       {toast && (
         <div
           role={toast.error ? "alert" : "status"}

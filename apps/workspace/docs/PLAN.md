@@ -17,3 +17,6 @@ The visual direction is a colorful dimensional dashboard with interactive charts
 Server-verified accounts and organization scope control every action. Code owns authorization, arithmetic, validation, execution and audit writes. AI may advise mappings/classifications; it cannot grant access, approve pay or release a child. Preserve exact history and immutable migrations.
 
 Use focused branches, passing CI, review and ADRs. Deploy an exact reviewed manifest after separate database maintenance; the web runtime never migrates production. See [development](DEVELOPMENT.md), [database operations](DATABASE-OPERATIONS.md), [status](STATUS.md) and [remaining scope](REMAINING-SCOPE.md).
+
+
+Presentation priority: deliver the verified school imagery/install/update release, then rehearse [the employee and accountant walkthrough](PRESENTATION-DAY.md). Record actual deployment and acceptance in STATUS and VALIDATION. Confirm phone installation on the organization's physical devices before a wider rollout. Resume broader work from REMAINING-SCOPE after the presentation; do not infer payroll or school policy from demonstration data.

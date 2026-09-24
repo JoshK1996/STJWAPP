@@ -1,3 +1,4 @@
+import { beginWrite } from './pending-writes';
 let csrf='';
 export class ApiError extends Error {
   constructor(message:string,readonly status:number,readonly details?:unknown){super(message);this.name='ApiError';}
@@ -11,9 +12,12 @@ async function responseError(response:Response,fallback:string):Promise<ApiError
 }
 export function setCsrf(value:string){csrf=value;}
 export async function api<T=any>(path:string,body?:unknown,method=body===undefined?'GET':'POST',signal?:AbortSignal):Promise<T> {
+  const finish = beginWrite(method);
+  try {
   const response=await fetch(`/api${path}`,{method,credentials:'same-origin',headers:body===undefined?{}:{'Content-Type':'application/json','X-CSRF-Token':csrf},...(body===undefined?{}:{body:JSON.stringify(body)}),...(signal?{signal}:{})});
   if(!response.ok)throw await responseError(response,'Something went wrong. Please try again.');
-  return response.json();
+  return await response.json();
+  } finally { finish(); }
 }
 export async function download(path:string,name:string) {
   const response=await fetch(`/api${path}`,{credentials:'same-origin'});
@@ -22,7 +26,10 @@ export async function download(path:string,name:string) {
 }
 
 export async function downloadPost(path:string,body:unknown,name:string) {
+ const finish = beginWrite('POST');
+ try {
  const response=await fetch(`/api${path}`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});
  if(!response.ok)throw await responseError(response,'Download failed.');
  const url=URL.createObjectURL(await response.blob()),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ } finally { finish(); }
 }

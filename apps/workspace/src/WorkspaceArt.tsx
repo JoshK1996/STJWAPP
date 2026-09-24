@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { ArrowUpRight, BookOpen, CalendarDays, Sparkles } from "lucide-react";
+import { ArrowUpRight, Sparkles } from "lucide-react";
+import './school-identity.css';
 
 /** Decorative imagery never carries status, permissions, or actionable data. */
 export function WorkspaceArt({
@@ -63,8 +64,7 @@ export function WorkspaceArt({
   if (!visible) return null;
   return (
     <div
-      className={`workspace-art art-${scene} ${className}`}
-      aria-hidden="true"
+      className={`workspace-art campus-photography art-${scene} ${className}`}
       onPointerMove={tilt}
       onPointerLeave={reset}
     >
@@ -73,31 +73,19 @@ export function WorkspaceArt({
       <div className="art-rig" ref={rig}>
         <div className="art-image-layer">
           <img
-            src={`/art/stjw-${scene}.webp`}
-            alt=""
-            width={scene === "day" ? 1254 : 1536}
-            height={scene === "day" ? 1254 : 1024}
+            src={scene === 'community' ? '/art/school-front.webp' : '/art/chapel-window.webp'}
+            srcSet={scene === 'community' ? '/art/school-front-640.webp 640w, /art/school-front.webp 1500w' : undefined}
+            sizes={scene === 'community' ? '(max-width: 720px) 90vw, 560px' : undefined}
+            alt={scene === 'community' ? 'The entrance of St. Joseph the Worker School' : 'Stained-glass window in All Saints Chapel at St. Joseph the Worker Church'}
+            width={scene === 'community' ? 1500 : 527}
+            height={scene === 'community' ? 992 : 450}
             decoding="async"
             loading={eager ? "eager" : "lazy"}
             draggable={false}
           />
+          <span className="campus-photo-caption">{scene === 'community' ? 'St. Joseph the Worker School' : 'All Saints Chapel'}</span>
         </div>
-        <div className="art-solid solid-book">
-          {["front", "back", "left", "right", "top", "bottom"].map((face) => (
-            <span className={`solid-face ${face}`} key={face}>
-              {face === "front" && <BookOpen size={24} />}
-            </span>
-          ))}
-        </div>
-        <div className="art-solid solid-calendar">
-          {["front", "back", "left", "right", "top", "bottom"].map((face) => (
-            <span className={`solid-face ${face}`} key={face}>
-              {face === "front" && <CalendarDays size={22} />}
-            </span>
-          ))}
-        </div>
-        <span className="art-pearl pearl-one" />
-        <span className="art-pearl pearl-two" />
+        <span className="campus-crest-tile" aria-hidden="true"><img src="/art/school-crest.png" width="332" height="359" alt="" /></span>
       </div>
     </div>
   );

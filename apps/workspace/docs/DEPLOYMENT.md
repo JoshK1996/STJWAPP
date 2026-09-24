@@ -25,3 +25,11 @@ Record commit, manifest hash, deployment ID, schema version and actual evidence 
 Deployment `f2d4d531-c9de-4a4f-9e6f-5f40e24b5131` is live, verified September 24, 2026 UTC. Schema 033 remains unchanged. The exact 270-file production source manifest is `5bc763dd7730896f31b3c9bdc4813c73a5c1ce9328b15efef7385c529fb25898`; runtime bytes match source commit `7952abbd2bebe62ab3bfd46f2f48cbdd3eb76e16`.
 
 The deployed entry assets are `/assets/index-BkK7F96v.js` and `/assets/index-VCMd9LFC.css`. Public hosted checks passed 12 checks, two exact asset comparisons and 52 anonymous protected GET denials with zero unexpected console/runtime errors. These are public checks, separate from the 41 local normal-authentication workflow checks and 85 responsive samples. Customer credentials were not used for acceptance.
+
+## Verified presentation release
+
+Deployment `c0bfd6e2-e95a-4b56-bac9-28a463d26fd5` is live, verified September 24, 2026 UTC. Separate maintenance dry-run and commit both passed with schema 033 unchanged. The web role remains restricted; no migration, seed or credential change was performed by the web service. Temporary SSH maintenance registration was revoked.
+
+All 287 production source entries match commit `415cb65be54b4149236a644a048555e218e8c456`; manifest SHA256 is `4636f022fa3cd48e760eed3e6223a58a10f284e2f83b065a497907b3789bb643`. Build version is `378251467fb8596c3933744bcd142c12ed00fe026a8e0a1f6c1a589b85f08e7f`; entry SHA256 is `0ea9424d5e7a847071768eb560e92ecff7a4436efeb3aa61d525ac24acf2c3b8`. Public acceptance passed 34 checks, 12 exact asset comparisons and 52 protected anonymous denials with zero unexpected console/runtime errors. See VALIDATION for local workflow evidence and physical-device limitations.
+
+Older tabs must refresh once after finishing pending work to receive the first update monitor. Later compatible deployments can display guarded update prompts. A GitHub push/merge alone does not change the hosted app.

@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowRight,
   Church,
@@ -15,9 +15,11 @@ import "./temporary-credentials.css";
 export default function Auth({
   onSignedIn,
   setupToken,
+  appEntry,
 }: {
   onSignedIn: () => void;
   setupToken: string;
+  appEntry?: ReactNode;
 }) {
   const [mode, setMode] = useState<"password" | "pin">("password");
   const [error, setError] = useState("");
@@ -70,7 +72,7 @@ export default function Auth({
     }
   }
   return (
-    <div className="auth-layout">
+    <div className="auth-layout" data-account-workflow={Boolean(setupToken || challenge || credentialChange)}>
       <section className="auth-story">
         <div className="auth-brand">
           <span className="brand-mark">
@@ -267,6 +269,7 @@ export default function Auth({
           <div className="auth-demo">
             DEMONSTRATION WORKSPACE <span>Synthetic records for testing</span>
           </div>
+          {appEntry && <div className="auth-install-entry">{appEntry}</div>}
         </div>
       </section>
     </div>
