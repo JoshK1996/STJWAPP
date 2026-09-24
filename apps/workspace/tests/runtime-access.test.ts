@@ -59,6 +59,17 @@ before(async () => {
 after(async () => {
   await db?.close();
 });
+test('runtime accounting startup detects disabled evidence triggers and missing transition privileges',async()=>{
+ for(const [table,privilege] of [['accounting_payroll_runs','UPDATE'],['accounting_budgets','UPDATE'],['accounting_journal_lines','DELETE'],['accounting_bank_matches','DELETE']]){
+  await db.query(`REVOKE ${privilege} ON ${table} FROM stjw_runtime`);
+  try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}
+  finally{await db.query(`GRANT ${privilege} ON ${table} TO stjw_runtime`);}
+ }
+ await db.query('ALTER TABLE accounting_commands DISABLE TRIGGER immutable_accounting_commands');
+ try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}
+ finally{await db.query('ALTER TABLE accounting_commands ENABLE TRIGGER immutable_accounting_commands');}
+ await runtime(async()=>{await assertRuntimeAccess(db);});
+});
 async function runtime(fn: () => Promise<void>) {
   await db.query("SET SESSION AUTHORIZATION stjw_runtime");
   try {
@@ -69,7 +80,7 @@ async function runtime(fn: () => Promise<void>) {
 }
 test("the restricted runtime identity can verify the schema without migration privileges", async () => {
   await runtime(async () => {
-    assert.equal(await verifySchema(db), 34);
+    assert.equal(await verifySchema(db), 37);
     const access = await assertRuntimeAccess(db);
     assert.equal(access.role, "stjw_runtime");
     assert.equal(access.login, "stjw_runtime");

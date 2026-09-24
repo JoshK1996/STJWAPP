@@ -2,6 +2,16 @@
 
 The app is a live synthetic demonstration workspace. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
 
+## Accounting workflows — September 24, 2026
+
+Implemented in the current branch: exact ledger and configurable starter settings; accounts, funds/programs/grants, periods, balanced posting and linked reversals; ledger-backed financial statements and styled Excel; bills/invoices, credits, refunds and externally recorded payments; bank CSV preview, grouped matching and immutable reconciliation; approved budget comparisons; and reviewed payroll preparation, accounting posting and recorded net payment. The colorful accounting workspace includes mobile layouts, workflow selection and clear settings guidance. See [ACCOUNTING](ACCOUNTING.md) and [ADR0007](adr/0007-accounting-ledger-and-reviewed-workflows.md).
+
+The owner explicitly selected usable defaults: USD, two decimals, accrual accounting, January 1 fiscal start and all workflows enabled. They remain visibly unreviewed until an authorized accountant saves the settings. The optional starter chart creates no balances or transactions. Historical currency/basis/precision cannot be silently changed after financial records exist.
+
+Local verification passed1,068 application tests, the production build,184 accounting browser checks/42 layouts,58 existing reporting checks/13 layouts and84 clock checks/14 samples. Actual Excel rendered seven synthetic accounting pages, all visually inspected. Production dependencies reported zero vulnerabilities; publication hygiene checked506 files without problems. Deployment is still pending; migrations035–037 are not yet deployed. Hosted evidence will be recorded separately.
+
+Bank feeds, payment transmission, statutory tax calculations/filing, inferred wage/fee rules, automated tuition/childcare billing, donor receipting, automated allocations, currency/basis conversion, multi-entity consolidation and statutory close/disclosures are not implemented by this release. Payroll amounts are accountant-entered/reviewed inputs, not determined legal pay or tax obligations. Customer credentials and real financial data are not used for acceptance.
+
 ## Readable reports - September 24, 2026
 
 Live in deployment `0f53d564-9184-4cb1-a059-e63d2ef773aa`: customizable Payroll Excel/CSV with readable summaries and optional exact audit sheets; reader/audit modes and previews for workforce and Report Library; styled saved-snapshot Excel; and a financial source-report studio with selectable columns, filters, order, precision, interactive group charts and matching CSV/print views. Dashboard totals also use concise hours with exact durations available on hover. Internal IDs and long decimals no longer lead the new readable views. Exact source evidence remains available. See [READABLE-REPORTS](READABLE-REPORTS.md), [REPORT-STUDIO](REPORT-STUDIO.md), [accounting roadmap](FINANCE-ROADMAP.md) and [ADR0006](adr/0006-readable-report-presentations.md).
@@ -10,7 +20,7 @@ The local application suite passed all 1,013 tests; the final export-focused rer
 
 Separate maintenance dry-run and commit passed with schema034 unchanged. All 307 staged runtime files match source commit `665aa1c59757d6607345fbefff4c8fc0e1d1a641`, manifest SHA256 `ff6d3d326b4732b2fa3f160a4d2e03126eb566c3426060f4603efcf71e4f84aa`. Hosted public acceptance passed 34 checks, 12 exact assets and 62 anonymous protected-route denials, with zero unexpected errors. Temporary maintenance access was revoked.
 
-Finance remains a reviewed-source reporting workspace. Ledger posting/closeout, bank reconciliation, AP/AR, tuition billing/payments, funds/grants and payroll calculations remain required future work. All accounting tracks remain in the plan; organization policies are not inferred from vendor features.
+At the readable-reports release, finance remained a reviewed-source reporting workspace. The accounting implementation above now adds manual ledger, reconciliation, AP/AR, dimensions and payroll preparation; automated billing, providers and confirmed wage/tax policy remain separate. All accounting tracks remain in the plan; organization policies are not inferred from vendor features.
 
 ## Payroll preparation - September 24, 2026
 
@@ -38,7 +48,7 @@ GitHub source is organized under `apps/workspace`; the original prototype remain
 
 ## Explicit limitations
 
-Clock duration is not wages. Gross/net pay, overtime, paid breaks, earned PTO, taxes/deductions and payroll closeout remain unfinished. Google sync, external email, parent arrival/geolocation, full accounting and remaining SIS work are not complete. Private finance attachments are paused and excluded.
+Clock duration does not establish wages. Reviewed payroll preparation calculates entered quantities/rates and net pay from entered deductions; overtime, paid-break/leave policy, statutory taxes and provider closeout remain unconfigured. Google sync, external email, parent arrival/geolocation, full accounting and remaining SIS work are not complete. Private finance attachments are paused and excluded.
 
 See [remaining scope](REMAINING-SCOPE.md), [delivery](DEVELOPMENT.md) and [ADRs](adr/README.md). Mocked, local authenticated and hosted checks are distinct evidence and must be reported separately per release.
 

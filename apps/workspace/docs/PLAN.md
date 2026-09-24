@@ -12,7 +12,7 @@ The visual direction is a colorful dimensional dashboard with interactive charts
 4. Extend reporting/import templates and reviewed integrations. Standalone calendar/messaging precede Google services, which need organization configuration and scoped OAuth.
 5. Complete remaining academic, financial, parent and operational requirements before moving sensitive live records.
 
-Current implementation slice: readable, customizable Payroll, workforce, report-library and financial-source exports, with styled Excel summaries and preserved exact audit evidence. All bookkeeping, purchasing and tuition workflows remain in scope; see READABLE-REPORTS and FINANCE-ROADMAP. Preserve the first-screen mobile clock and existing hours exports. See [PAYROLL-PREPARATION](PAYROLL-PREPARATION.md); actual verification and deployment belong in STATUS. Confirmed wage policy, payroll approval/closeout and broader SIS work remain separate requirements.
+Current implementation: the accounting ledger and reviewed manual workflows, including configurable starter settings, journals, financial statements, bills/invoices/credits/recorded payments, bank CSV reconciliation, budgets and payroll preparation. See ACCOUNTING, ADR0007 and FINANCE-ROADMAP. Keep the readable report studio and exact exports available; provider automation and organization policy configuration remain separate. Preserve the first-screen mobile clock and existing hours exports. See [PAYROLL-PREPARATION](PAYROLL-PREPARATION.md); actual verification and deployment belong in STATUS. Confirmed wage policy, payroll approval/closeout and broader SIS work remain separate requirements.
 
 ## Engineering boundaries
 

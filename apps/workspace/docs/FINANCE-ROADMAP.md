@@ -31,7 +31,9 @@ Sage describes a dimensional general ledger, accounts payable/receivable, cash m
 
 These vendor pages describe capabilities, not a verified STJW configuration, a complete competitor audit or a commitment to a specific provider. The following sequencing is our proposed architecture based on those benchmarks and the current source.
 
-## Gaps and dependency plan
+## Earlier gaps and dependency plan
+
+The following table is retained as the pre-ledger baseline. The current accounting implementation adds manual books, AP/AR, bank CSV reconciliation, budgets, payroll preparation and ledger-backed reports; see [ACCOUNTING](ACCOUNTING.md). The release STATUS distinguishes implemented, verified and deployed work. Provider automation, confirmed tax/wage rules and advanced conversion/consolidation remain separate.
 
 | Workstream | Available foundation | Required next work |
 | --- | --- | --- |

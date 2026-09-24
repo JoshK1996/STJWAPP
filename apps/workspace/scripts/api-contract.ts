@@ -267,7 +267,7 @@ add('/school/grade-assignments/{id}/import-previews','get','List personal grade 
 add('/school/grade-imports/{id}','get','Read private score change preview and receipt',gradeImportAccess);
 add('/school/grade-imports/{id}/source','get','Download original imported CSV as text attachment',gradeImportAccess);
 add('/school/grade-imports/{id}/apply','post','Apply reviewed scores atomically with immutable receipt',gradeImportAccess+' Exact source and plan hashes; expires after 24 hours. Retry returns the same receipt. Stale grades, roster changes, duplicate students and incomplete rosters are rejected.',zj(gradeImportApplyInput));
-const financeAccess='Password session; current active owner/admin/finance role. Exact unit and organization scope; previews private to creator. Immutable source versions; no accounting ledger is implemented.';
+const financeAccess='Password session; current active developer/owner/admin/finance role. Exact unit and organization scope; previews private to creator. Immutable imported source versions remain separate from accounting books; publishing a source does not post ledger journals.';
 add('/finance/template','get','Download financial report CSV template',financeAccess,undefined,{csv:true});
 add('/finance/reports','get','List financial report collections',financeAccess,undefined,{query:[q('unitId',uuid,true),q('archived',{type:'string',enum:['true','false']})]});
 add('/finance/previews','post','Preview a financial source or correction',financeAccess,zj(financePreviewInput),{status:201});
@@ -324,4 +324,6 @@ await import('./api-time-adjustments');
 await import('./api-import-workbooks');
 await import('./api-staff-imports');
 await import('./api-organization-branding');
+await import('./api-readable-reports');
+await import('./api-accounting');
 const complete=JSON.parse(await readFile('docs/openapi.json','utf8')); console.log('Complete API inventory: '+Object.keys(complete.paths).length+' paths.');

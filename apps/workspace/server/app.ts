@@ -1,3 +1,7 @@
+import { registerAccountingLedgerRoutes } from './accounting-ledger';
+import { registerAccountingOperationsRoutes } from './accounting-operations';
+import { registerAccountingBankingRoutes } from './accounting-banking';
+import { registerAccountingPlanningRoutes } from './accounting-planning';
 import { installStaffScheduling } from './staff-scheduling';
 import { installScheduleRequests } from './schedule-requests';
 import { installOrganization } from "./organization";
@@ -192,6 +196,10 @@ export function createApp(db: Database, config: AppConfig) {
   installReportLibrary(app,db);
   installReportSnapshots(app,db);
   installFinance(app,db);
+  registerAccountingLedgerRoutes(app,db);
+  registerAccountingOperationsRoutes(app,db);
+  registerAccountingBankingRoutes(app,db);
+  registerAccountingPlanningRoutes(app,db);
   installImportWorkbooks(app,db);
   installCompensation(app,db);
   installCareTransfers(app,db);
