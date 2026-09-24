@@ -1,0 +1,45 @@
+.exact-workforce-time {
+  font: inherit !important;
+  color: inherit !important;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.exact-workforce-export-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.workforce-precision-choice { margin-block: 16px; }
+.workforce-precision-evidence { overflow-wrap: anywhere; }
+.workforce-precision-evidence p { margin-block: 12px; line-height: 1.6; }
+.workforce-precision-evidence summary { cursor: pointer; }
+.exact-workforce-loading { display: block; font-size: .9rem; line-height: 1.5; color: var(--muted); }
+.exact-workforce-chart { height: 214px; }
+.exact-workforce-chart .chart-y {
+  width: 88px;
+  flex: 0 0 88px;
+  padding-bottom: 36px;
+  overflow-wrap: anywhere;
+}
+.exact-workforce-chart .chart-y span { line-height: 1.15; }
+.exact-workforce-chart .exact-workforce-plot-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 36px;
+}
+.exact-workforce-chart .chart-plot { height: 100%; }
+.exact-workforce-chart .chart-bars { gap: 10px; }
+.exact-workforce-chart .chart-bar small { white-space: normal; min-width: 90px; text-align: center; }
+.exact-workforce-periods { margin:16px 24px; }
+.exact-workforce-periods > summary { display:list-item; min-height:44px; padding:12px 0; cursor:pointer; font-weight:600; color:var(--text); }
+.exact-workforce-periods > p { margin:0 0 12px; color:var(--muted); font-size:.9rem; line-height:1.5; }
+.exact-workforce-periods :is(summary,.table-scroll):focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+.exact-workforce-periods tbody th { text-align:left; font-weight:600; white-space:nowrap; color:var(--text); }
+.exact-workforce-export-panel label.check-label { display:flex; flex-direction:row; flex-wrap:nowrap; align-items:flex-start; gap:10px; min-height:44px; padding:8px 0; }
+.exact-workforce-export-panel .check-label input { flex:0 0 18px; width:18px; height:18px; min-height:18px; margin:2px 0 0; }
+.exact-workforce-export-panel .check-label span { flex:1; min-width:0; line-height:1.5; }
+@media (max-width: 540px) {
+  .exact-workforce-report-panel > .panel-heading { flex-direction: column; align-items: stretch; }
+  .exact-workforce-chart { margin-inline: 10px; }
+  .exact-workforce-chart .chart-y { width: 72px; flex-basis: 72px; }
+  .exact-workforce-export-actions { width: 100%; }
+  .exact-workforce-export-actions .button { flex: 1 1 150px; }
+  .exact-workforce-periods { margin-inline:16px; }
+}

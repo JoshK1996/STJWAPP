@@ -1,0 +1,9 @@
+node_modules
+.git
+.reference
+.work
+.local
+.env*
+output
+.playwright-cli
+coverage

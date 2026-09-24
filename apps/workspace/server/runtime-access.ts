@@ -1,0 +1,166 @@
+import type { Queryable } from "./db";
+
+export const runtimeRole = "stjw_runtime";
+// Used only by the privileged maintenance path. No password is part of this
+// source or generated permission plan; provisioning sets it separately.
+export function runtimeGrantsSql() {
+  return `
+DO $$ BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='stjw_runtime') THEN
+  CREATE ROLE stjw_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+ END IF;
+END $$;
+ALTER ROLE stjw_runtime NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 30;
+ALTER ROLE stjw_runtime SET search_path = pg_catalog, public;
+ALTER ROLE stjw_runtime SET statement_timeout = '30s';
+ALTER ROLE stjw_runtime SET lock_timeout = '10s';
+ALTER ROLE stjw_runtime SET idle_in_transaction_session_timeout = '60s';
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname='stjw_runtime')) THEN
+  RAISE EXCEPTION 'Runtime role must not be a member of another role';
+ END IF;
+ EXECUTE format('REVOKE CREATE,TEMPORARY ON DATABASE %I FROM PUBLIC',current_database());
+ EXECUTE format('REVOKE ALL ON DATABASE %I FROM stjw_runtime',current_database());
+ EXECUTE format('GRANT CONNECT ON DATABASE %I TO stjw_runtime',current_database());
+END $$;
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+REVOKE ALL ON SCHEMA public FROM stjw_runtime;
+GRANT USAGE ON SCHEMA public TO stjw_runtime;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM stjw_runtime;
+GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO stjw_runtime;
+REVOKE ALL ON TABLE public.schema_migrations FROM stjw_runtime;
+GRANT SELECT ON TABLE public.schema_migrations TO stjw_runtime;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM stjw_runtime;
+GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO stjw_runtime;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM stjw_runtime;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO stjw_runtime;
+DO $$ DECLARE immutable_table record; BEGIN
+ FOR immutable_table IN
+  SELECT DISTINCT n.nspname,c.relname FROM pg_trigger t
+  JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+  JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+  WHERE n.nspname='public' AND f.nspname='public' AND p.proname='protect_audit_events' AND NOT t.tgisinternal
+ LOOP
+  EXECUTE format('REVOKE UPDATE,DELETE ON TABLE %I.%I FROM stjw_runtime',immutable_table.nspname,immutable_table.relname);
+ END LOOP;
+ FOR immutable_table IN
+  SELECT DISTINCT n.nspname,c.relname FROM pg_trigger t
+  JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+  JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+  WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN ('protect_staff_schedule_request','protect_standing_policy','protect_standing_series','protect_gpa_policy','protect_gpa_series','protect_staff_import','protect_organization_branding') AND NOT t.tgisinternal
+ LOOP
+  EXECUTE format('REVOKE DELETE ON TABLE %I.%I FROM stjw_runtime',immutable_table.nspname,immutable_table.relname);
+ END LOOP;
+END $$;
+`;
+}
+export async function inspectRuntimeAccess(db: Queryable) {
+  const result = (
+    await db.query(`SELECT current_user AS role, session_user AS login,
+    EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) AS elevated,
+    EXISTS(SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname=current_user)) AS memberships,
+    EXISTS(SELECT 1 FROM pg_database WHERE datname=current_database() AND pg_has_role(datdba,'MEMBER')) AS owns_database,
+    EXISTS(SELECT 1 FROM pg_namespace WHERE nspname='public' AND pg_has_role(nspowner,'MEMBER')) AS owns_schema,
+    EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND pg_has_role(c.relowner,'MEMBER')) AS owns_tables,
+    has_database_privilege(current_database(),'CREATE') AS create_schema,
+    has_database_privilege(current_database(),'TEMPORARY') AS create_temp,
+    has_schema_privilege('public','CREATE') AS create_objects,
+    has_table_privilege('public.schema_migrations','INSERT,UPDATE,DELETE,TRUNCATE') AS change_migrations,
+    EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN('r','p') AND has_table_privilege(c.oid,'TRUNCATE,TRIGGER,REFERENCES')) AS dangerous_table_grants,
+    EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN('r','p') AND NOT has_table_privilege(c.oid,'SELECT')) AS missing_table_reads,
+    EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prosecdef) AS unreviewed_definers,
+    EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace WHERE n.nspname='public' AND f.nspname='public' AND p.proname='protect_audit_events' AND NOT t.tgisinternal AND has_table_privilege(c.oid,'UPDATE,DELETE')) AS mutable_immutable_tables,
+    (NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+      JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND c.relname='organization_branding' AND t.tgname='protected_organization_branding'
+        AND NOT t.tgisinternal AND t.tgenabled IN('O','A') AND t.tgtype=31 AND f.nspname='public' AND p.proname='protect_organization_branding')
+      OR has_table_privilege('public.organization_branding','DELETE')
+      OR NOT has_table_privilege('public.organization_branding','INSERT')
+      OR NOT has_table_privilege('public.organization_branding','UPDATE')) AS unprotected_organization_branding,
+    ((SELECT count(*)<>2 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+      JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND NOT t.tgisinternal AND t.tgenabled IN('O','A') AND t.tgtype=27
+        AND f.nspname='public' AND p.proname='protect_audit_events'
+        AND ((c.relname='organization_branding_history' AND t.tgname='immutable_organization_branding_history')
+          OR (c.relname='organization_branding_commands' AND t.tgname='immutable_organization_branding_commands')))
+      OR has_table_privilege('public.organization_branding_history','UPDATE,DELETE')
+      OR has_table_privilege('public.organization_branding_commands','UPDATE,DELETE')
+      OR NOT has_table_privilege('public.organization_branding_history','INSERT')
+      OR NOT has_table_privilege('public.organization_branding_commands','INSERT')) AS unprotected_organization_branding_evidence,
+    (SELECT count(*)<>2 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+      JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND NOT t.tgisinternal AND t.tgenabled IN('O','A') AND t.tgdeferrable AND t.tginitdeferred
+        AND f.nspname='public' AND p.proname='check_organization_branding_chain'
+        AND ((c.relname='organization_branding' AND t.tgname='organization_branding_current_chain' AND t.tgtype=21)
+          OR (c.relname='organization_branding_history' AND t.tgname='organization_branding_history_chain' AND t.tgtype=5))) AS unprotected_organization_branding_chain,
+    (NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+      JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND c.relname='import_batches' AND NOT t.tgisinternal AND t.tgenabled IN('O','A')
+        AND t.tgtype=31 AND f.nspname='public' AND p.proname='protect_staff_import')
+      OR has_table_privilege('public.import_batches','DELETE')
+      OR NOT has_table_privilege('public.import_batches','INSERT')
+      OR NOT has_table_privilege('public.import_batches','UPDATE')) AS unprotected_staff_imports,
+    EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relname='staff_schedule_requests' AND
+      (has_table_privilege(c.oid,'DELETE') OR NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid
+        JOIN pg_namespace f ON f.oid=p.pronamespace WHERE t.tgrelid=c.oid AND NOT t.tgisinternal AND t.tgenabled IN('O','A')
+        AND f.nspname='public' AND p.proname='protect_staff_schedule_request'))) AS unprotected_schedule_requests,
+    EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relname='standing_policies' AND
+      (has_table_privilege(c.oid,'DELETE') OR NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid
+        JOIN pg_namespace f ON f.oid=p.pronamespace WHERE t.tgrelid=c.oid AND NOT t.tgisinternal AND t.tgenabled IN('O','A')
+        AND t.tgtype=31 AND f.nspname='public' AND p.proname='protect_standing_policy'))) AS unprotected_standing_policies,
+    (NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+      JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND c.relname='gpa_policies' AND NOT t.tgisinternal AND t.tgenabled IN('O','A')
+        AND t.tgtype=31 AND f.nspname='public' AND p.proname='protect_gpa_policy')
+      OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname='public' AND c.relname='gpa_policies' AND has_table_privilege(c.oid,'DELETE'))) AS unprotected_gpa_policies,
+    (NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+      JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND c.relname='gpa_series' AND NOT t.tgisinternal AND t.tgenabled IN('O','A')
+        AND t.tgtype=31 AND f.nspname='public' AND p.proname='protect_gpa_series')
+      OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname='public' AND c.relname='gpa_series' AND has_table_privilege(c.oid,'DELETE'))) AS unprotected_gpa_series,
+    (NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+      JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND c.relname='gpa_series' AND NOT t.tgisinternal AND t.tgenabled IN('O','A')
+        AND t.tgtype=21 AND t.tgdeferrable AND t.tginitdeferred AND f.nspname='public' AND p.proname='check_gpa_series_chain')
+      OR NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+        JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+        WHERE n.nspname='public' AND c.relname='gpa_decisions' AND NOT t.tgisinternal AND t.tgenabled IN('O','A')
+          AND t.tgtype=5 AND t.tgdeferrable AND t.tginitdeferred AND f.nspname='public' AND p.proname='check_gpa_series_chain')) AS unprotected_gpa_chain,
+    NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+      JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND c.relname='gpa_previews' AND NOT t.tgisinternal AND t.tgenabled IN('O','A')
+        AND t.tgtype=27 AND f.nspname='public' AND p.proname='protect_gpa_preview') AS unprotected_gpa_previews,
+    (NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND c.relname='standing_series' AND NOT t.tgisinternal AND t.tgenabled IN('O','A') AND t.tgtype=31 AND f.nspname='public' AND p.proname='protect_standing_series')
+      OR has_table_privilege('public.standing_series','DELETE')) AS unprotected_standing_series,
+    (SELECT count(*)<>2 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND c.relname IN('standing_series','standing_decisions') AND t.tgenabled IN('O','A') AND t.tgdeferrable AND t.tginitdeferred
+        AND f.nspname='public' AND p.proname='check_standing_series_chain') AS unprotected_standing_chain,
+    NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND c.relname='standing_previews' AND NOT t.tgisinternal AND t.tgenabled IN('O','A') AND t.tgtype=27 AND f.nspname='public' AND p.proname='protect_standing_preview') AS unprotected_standing_previews,
+    NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+      JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND c.relname='timetable_revisions' AND NOT t.tgisinternal AND t.tgenabled IN('O','A')
+      AND t.tgtype=19 AND f.nspname='public' AND p.proname='protect_timetable_calendar_revision') AS unprotected_timetable_calendar_revision
+  `)
+  ).rows[0];
+  return result;
+}
+export async function assertRuntimeAccess(db: Queryable) {
+  const result = await inspectRuntimeAccess(db);
+  if (
+    result.role !== runtimeRole ||
+    result.login !== runtimeRole ||
+    Object.entries(result).some(
+      ([key, value]) => !["role", "login"].includes(key) && value !== false,
+    )
+  )
+    throw new Error(
+      "The web database connection does not meet the restricted runtime-role policy. Use the separate maintenance path to configure it.",
+    );
+  return result;
+}

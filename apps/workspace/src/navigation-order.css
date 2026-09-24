@@ -1,0 +1,28 @@
+.personalization .navigation-order-editor { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border); }
+.navigation-order-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+.navigation-order-heading h3 { margin: 0 0 8px; color: var(--text); }
+.navigation-order-heading p { margin: 0; max-width: 70ch; color: var(--muted); line-height: 1.65; }
+.navigation-order-heading > .button { flex-shrink: 0; }
+.navigation-order-groups { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+.navigation-order-group { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius, 16px); padding: 16px; }
+.navigation-order-group h4 { margin: 0 0 12px; color: var(--text); }
+.navigation-order-group ol { list-style: none; padding: 0; margin: 0; }
+.navigation-order-group li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.navigation-order-item { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--text); font-size: var(--small-size); line-height: 1.45; }
+.navigation-order-item > span:last-child { overflow-wrap: anywhere; }
+.navigation-order-position { color: var(--muted); min-width: 1.2em; font-variant-numeric: tabular-nums; }
+.navigation-order-item small { display: block; margin-top: 3px; color: var(--muted); font-size: var(--label-size); }
+.navigation-order-controls { display: flex; flex: 0 0 auto; gap: 4px; }
+.navigation-order-controls .icon-button { width: 44px; min-width: 44px; min-height: 44px; }
+.navigation-order-controls button[aria-disabled="true"] { opacity: .45; cursor: default; }
+.navigation-order-status { color: var(--muted); line-height: 1.6; margin: 12px 0 0; }
+.navigation-order-status:empty { margin: 0; }
+.navigation-comparison-order { margin: 0; padding-left: 1.5em; min-width: 12ch; line-height: 1.65; }
+@media (max-width: 1100px) { .navigation-order-groups { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .navigation-order-heading { flex-direction: column; gap: 12px; }
+  .navigation-order-heading > .button { width: 100%; }
+  .navigation-order-group { padding: 12px; }
+  .navigation-order-group li { gap: 8px; }
+  .navigation-order-item { gap: 7px; }
+}

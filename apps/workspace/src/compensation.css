@@ -1,0 +1,159 @@
+.compensation-workspace {
+  display: grid;
+  gap: 24px;
+}
+.compensation-workspace .panel {
+  padding: 24px;
+}
+.compensation-workspace .panel-heading {
+  padding: 0 0 22px;
+}
+.compensation-workspace .panel-note {
+  padding: 14px 0;
+  line-height: 1.65;
+}
+.compensation-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+.compensation-controls label,
+.compensation-review-controls > label,
+.compensation-rate-form > label {
+  display: grid;
+  gap: 8px;
+}
+.compensation-controls select,
+.compensation-controls input,
+.compensation-workspace textarea,
+.compensation-rate-form textarea {
+  width: 100%;
+  min-width: 0;
+}
+.compensation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0 20px;
+}
+.compensation-access {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 0.8rem;
+}
+.compensation-workspace .table-scroll td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.compensation-workspace .table-scroll table {
+  min-width: 720px;
+}
+.compensation-review-controls {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+.compensation-review-controls > button {
+  justify-self: start;
+}
+.compensation-rate-form,
+.compensation-preview,
+.compensation-history {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+.compensation-import {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+  line-height: 1.6;
+}
+.compensation-import label {
+  display: grid;
+  gap: 8px;
+}
+.compensation-import .workbook-import .finance-check { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; }
+.compensation-import .workbook-import .finance-check input { width: 18px; height: 18px; flex: 0 0 18px; margin-top: 4px; }
+.compensation-recovery,.compensation-receipt { padding: 16px 0; line-height: 1.6; overflow-wrap: anywhere; }
+.compensation-receipt summary,.compensation-conversion summary { cursor: pointer; font-weight: 650; }
+.compensation-conversion { line-height: 1.6; overflow-wrap: anywhere; }
+.compensation-import textarea {
+  width: 100%;
+  min-width: 0;
+}
+.compensation-import summary {
+  cursor: pointer;
+  font-weight: 650;
+  margin-bottom: 12px;
+}
+.compensation-source-receipt {
+  overflow-wrap: anywhere;
+  display: grid;
+  gap: 10px;
+}
+dialog:has(.compensation-import) {
+  width: min(760px, calc(100vw - 32px));
+  max-width: none;
+}
+.compensation-change {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  overflow-wrap: anywhere;
+  background: var(--surface);
+}
+.compensation-change p {
+  margin: 0;
+  line-height: 1.6;
+}
+.compensation-history article {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.compensation-preview > .checkbox,
+.compensation-rate-form > .checkbox {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: flex-start;
+  line-height: 1.5;
+}
+.compensation-preview > .checkbox input,
+.compensation-rate-form > .checkbox input {
+  width: auto;
+  margin-top: 4px;
+}
+dialog:has(.compensation-preview),
+dialog:has(.compensation-history) {
+  width: min(860px, calc(100vw - 32px));
+  max-width: none;
+}
+@media (max-width: 600px) {
+  .compensation-workspace .panel {
+    padding: 16px;
+  }
+  .compensation-workspace .panel-heading {
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .compensation-controls {
+    grid-template-columns: 1fr;
+  }
+  .compensation-rate-form,
+  .compensation-preview,
+  .compensation-history {
+    padding: 16px;
+  }
+  .compensation-import { padding: 16px; min-width: 0; }
+  .compensation-import .workbook-heading { flex-wrap: wrap; }
+  .compensation-access {
+    flex-wrap: wrap;
+  }
+}

@@ -1,0 +1,84 @@
+dialog:has(.grade-import-form) {
+  width: min(1040px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+}
+.grade-import-form {
+  display: grid;
+  gap: 1rem;
+}
+.grade-import-form label {
+  display: grid;
+  gap: 0.4rem;
+}
+.grade-import-form .school-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+.grade-import-intro,
+.grade-import-heading {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.grade-import-intro h3,
+.grade-import-heading h3 {
+  margin: 0 0 0.35rem;
+}
+.grade-import-intro p,
+.grade-import-heading p {
+  margin: 0;
+  color: var(--muted);
+}
+.grade-import-csv {
+  min-height: 8rem;
+  font-family: monospace;
+  font-size: 0.82rem;
+}
+.grade-import-review {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.grade-import-review table {
+  min-width: 650px;
+}
+.grade-import-review td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 17rem;
+  vertical-align: top;
+}
+.grade-import-review small {
+  display: block;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+.grade-import-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.grade-import-history {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 14rem;
+  overflow: auto;
+}
+@media (max-width: 600px) {
+  .grade-import-intro,
+  .grade-import-heading {
+    flex-wrap: wrap;
+  }
+  .grade-import-review {
+    padding: 0.65rem;
+  }
+  .grade-import-form > .button {
+    width: 100%;
+  }
+}

@@ -1,0 +1,181 @@
+.admissions-module {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+}
+.admission-toolbar-actions,
+.admission-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.admission-actions {
+  padding: 18px 22px;
+  border-top: 1px solid var(--border);
+}
+.admission-stages {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 10px;
+}
+.admission-stages > button {
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  display: grid;
+  text-align: left;
+  gap: 10px;
+  padding: 17px 12px;
+}
+.admission-stages > button strong {
+  font-size: 24px;
+  color: var(--text);
+  font-weight: 600;
+}
+.admission-stages > button span {
+  font-size: var(--small-size);
+  line-height: 1.4;
+}
+.admission-stages > button.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.admission-stages > button.selected strong,
+.admission-stages > button.selected span {
+  color: var(--accent-text);
+}
+.admission-cards > button {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  align-items: center;
+  padding: 22px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  color: var(--text);
+}
+.admission-cards > button:hover {
+  background: var(--surface-raised);
+}
+.admission-cards > button > div {
+  flex: 1;
+  min-width: 0;
+}
+.admission-cards p {
+  color: var(--muted);
+  margin: 7px 0;
+}
+.admission-cards small {
+  color: var(--muted);
+}
+.admission-profile {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px;
+  padding: 22px;
+}
+.admission-profile > div {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.admission-profile span {
+  color: var(--muted);
+  font-size: var(--small-size);
+}
+.admission-profile p {
+  color: var(--muted);
+  margin: 0;
+  font-size: var(--small-size);
+  overflow-wrap: anywhere;
+}
+.admission-notes {
+  padding: 0 22px 15px;
+  white-space: pre-wrap;
+  line-height: 1.7;
+  margin: 0;
+}
+.admission-history article {
+  padding: 18px 22px;
+  border-top: 1px solid var(--border);
+}
+.admission-history article > div {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.admission-history span,
+.admission-history p {
+  color: var(--muted);
+  font-size: var(--small-size);
+  line-height: 1.7;
+}
+.admission-history p {
+  margin: 7px 0 0;
+  overflow-wrap: anywhere;
+}
+.admission-template-items {
+  display: grid;
+  gap: 18px;
+}
+.admission-template-items > div {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+}
+.admission-template-items > div > label:first-child {
+  min-width: 0;
+}
+.admission-template-items .school-toggle {
+  padding-bottom: 10px;
+}
+@media (max-width: 1200px) {
+  .admission-stages {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  .admission-profile {
+    grid-template-columns: 1fr;
+    padding: 17px;
+  }
+  .admission-actions {
+    padding: 17px;
+  }
+  .admission-toolbar-actions {
+    width: 100%;
+  }
+  .admission-toolbar-actions > button {
+    flex: 1;
+  }
+  .admission-cards > button {
+    padding: 17px;
+    flex-wrap: wrap;
+  }
+  .admission-cards > button > div {
+    min-width: 70%;
+  }
+  .admission-cards > button > svg {
+    margin-left: auto;
+  }
+  .admission-history article {
+    padding: 17px;
+  }
+  .admission-template-items > div {
+    grid-template-columns: 1fr auto;
+  }
+  .admission-template-items > div > label:first-child {
+    grid-column: 1/-1;
+  }
+  .admission-template-items .school-toggle {
+    padding-bottom: 0;
+  }
+}

@@ -1,0 +1,258 @@
+.attendance-module,
+.attendance-settings {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.attendance-date,
+.attendance-class-picker {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.attendance-date > label,
+.attendance-class-picker > label,
+.roll-call-footer > label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: var(--small-size);
+}
+.attendance-class-picker > label {
+  min-width: 240px;
+  flex: 1;
+}
+.attendance-date > .icon-button {
+  margin-bottom: 5px;
+}
+.attendance-notice {
+  display: flex;
+  gap: 10px;
+  align-items: start;
+  background: var(--accent-soft);
+  color: var(--text);
+  padding: 15px 18px;
+  border-radius: var(--control-radius);
+  font-size: var(--small-size);
+  line-height: 1.6;
+  margin: 0;
+}
+.attendance-notice > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.attendance-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.attendance-metrics > div {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 9px;
+  padding: 22px;
+}
+.attendance-metrics span {
+  color: var(--muted);
+  font-size: var(--small-size);
+}
+.attendance-metrics strong {
+  font-size: 30px;
+  letter-spacing: -1px;
+  font-weight: 600;
+}
+.attendance-metrics small {
+  color: var(--muted);
+}
+.attendance-office-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.attendance-office-grid .school-record-list {
+  max-height: 480px;
+  overflow: auto;
+}
+.attendance-closeout {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px;
+}
+.attendance-closeout > div {
+  min-width: 0;
+}
+.attendance-closeout > .button {
+  flex-shrink: 0;
+}
+.roll-call-summary {
+  display: flex;
+  gap: 15px;
+  justify-content: space-between;
+  padding: 18px 22px;
+  flex-wrap: wrap;
+}
+.roll-call-summary > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: var(--small-size);
+  color: var(--muted);
+}
+.roll-call-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 18px;
+  align-items: center;
+  padding: 15px 22px;
+  border-top: 1px solid var(--border);
+}
+.roll-call-row > label {
+  display: block;
+  min-width: 0;
+}
+.roll-call-row input,
+.roll-call-row select {
+  width: 100%;
+  min-width: 0;
+}
+.roll-call-student {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  min-width: 0;
+}
+.roll-call-student > div {
+  display: grid;
+  gap: 5px;
+}
+.roll-call-student small {
+  color: var(--muted);
+}
+.roster-position {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 12px;
+}
+.roll-call-footer {
+  padding: 22px;
+  border-top: 1px solid var(--border);
+}
+.roll-call-footer > .muted {
+  font-size: var(--small-size);
+  line-height: 1.6;
+}
+.attendance-weekdays {
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+.attendance-weekdays legend {
+  color: var(--muted);
+  font-size: var(--small-size);
+  padding: 0 5px;
+}
+.attendance-history {
+  display: grid;
+  gap: 18px;
+  padding: 4px 0;
+  max-height: 65vh;
+  overflow: auto;
+}
+.attendance-history article {
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+}
+.attendance-history article > div {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.attendance-history p {
+  line-height: 1.6;
+  font-size: var(--small-size);
+  color: var(--muted);
+}
+.attendance-history summary {
+  cursor: pointer;
+  font-size: var(--small-size);
+}
+@media (max-width: 1100px) {
+  .attendance-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .attendance-office-grid {
+    grid-template-columns: 1fr;
+  }
+  .roll-call-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .roll-call-row > label:last-child {
+    grid-column: 2;
+  }
+}
+@media (max-width: 650px) {
+  .attendance-date {
+    gap: 7px;
+  }
+  .attendance-date > label {
+    min-width: 0;
+  }
+  .attendance-date > label:last-child {
+    flex: 1;
+  }
+  .attendance-metrics {
+    gap: 10px;
+  }
+  .attendance-metrics > div {
+    padding: 17px;
+  }
+  .attendance-metrics strong {
+    font-size: 26px;
+  }
+  .attendance-closeout {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .roll-call-row {
+    padding: 16px;
+    gap: 12px;
+  }
+  .roll-call-student {
+    grid-column: 1/-1;
+  }
+  .roll-call-row > label:last-child {
+    grid-column: auto;
+  }
+  .roll-call-summary {
+    padding: 16px;
+  }
+  .roll-call-footer {
+    padding: 16px;
+  }
+  .attendance-class-picker {
+    align-items: stretch;
+  }
+  .attendance-class-picker > label {
+    min-width: 100%;
+  }
+  .attendance-class-picker > .button {
+    width: 100%;
+  }
+}

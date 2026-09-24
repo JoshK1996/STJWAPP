@@ -1,0 +1,16 @@
+import { createRoot } from 'react-dom/client';
+import App from './App';
+import './styles.css';
+import './themes.css';
+import './community.css';
+import './school.css';
+import './attendance.css';
+import './time-records.css';
+import './admissions.css';
+import './visuals.css';
+import './grading.css';
+import './care.css';
+import './dismissal.css';
+import './experience-polish.css';
+import './mobile-refinements.css';
+createRoot(document.getElementById('root')!).render(<App/>);
