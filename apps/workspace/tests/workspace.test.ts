@@ -185,7 +185,7 @@ test('personalization rejects injected fields, inaccessible landing pages, inval
 test('new migrations apply once and preserve existing accounts',async()=>{
  const before=(await db.query('SELECT count(*)::integer AS count FROM users')).rows[0].count;
  await migrate(db);await migrate(db);
- assert.deepEqual((await db.query('SELECT version FROM schema_migrations ORDER BY version')).rows.map(r=>r.version),[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33]);
+ assert.deepEqual((await db.query('SELECT version FROM schema_migrations ORDER BY version')).rows.map(r=>r.version),[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34]);
  assert.equal((await db.query('SELECT count(*)::integer AS count FROM users')).rows[0].count,before);
 });
 const eventFixture=(overrides:any={})=>eventCreateInput.parse({event:{title:'Synthetic planning',startsAt:'2026-10-25T13:00:00.000Z',endsAt:'2026-10-25T14:00:00.000Z',timezone:'America/New_York',audience:'personal',...overrides},repeat:{frequency:'weekly',interval:1,count:3}});

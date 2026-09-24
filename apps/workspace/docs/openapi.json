@@ -1443,6 +1443,3022 @@
         ]
       }
     },
+    "/payroll/review": {
+      "get": {
+        "operationId": "get_payroll_review",
+        "summary": "Compare recorded hours with the preceding calendar period",
+        "description": "Current reporting role and password session or reports:read bearer proof. Both periods share one database capture instant and repeatable-read transaction. Exact signed microsecond deltas, employee union, zero-baseline percentage handling and explicit incomplete/future labels. Equal calendar-day count does not imply equal elapsed hours across DST. No wages, payroll approval or closeout.",
+        "security": [
+          {
+            "Session": []
+          },
+          {
+            "AgentBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "number",
+                      "const": 1
+                    },
+                    "asOf": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "query": {
+                      "type": "object",
+                      "properties": {
+                        "start": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "end": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "group": {
+                          "default": "day",
+                          "type": "string",
+                          "enum": [
+                            "hour",
+                            "day",
+                            "week",
+                            "month",
+                            "year"
+                          ]
+                        },
+                        "unitId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "start",
+                        "end",
+                        "group"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "periods": {
+                      "type": "object",
+                      "properties": {
+                        "current": {
+                          "type": "object",
+                          "properties": {
+                            "start": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            },
+                            "end": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                            },
+                            "toExclusive": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "complete",
+                                "in_progress",
+                                "future"
+                              ]
+                            },
+                            "capturedThrough": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "calendarDays": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 367
+                            }
+                          },
+                          "required": [
+                            "start",
+                            "end",
+                            "from",
+                            "toExclusive",
+                            "status",
+                            "capturedThrough",
+                            "calendarDays"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "previous": {
+                          "type": "object",
+                          "properties": {
+                            "start": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            },
+                            "end": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                            },
+                            "toExclusive": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "complete",
+                                "in_progress",
+                                "future"
+                              ]
+                            },
+                            "capturedThrough": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "calendarDays": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 367
+                            }
+                          },
+                          "required": [
+                            "start",
+                            "end",
+                            "from",
+                            "toExclusive",
+                            "status",
+                            "capturedThrough",
+                            "calendarDays"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "current",
+                        "previous"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "current": {
+                          "type": "object",
+                          "properties": {
+                            "workMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,20})$"
+                            },
+                            "breakMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,20})$"
+                            },
+                            "totalMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,20})$"
+                            },
+                            "workHours": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                            },
+                            "breakHours": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                            },
+                            "totalHours": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                            },
+                            "shiftCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            },
+                            "segmentCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            },
+                            "ongoingSegmentCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            },
+                            "employeeCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            }
+                          },
+                          "required": [
+                            "workMicroseconds",
+                            "breakMicroseconds",
+                            "totalMicroseconds",
+                            "workHours",
+                            "breakHours",
+                            "totalHours",
+                            "shiftCount",
+                            "segmentCount",
+                            "ongoingSegmentCount",
+                            "employeeCount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "previous": {
+                          "type": "object",
+                          "properties": {
+                            "workMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,20})$"
+                            },
+                            "breakMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,20})$"
+                            },
+                            "totalMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,20})$"
+                            },
+                            "workHours": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                            },
+                            "breakHours": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                            },
+                            "totalHours": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                            },
+                            "shiftCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            },
+                            "segmentCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            },
+                            "ongoingSegmentCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            },
+                            "employeeCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            }
+                          },
+                          "required": [
+                            "workMicroseconds",
+                            "breakMicroseconds",
+                            "totalMicroseconds",
+                            "workHours",
+                            "breakHours",
+                            "totalHours",
+                            "shiftCount",
+                            "segmentCount",
+                            "ongoingSegmentCount",
+                            "employeeCount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "delta": {
+                          "type": "object",
+                          "properties": {
+                            "workMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|-?[1-9][0-9]{0,20})$"
+                            },
+                            "breakMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|-?[1-9][0-9]{0,20})$"
+                            },
+                            "totalMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|-?[1-9][0-9]{0,20})$"
+                            },
+                            "workHours": {
+                              "type": "string",
+                              "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                            },
+                            "breakHours": {
+                              "type": "string",
+                              "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                            },
+                            "totalHours": {
+                              "type": "string",
+                              "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                            },
+                            "workPercentChange": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "workMicroseconds",
+                            "breakMicroseconds",
+                            "totalMicroseconds",
+                            "workHours",
+                            "breakHours",
+                            "totalHours",
+                            "workPercentChange"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "current",
+                        "previous",
+                        "delta"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "employees": {
+                      "maxItems": 40000,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "current": {
+                            "type": "object",
+                            "properties": {
+                              "workMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,20})$"
+                              },
+                              "breakMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,20})$"
+                              },
+                              "totalMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,20})$"
+                              },
+                              "workHours": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                              },
+                              "breakHours": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                              },
+                              "totalHours": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                              },
+                              "shiftCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              },
+                              "segmentCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              },
+                              "ongoingSegmentCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              },
+                              "employeeCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              }
+                            },
+                            "required": [
+                              "workMicroseconds",
+                              "breakMicroseconds",
+                              "totalMicroseconds",
+                              "workHours",
+                              "breakHours",
+                              "totalHours",
+                              "shiftCount",
+                              "segmentCount",
+                              "ongoingSegmentCount",
+                              "employeeCount"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "previous": {
+                            "type": "object",
+                            "properties": {
+                              "workMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,20})$"
+                              },
+                              "breakMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,20})$"
+                              },
+                              "totalMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,20})$"
+                              },
+                              "workHours": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                              },
+                              "breakHours": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                              },
+                              "totalHours": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                              },
+                              "shiftCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              },
+                              "segmentCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              },
+                              "ongoingSegmentCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              },
+                              "employeeCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              }
+                            },
+                            "required": [
+                              "workMicroseconds",
+                              "breakMicroseconds",
+                              "totalMicroseconds",
+                              "workHours",
+                              "breakHours",
+                              "totalHours",
+                              "shiftCount",
+                              "segmentCount",
+                              "ongoingSegmentCount",
+                              "employeeCount"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "delta": {
+                            "type": "object",
+                            "properties": {
+                              "workMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]{0,20})$"
+                              },
+                              "breakMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]{0,20})$"
+                              },
+                              "totalMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]{0,20})$"
+                              },
+                              "workHours": {
+                                "type": "string",
+                                "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                              },
+                              "breakHours": {
+                                "type": "string",
+                                "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                              },
+                              "totalHours": {
+                                "type": "string",
+                                "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                              },
+                              "workPercentChange": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "workMicroseconds",
+                              "breakMicroseconds",
+                              "totalMicroseconds",
+                              "workHours",
+                              "breakHours",
+                              "totalHours",
+                              "workPercentChange"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "name",
+                          "current",
+                          "previous",
+                          "delta"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "series": {
+                      "type": "object",
+                      "properties": {
+                        "current": {
+                          "maxItems": 1024,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                              },
+                              "startsAt": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                              },
+                              "endsAt": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              },
+                              "workMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,19})$"
+                              },
+                              "breakMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,19})$"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "startsAt",
+                              "endsAt",
+                              "label",
+                              "workMicroseconds",
+                              "breakMicroseconds"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "previous": {
+                          "maxItems": 1024,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                              },
+                              "startsAt": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                              },
+                              "endsAt": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              },
+                              "workMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,19})$"
+                              },
+                              "breakMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,19})$"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "startsAt",
+                              "endsAt",
+                              "label",
+                              "workMicroseconds",
+                              "breakMicroseconds"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "current",
+                        "previous"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "preparation": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "const": "review_required"
+                        },
+                        "openSegmentCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20000
+                        },
+                        "employeesWithOpenSegments": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20000
+                        },
+                        "pendingCorrections": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "const": "not_included"
+                            },
+                            "count": {
+                              "type": "null"
+                            },
+                            "notice": {
+                              "type": "string",
+                              "maxLength": 1000
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "count",
+                            "notice"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "openSegmentCount",
+                        "employeesWithOpenSegments",
+                        "pendingCorrections"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "evidence": {
+                      "type": "object",
+                      "properties": {
+                        "sourceSchemaVersion": {
+                          "type": "number",
+                          "const": 2
+                        },
+                        "precisionVersion": {
+                          "type": "number",
+                          "const": 2
+                        },
+                        "durationUnit": {
+                          "type": "string",
+                          "const": "microsecond"
+                        },
+                        "currentSourceRows": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20000
+                        },
+                        "previousSourceRows": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20000
+                        }
+                      },
+                      "required": [
+                        "sourceSchemaVersion",
+                        "precisionVersion",
+                        "durationUnit",
+                        "currentSourceRows",
+                        "previousSourceRows"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "notice": {
+                      "type": "string",
+                      "maxLength": 3000
+                    }
+                  },
+                  "required": [
+                    "schemaVersion",
+                    "asOf",
+                    "timezone",
+                    "query",
+                    "periods",
+                    "totals",
+                    "employees",
+                    "series",
+                    "preparation",
+                    "evidence",
+                    "notice"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, CSRF, scope, or role denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state or duplicate record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month",
+                "year"
+              ],
+              "default": "day"
+            }
+          },
+          {
+            "name": "unitId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/payroll/review/export": {
+      "get": {
+        "operationId": "get_payroll_review_export",
+        "summary": "Download a current recorded-hours comparison",
+        "description": "Current proof is rechecked before publication. CSV/JSON exports are audited and recapture sources; a download can differ from an earlier screen. Exact arithmetic and period provenance remain explicit.",
+        "security": [
+          {
+            "Session": []
+          },
+          {
+            "AgentBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "number",
+                      "const": 1
+                    },
+                    "asOf": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "query": {
+                      "type": "object",
+                      "properties": {
+                        "start": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "end": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "group": {
+                          "default": "day",
+                          "type": "string",
+                          "enum": [
+                            "hour",
+                            "day",
+                            "week",
+                            "month",
+                            "year"
+                          ]
+                        },
+                        "unitId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "start",
+                        "end",
+                        "group"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "periods": {
+                      "type": "object",
+                      "properties": {
+                        "current": {
+                          "type": "object",
+                          "properties": {
+                            "start": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            },
+                            "end": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                            },
+                            "toExclusive": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "complete",
+                                "in_progress",
+                                "future"
+                              ]
+                            },
+                            "capturedThrough": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "calendarDays": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 367
+                            }
+                          },
+                          "required": [
+                            "start",
+                            "end",
+                            "from",
+                            "toExclusive",
+                            "status",
+                            "capturedThrough",
+                            "calendarDays"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "previous": {
+                          "type": "object",
+                          "properties": {
+                            "start": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            },
+                            "end": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                            },
+                            "toExclusive": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "complete",
+                                "in_progress",
+                                "future"
+                              ]
+                            },
+                            "capturedThrough": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "calendarDays": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 367
+                            }
+                          },
+                          "required": [
+                            "start",
+                            "end",
+                            "from",
+                            "toExclusive",
+                            "status",
+                            "capturedThrough",
+                            "calendarDays"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "current",
+                        "previous"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "current": {
+                          "type": "object",
+                          "properties": {
+                            "workMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,20})$"
+                            },
+                            "breakMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,20})$"
+                            },
+                            "totalMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,20})$"
+                            },
+                            "workHours": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                            },
+                            "breakHours": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                            },
+                            "totalHours": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                            },
+                            "shiftCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            },
+                            "segmentCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            },
+                            "ongoingSegmentCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            },
+                            "employeeCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            }
+                          },
+                          "required": [
+                            "workMicroseconds",
+                            "breakMicroseconds",
+                            "totalMicroseconds",
+                            "workHours",
+                            "breakHours",
+                            "totalHours",
+                            "shiftCount",
+                            "segmentCount",
+                            "ongoingSegmentCount",
+                            "employeeCount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "previous": {
+                          "type": "object",
+                          "properties": {
+                            "workMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,20})$"
+                            },
+                            "breakMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,20})$"
+                            },
+                            "totalMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,20})$"
+                            },
+                            "workHours": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                            },
+                            "breakHours": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                            },
+                            "totalHours": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                            },
+                            "shiftCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            },
+                            "segmentCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            },
+                            "ongoingSegmentCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            },
+                            "employeeCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20000
+                            }
+                          },
+                          "required": [
+                            "workMicroseconds",
+                            "breakMicroseconds",
+                            "totalMicroseconds",
+                            "workHours",
+                            "breakHours",
+                            "totalHours",
+                            "shiftCount",
+                            "segmentCount",
+                            "ongoingSegmentCount",
+                            "employeeCount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "delta": {
+                          "type": "object",
+                          "properties": {
+                            "workMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|-?[1-9][0-9]{0,20})$"
+                            },
+                            "breakMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|-?[1-9][0-9]{0,20})$"
+                            },
+                            "totalMicroseconds": {
+                              "type": "string",
+                              "pattern": "^(0|-?[1-9][0-9]{0,20})$"
+                            },
+                            "workHours": {
+                              "type": "string",
+                              "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                            },
+                            "breakHours": {
+                              "type": "string",
+                              "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                            },
+                            "totalHours": {
+                              "type": "string",
+                              "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                            },
+                            "workPercentChange": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "workMicroseconds",
+                            "breakMicroseconds",
+                            "totalMicroseconds",
+                            "workHours",
+                            "breakHours",
+                            "totalHours",
+                            "workPercentChange"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "current",
+                        "previous",
+                        "delta"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "employees": {
+                      "maxItems": 40000,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "current": {
+                            "type": "object",
+                            "properties": {
+                              "workMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,20})$"
+                              },
+                              "breakMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,20})$"
+                              },
+                              "totalMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,20})$"
+                              },
+                              "workHours": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                              },
+                              "breakHours": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                              },
+                              "totalHours": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                              },
+                              "shiftCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              },
+                              "segmentCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              },
+                              "ongoingSegmentCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              },
+                              "employeeCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              }
+                            },
+                            "required": [
+                              "workMicroseconds",
+                              "breakMicroseconds",
+                              "totalMicroseconds",
+                              "workHours",
+                              "breakHours",
+                              "totalHours",
+                              "shiftCount",
+                              "segmentCount",
+                              "ongoingSegmentCount",
+                              "employeeCount"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "previous": {
+                            "type": "object",
+                            "properties": {
+                              "workMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,20})$"
+                              },
+                              "breakMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,20})$"
+                              },
+                              "totalMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,20})$"
+                              },
+                              "workHours": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                              },
+                              "breakHours": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                              },
+                              "totalHours": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,17})\\.[0-9]{6}$"
+                              },
+                              "shiftCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              },
+                              "segmentCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              },
+                              "ongoingSegmentCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              },
+                              "employeeCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                              }
+                            },
+                            "required": [
+                              "workMicroseconds",
+                              "breakMicroseconds",
+                              "totalMicroseconds",
+                              "workHours",
+                              "breakHours",
+                              "totalHours",
+                              "shiftCount",
+                              "segmentCount",
+                              "ongoingSegmentCount",
+                              "employeeCount"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "delta": {
+                            "type": "object",
+                            "properties": {
+                              "workMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]{0,20})$"
+                              },
+                              "breakMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]{0,20})$"
+                              },
+                              "totalMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]{0,20})$"
+                              },
+                              "workHours": {
+                                "type": "string",
+                                "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                              },
+                              "breakHours": {
+                                "type": "string",
+                                "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                              },
+                              "totalHours": {
+                                "type": "string",
+                                "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                              },
+                              "workPercentChange": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^-?(0|[1-9][0-9]{0,30})\\.[0-9]{6}$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "workMicroseconds",
+                              "breakMicroseconds",
+                              "totalMicroseconds",
+                              "workHours",
+                              "breakHours",
+                              "totalHours",
+                              "workPercentChange"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "name",
+                          "current",
+                          "previous",
+                          "delta"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "series": {
+                      "type": "object",
+                      "properties": {
+                        "current": {
+                          "maxItems": 1024,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                              },
+                              "startsAt": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                              },
+                              "endsAt": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              },
+                              "workMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,19})$"
+                              },
+                              "breakMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,19})$"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "startsAt",
+                              "endsAt",
+                              "label",
+                              "workMicroseconds",
+                              "breakMicroseconds"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "previous": {
+                          "maxItems": 1024,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                              },
+                              "startsAt": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                              },
+                              "endsAt": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              },
+                              "workMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,19})$"
+                              },
+                              "breakMicroseconds": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]{0,19})$"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "startsAt",
+                              "endsAt",
+                              "label",
+                              "workMicroseconds",
+                              "breakMicroseconds"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "current",
+                        "previous"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "preparation": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "const": "review_required"
+                        },
+                        "openSegmentCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20000
+                        },
+                        "employeesWithOpenSegments": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20000
+                        },
+                        "pendingCorrections": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "const": "not_included"
+                            },
+                            "count": {
+                              "type": "null"
+                            },
+                            "notice": {
+                              "type": "string",
+                              "maxLength": 1000
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "count",
+                            "notice"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "openSegmentCount",
+                        "employeesWithOpenSegments",
+                        "pendingCorrections"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "evidence": {
+                      "type": "object",
+                      "properties": {
+                        "sourceSchemaVersion": {
+                          "type": "number",
+                          "const": 2
+                        },
+                        "precisionVersion": {
+                          "type": "number",
+                          "const": 2
+                        },
+                        "durationUnit": {
+                          "type": "string",
+                          "const": "microsecond"
+                        },
+                        "currentSourceRows": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20000
+                        },
+                        "previousSourceRows": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20000
+                        }
+                      },
+                      "required": [
+                        "sourceSchemaVersion",
+                        "precisionVersion",
+                        "durationUnit",
+                        "currentSourceRows",
+                        "previousSourceRows"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "notice": {
+                      "type": "string",
+                      "maxLength": 3000
+                    }
+                  },
+                  "required": [
+                    "schemaVersion",
+                    "asOf",
+                    "timezone",
+                    "query",
+                    "periods",
+                    "totals",
+                    "employees",
+                    "series",
+                    "preparation",
+                    "evidence",
+                    "notice"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, CSRF, scope, or role denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state or duplicate record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month",
+                "year"
+              ],
+              "default": "day"
+            }
+          },
+          {
+            "name": "unitId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "csv",
+                "json"
+              ],
+              "default": "csv"
+            }
+          }
+        ]
+      }
+    },
+    "/payroll/views": {
+      "get": {
+        "operationId": "get_payroll_views",
+        "summary": "List personal payroll filter views",
+        "description": "Current reporting role and password or reports:read bearer proof. Only the current account and organization; at most25 active definitions. Availability is checked against current scope and selected active employees. Saved definitions are not retained report data.",
+        "security": [
+          {
+            "Session": []
+          },
+          {
+            "AgentBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "views": {
+                      "maxItems": 25,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2147483647
+                          },
+                          "filters": {
+                            "type": "object",
+                            "properties": {
+                              "period": {
+                                "type": "string",
+                                "enum": [
+                                  "this_week",
+                                  "last_week",
+                                  "last_14_days",
+                                  "this_month",
+                                  "custom"
+                                ]
+                              },
+                              "start": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                              },
+                              "end": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                              },
+                              "group": {
+                                "default": "day",
+                                "type": "string",
+                                "enum": [
+                                  "hour",
+                                  "day",
+                                  "week",
+                                  "month",
+                                  "year"
+                                ]
+                              },
+                              "unitId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "userId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "comparePrevious": {
+                                "default": false,
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "period"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                          },
+                          "availability": {
+                            "type": "string",
+                            "enum": [
+                              "available",
+                              "unavailable"
+                            ]
+                          },
+                          "unavailableReason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "revision",
+                          "filters",
+                          "createdAt",
+                          "updatedAt",
+                          "availability",
+                          "unavailableReason"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "limit": {
+                      "type": "number",
+                      "const": 25
+                    }
+                  },
+                  "required": [
+                    "views",
+                    "limit"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, CSRF, scope, or role denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state or duplicate record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_payroll_views",
+        "summary": "Create a personal payroll view",
+        "description": "Current password session only. Name, filters and client-generated UUID; identical create retries are safe. At most25 active views. Current account-first authority, session expiry and audit commit in one transaction.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647
+                    },
+                    "filters": {
+                      "type": "object",
+                      "properties": {
+                        "period": {
+                          "type": "string",
+                          "enum": [
+                            "this_week",
+                            "last_week",
+                            "last_14_days",
+                            "this_month",
+                            "custom"
+                          ]
+                        },
+                        "start": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "end": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "group": {
+                          "default": "day",
+                          "type": "string",
+                          "enum": [
+                            "hour",
+                            "day",
+                            "week",
+                            "month",
+                            "year"
+                          ]
+                        },
+                        "unitId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "comparePrevious": {
+                          "default": false,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "period"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                    },
+                    "availability": {
+                      "type": "string",
+                      "enum": [
+                        "available",
+                        "unavailable"
+                      ]
+                    },
+                    "unavailableReason": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "revision",
+                    "filters",
+                    "createdAt",
+                    "updatedAt",
+                    "availability",
+                    "unavailableReason"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, CSRF, scope, or role denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state or duplicate record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "filters": {
+                    "type": "object",
+                    "properties": {
+                      "period": {
+                        "type": "string",
+                        "enum": [
+                          "this_week",
+                          "last_week",
+                          "last_14_days",
+                          "this_month",
+                          "custom"
+                        ]
+                      },
+                      "start": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      "end": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      "group": {
+                        "default": "day",
+                        "type": "string",
+                        "enum": [
+                          "hour",
+                          "day",
+                          "week",
+                          "month",
+                          "year"
+                        ]
+                      },
+                      "unitId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "userId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "comparePrevious": {
+                        "default": false,
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "period"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "filters"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured APP_ORIGIN"
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session token from GET /me; API bearer tokens cannot write."
+          }
+        ]
+      }
+    },
+    "/payroll/views/{id}": {
+      "patch": {
+        "operationId": "patch_payroll_views__id_",
+        "summary": "Update a personal payroll view",
+        "description": "Current password session, ownership and expected revision required. Stale revision conflicts; unavailable selected scope rejects without broadening.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647
+                    },
+                    "filters": {
+                      "type": "object",
+                      "properties": {
+                        "period": {
+                          "type": "string",
+                          "enum": [
+                            "this_week",
+                            "last_week",
+                            "last_14_days",
+                            "this_month",
+                            "custom"
+                          ]
+                        },
+                        "start": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "end": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "group": {
+                          "default": "day",
+                          "type": "string",
+                          "enum": [
+                            "hour",
+                            "day",
+                            "week",
+                            "month",
+                            "year"
+                          ]
+                        },
+                        "unitId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "comparePrevious": {
+                          "default": false,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "period"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                    },
+                    "availability": {
+                      "type": "string",
+                      "enum": [
+                        "available",
+                        "unavailable"
+                      ]
+                    },
+                    "unavailableReason": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "revision",
+                    "filters",
+                    "createdAt",
+                    "updatedAt",
+                    "availability",
+                    "unavailableReason"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, CSRF, scope, or role denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state or duplicate record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "filters": {
+                    "type": "object",
+                    "properties": {
+                      "period": {
+                        "type": "string",
+                        "enum": [
+                          "this_week",
+                          "last_week",
+                          "last_14_days",
+                          "this_month",
+                          "custom"
+                        ]
+                      },
+                      "start": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      "end": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      "group": {
+                        "default": "day",
+                        "type": "string",
+                        "enum": [
+                          "hour",
+                          "day",
+                          "week",
+                          "month",
+                          "year"
+                        ]
+                      },
+                      "unitId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "userId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "comparePrevious": {
+                        "default": false,
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "period"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "revision",
+                  "name",
+                  "filters"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured APP_ORIGIN"
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session token from GET /me; API bearer tokens cannot write."
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "delete_payroll_views__id_",
+        "summary": "Remove a personal payroll view while retaining evidence",
+        "description": "Current password session, ownership and expected revision required. Soft deletion advances the revision and retains audit evidence.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 2
+                    },
+                    "deleted": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision",
+                    "deleted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, CSRF, scope, or role denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state or duplicate record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  }
+                },
+                "required": [
+                  "revision"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured APP_ORIGIN"
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session token from GET /me; API bearer tokens cannot write."
+          }
+        ]
+      }
+    },
+    "/payroll/views/{id}/resolve": {
+      "get": {
+        "operationId": "get_payroll_views__id__resolve",
+        "summary": "Resolve a personal payroll view against current dates and scope",
+        "description": "Current password session or reports:read bearer proof. Relative dates use the database clock and organization timezone at opening. Missing, deactivated or inaccessible explicit selections remain unavailable; never substitute all employees or units. Fixed dates and maximum report bounds still apply.",
+        "security": [
+          {
+            "Session": []
+          },
+          {
+            "AgentBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "view": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        },
+                        "filters": {
+                          "type": "object",
+                          "properties": {
+                            "period": {
+                              "type": "string",
+                              "enum": [
+                                "this_week",
+                                "last_week",
+                                "last_14_days",
+                                "this_month",
+                                "custom"
+                              ]
+                            },
+                            "start": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            },
+                            "end": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            },
+                            "group": {
+                              "default": "day",
+                              "type": "string",
+                              "enum": [
+                                "hour",
+                                "day",
+                                "week",
+                                "month",
+                                "year"
+                              ]
+                            },
+                            "unitId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "userId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "comparePrevious": {
+                              "default": false,
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "period"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                        },
+                        "availability": {
+                          "type": "string",
+                          "enum": [
+                            "available",
+                            "unavailable"
+                          ]
+                        },
+                        "unavailableReason": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 500
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "revision",
+                        "filters",
+                        "createdAt",
+                        "updatedAt",
+                        "availability",
+                        "unavailableReason"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "query": {
+                      "type": "object",
+                      "properties": {
+                        "start": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "end": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "group": {
+                          "default": "day",
+                          "type": "string",
+                          "enum": [
+                            "hour",
+                            "day",
+                            "week",
+                            "month",
+                            "year"
+                          ]
+                        },
+                        "unitId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "start",
+                        "end"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "comparisonQuery": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "start": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            },
+                            "end": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            },
+                            "group": {
+                              "default": "day",
+                              "type": "string",
+                              "enum": [
+                                "hour",
+                                "day",
+                                "week",
+                                "month",
+                                "year"
+                              ]
+                            },
+                            "unitId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "userId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            }
+                          },
+                          "required": [
+                            "start",
+                            "end"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "asOf": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+                    }
+                  },
+                  "required": [
+                    "view",
+                    "query",
+                    "comparisonQuery",
+                    "timezone",
+                    "asOf"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, CSRF, scope, or role denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state or duplicate record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "get_health",

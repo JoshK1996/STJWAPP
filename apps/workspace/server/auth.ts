@@ -255,7 +255,9 @@ export function installAuth(app: Express, db: Database, secure: boolean) {
           [digest(bearer.slice(7))],
         )
       ).rows[0];
-      const needed = (req.path.startsWith("/reports") || req.path === "/payroll/hours" || req.path === "/payroll/hours/export")
+      const payrollRead = ["/payroll/hours", "/payroll/hours/export", "/payroll/review", "/payroll/review/export", "/payroll/views"].includes(req.path)
+        || /^\/payroll\/views\/[0-9a-f-]{36}\/resolve$/i.test(req.path);
+      const needed = (req.path.startsWith("/reports") || payrollRead)
         ? "reports:read"
         : req.path === "/staff"
           ? "staff:read"

@@ -98,12 +98,15 @@ const exactSql = (column: 's.started_at' | 's.ended_at') => `CASE WHEN ${column}
  * consistent source transaction, supply a currently verified actor, and perform fresh
  * full-manifest/session or token publication authorization before exposing this result.
  */
-export async function readWorkforceReportSourceV2(tx: Queryable, actor: Actor, rawQuery: unknown): Promise<WorkforceReportV2> {
+export async function readWorkforceReportSourceV2(tx: Queryable, actor: Actor, rawQuery: unknown, capture?: { asOf: string }): Promise<WorkforceReportV2> {
   requireCondition(actor.mode === 'password' || actor.mode === 'api', 403, 'Reports require workspace sign-in or scoped reporting access.');
   const metadata = (await tx.query<{ timezone: string; as_of: string }>(`SELECT timezone,
     to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS as_of
     FROM organizations WHERE id=$1`, [actor.org_id])).rows[0];
   requireCondition(metadata, 404, 'Report organization not found.');
+  // Internal paired-source reads may reuse one server capture. Never accept this from a request query.
+  const asOf = capture?.asOf ?? metadata.as_of;
+  requireCondition(workforceUtcMicrosSchema.safeParse(asOf).success, 422, 'The report requires an exact supported source as-of timestamp.');
   const { query, start, end } = workforceReportBoundsV2(rawQuery, metadata.timezone);
   const rows = (await tx.query(`SELECT s.id,s.kind,${exactSql('s.started_at')} AS started_at,${exactSql('s.ended_at')} AS ended_at,
     h.revision,h.id AS shift_id,h.user_id,u.name AS employee_name,j.id AS job_id,j.title AS job_title,n.id AS unit_id,n.name AS unit_name
@@ -116,7 +119,7 @@ export async function readWorkforceReportSourceV2(tx: Queryable, actor: Actor, r
     AND ($8::uuid IS NULL OR n.id=$8) AND ($9::uuid IS NULL OR h.user_id=$9)
     ORDER BY s.started_at,s.id LIMIT 20001`, [actor.org_id, workforceUtcFromMicroseconds(start), workforceUtcFromMicroseconds(end),
     canReport(actor), actor.id, orgWide(actor), actor.unit_ids, query.unitId ?? null, query.userId ?? null])).rows;
-  return aggregateSegmentsV2(rows, query, metadata.timezone, metadata.as_of);
+  return aggregateSegmentsV2(rows, query, metadata.timezone, asOf);
 }
 
 export const workforceReportColumnsV2 = Object.freeze(['employee_name', 'unit_name', 'job_title', 'kind', 'started_at', 'ended_at',

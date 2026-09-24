@@ -17,6 +17,7 @@ import { previewCompensation, saveCompensation } from "../server/compensation";
 import { saveReport, runReport } from "../server/report-library";
 import { initialDefinition } from "../shared/report-library";
 import { digest, type Actor } from "../server/security";
+import { createPayrollView, updatePayrollView, deletePayrollView } from '../server/payroll-views';
 let db: Database, owner: Actor, jobId: string;
 let maintenanceLogin:string;
 const reportSessionHash = digest(randomUUID());
@@ -68,7 +69,7 @@ async function runtime(fn: () => Promise<void>) {
 }
 test("the restricted runtime identity can verify the schema without migration privileges", async () => {
   await runtime(async () => {
-    assert.equal(await verifySchema(db), 33);
+    assert.equal(await verifySchema(db), 34);
     const access = await assertRuntimeAccess(db);
     assert.equal(access.role, "stjw_runtime");
     assert.equal(access.login, "stjw_runtime");
@@ -236,6 +237,26 @@ test("runtime denies staff import deletion and verifies the exact enabled eviden
     await db.query(`${operation} ON import_batches ${granting ? "TO" : "FROM"} stjw_runtime`);
     try { await runtime(async () => { await assert.rejects(assertRuntimeAccess(db), /restricted runtime-role/); }); }
     finally { await db.query(`${granting ? "REVOKE" : "GRANT"} ${permission} ON import_batches ${granting ? "FROM" : "TO"} stjw_runtime`); }
+  }
+});
+
+test('runtime supports audited personal payroll views and enforces retained deletion evidence', async () => {
+  await runtime(async () => {
+    const filters = { period: 'last_week', group: 'day', comparePrevious: true };
+    const saved = await createPayrollView(db, owner, reportSessionHash, { id: randomUUID(), name: 'Weekly preparation', filters });
+    const updated = await updatePayrollView(db, owner, reportSessionHash, saved.id, { revision: saved.revision, name: 'Weekly comparison', filters });
+    const removed = await deletePayrollView(db, owner, reportSessionHash, saved.id, { revision: updated.revision });
+    assert.equal(removed.deleted, true);
+    assert.equal(removed.revision, 3);
+    await assert.rejects(db.query('DELETE FROM payroll_saved_views'), /permission denied/i);
+  });
+  await db.query('ALTER TABLE payroll_saved_views DISABLE TRIGGER protected_payroll_saved_views');
+  try { await runtime(async () => { await assert.rejects(assertRuntimeAccess(db), /restricted runtime-role/); }); }
+  finally { await db.query('ALTER TABLE payroll_saved_views ENABLE TRIGGER protected_payroll_saved_views'); }
+  for (const [permission, grant] of [['DELETE', true], ['INSERT', false], ['UPDATE', false]] as const) {
+    await db.query(`${grant ? 'GRANT' : 'REVOKE'} ${permission} ON payroll_saved_views ${grant ? 'TO' : 'FROM'} stjw_runtime`);
+    try { await runtime(async () => { await assert.rejects(assertRuntimeAccess(db), /restricted runtime-role/); }); }
+    finally { await db.query(`${grant ? 'REVOKE' : 'GRANT'} ${permission} ON payroll_saved_views ${grant ? 'FROM' : 'TO'} stjw_runtime`); }
   }
 });
 
