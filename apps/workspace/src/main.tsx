@@ -15,4 +15,5 @@ import './experience-polish.css';
 import './mobile-refinements.css';
 import './school-identity.css';
 import './install-experience.css';
+import './mobile-clock-shell.css';
 createRoot(document.getElementById('root')!).render(<App/>);

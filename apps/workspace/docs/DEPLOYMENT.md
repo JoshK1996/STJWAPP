@@ -33,3 +33,11 @@ Deployment `c0bfd6e2-e95a-4b56-bac9-28a463d26fd5` is live, verified September 24
 All 287 production source entries match commit `415cb65be54b4149236a644a048555e218e8c456`; manifest SHA256 is `4636f022fa3cd48e760eed3e6223a58a10f284e2f83b065a497907b3789bb643`. Build version is `378251467fb8596c3933744bcd142c12ed00fe026a8e0a1f6c1a589b85f08e7f`; entry SHA256 is `0ea9424d5e7a847071768eb560e92ecff7a4436efeb3aa61d525ac24acf2c3b8`. Public acceptance passed 34 checks, 12 exact asset comparisons and 52 protected anonymous denials with zero unexpected console/runtime errors. See VALIDATION for local workflow evidence and physical-device limitations.
 
 Older tabs must refresh once after finishing pending work to receive the first update monitor. Later compatible deployments can display guarded update prompts. A GitHub push/merge alone does not change the hosted app.
+
+## Verified mobile clock release
+
+Deployment `44e603a3-2e76-4bee-9b0e-d832f6895622` is live, verified September 24, 2026. All 288 production entries match source commit `5d007df291aaa68d0fa0b7c68307499969710cc3`, manifest SHA256 `3fb4cc7039109a89aeecac40fbf725b7a23c4aac06e300c2285ba181b7a288ed`. The entry SHA256 is `57b0434dc54b008a1b03fddf5808b8356f3144f72df90e9b705497f6b6681cb6`; build version is `cd12a7ce8a2bff4085bb1077383659d0e922386e61520e15134a6648e52227b4`. Root and staged builds match.
+
+Separate database maintenance dry-run and commit passed with schema 033 unchanged. There are no backend, migration, credential or time-arithmetic changes. Temporary maintenance access was revoked. Public acceptance passed 34 checks, 12 exact asset comparisons and 52 anonymous protected-route denials; local normal-authentication mobile acceptance passed 84 checks across 14 samples with the demonstration banner enabled. Full source/API and physical-device boundaries are recorded in VALIDATION.
+
+Existing clients can receive this deployment through their update monitor and explicitly reload after resolving pending work. A manual reload also loads the new mobile-first entry behavior. GitHub publication alone is not deployment.

@@ -5,7 +5,7 @@ Open [STJW](https://stjw-web-production.up.railway.app). Present this as a worki
 ## Prepare before the meeting
 
 - Confirm the current release in [STATUS](STATUS.md). Installation and update controls must be deployed before demonstrating them; local branch work alone does not update phones.
-- Open the management view with **Password** sign-in using an authorized developer or administrator account. Developer access belongs to the password session. **Quick PIN** asks for the PIN alone and intentionally opens only the employee clock, even for a developer.
+- Use **Password** sign-in with an authorized developer or administrator account for management access. On a phone, sign-in opens **My time clock** first; use navigation for **Workforce overview** or **Payroll**. Desktop password sessions keep their saved homepage. **Quick PIN** asks for the PIN alone and intentionally opens only the employee clock, even for a developer.
 - Use a separate browser profile or device for an authorized synthetic employee with two assigned jobs. Check that the employee is clocked out before starting. Never share customer credentials or use a customer's account as a demo fixture.
 - Choose a date range containing synthetic recorded hours for the charts. Keep one completed demonstration export ready in case the meeting connection fails.
 - On devices that were already open before the first update-monitor release, finish any pending work and perform one ordinary browser refresh. The older client cannot display an update monitor it has not received yet.
@@ -14,12 +14,14 @@ Open [STJW](https://stjw-web-production.up.railway.app). Present this as a worki
 
 Say: “Staff choose the work they are doing, and the same shift records their jobs and breaks.”
 
-1. Open **My time clock**. Choose an assigned job under **I'm working as**, then tap **Clock in**. Wait for **You're clocked in** and the confirmed clock status.
-2. Choose the second job under **Change to another job**. Tap **Switch job** and wait for confirmation. The employee remains clocked in.
-3. Tap **Take a break**. Point out **On your break**, then tap **End break** and wait for the working state. A break must end before switching jobs.
+1. Sign in on the phone to open **My time clock** directly. The job selector and time actions come before secondary navigation and artwork. Choose an assigned job under **I'm working as**, then tap **Clock in**. Wait for **On the clock** and the confirmed clock status.
+2. Choose the second job under **Change job**. Tap **Switch job** and wait for confirmation. Selection alone does not save; the employee remains clocked in.
+3. Tap **Take a break**. Point out **On a break**, then tap **End break** and wait for the working state. A break must end before switching jobs.
 4. Tap **Clock out** and wait for the clock-in controls to return. In the management view, open **Time records** to show the separate work and break segments in the completed shift.
 
 A short live demonstration creates a short real recorded duration. Use the existing synthetic history for substantial chart examples; do not describe demonstration minutes as a normal workday.
+
+On other narrow-screen pages, the top-bar **Clock** shortcut returns to the clock through the same unsaved-change and pending-clock protections. A full reload opens the clock again on mobile; merely returning focus does not force a page change. See [mobile clock behavior](MOBILE-CLOCK.md).
 
 ## 2. Turn time into a clear picture
 
@@ -49,7 +51,7 @@ Open the live site on the phone and select **Install app**. The installed icon u
 
 - **Android:** Use the app's native install action when available. Otherwise, open the browser menu and choose **Install app** or **Add to Home screen**, then confirm.
 - **iPhone/iPad:** In Safari, open **Share** (possibly inside the Page Menu), choose **Add to Home Screen**, keep **Open as Web App** enabled if offered, then tap **Add**. Open the new icon and sign in normally.
-- For a later deployed release, show **New version ready → Reload to update**. **Later** postpones the reload. **Install app / App & updates → Check for updates** runs a manual check. A GitHub push alone is not a deployed update, and the app never reloads itself automatically.
+- For a later deployed release, tap the compact **Update available** chip on the narrow clock page, then show **New version ready → Reload to update**. **Later** postpones the reload. **Install app / App & updates → Check for updates** runs a manual check. The optional installation suggestion is hidden on the narrow clock page, while the persistent entry remains available. A GitHub push alone is not a deployed update, and the app never reloads itself automatically.
 
 An installed icon does not enable offline clocking. Browser and device policy control the installation prompt; verify installation on each actual phone. See [installation guidance](INSTALLATION.md).
 
