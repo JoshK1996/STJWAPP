@@ -12,6 +12,8 @@ The visual direction is a colorful dimensional dashboard with interactive charts
 4. Extend reporting/import templates and reviewed integrations. Standalone calendar/messaging precede Google services, which need organization configuration and scoped OAuth.
 5. Complete remaining academic, financial, parent and operational requirements before moving sensitive live records.
 
+Current implementation slice: personal payroll filter views, exact comparison with the preceding calendar period, and clearer accountant preparation visuals. Preserve the first-screen mobile clock and existing hours exports. See [PAYROLL-PREPARATION](PAYROLL-PREPARATION.md); actual verification and deployment belong in STATUS. Confirmed wage policy, payroll approval/closeout and broader SIS work remain separate requirements.
+
 ## Engineering boundaries
 
 Server-verified accounts and organization scope control every action. Code owns authorization, arithmetic, validation, execution and audit writes. AI may advise mappings/classifications; it cannot grant access, approve pay or release a child. Preserve exact history and immutable migrations.

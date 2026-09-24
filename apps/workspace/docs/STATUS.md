@@ -2,6 +2,14 @@
 
 The app is a live synthetic demonstration workspace. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
 
+## Payroll preparation - September 24, 2026
+
+The live release adds personal saved Payroll filters, relative calendar periods, cross-device revision conflicts, explicit unavailable selections and Reset filters. The colorful comparison shows the preceding equal-calendar-day period, employee drilldowns, exact values, incomplete-period labels and CSV/JSON downloads alongside the existing Excel hours workbook. Pending corrections remain a separate Time records review, explicitly uncounted here. Gross/net pay, wage policy and payroll approval/closeout remain unimplemented. See [PAYROLL-PREPARATION](PAYROLL-PREPARATION.md) and [ADR0005](adr/0005-personal-payroll-views-and-comparisons.md).
+
+Local validation passed all 976 application tests and the production/staged builds. Final normal-authentication synthetic browser acceptance passed 44 Payroll checks across eight layouts and 84 clock checks across 14 samples, with zero runtime errors. Narrow layouts, large text, dark/flat preferences, saved-view conflicts and a deliberately delayed export after leaving Payroll were checked. Physical devices and hosted customer-account authentication remain unverified.
+
+Separate maintenance dry-run and commit passed; schema034 is deployed. Deployment `b50f8e26-97a5-411e-9981-0f492e4afce4` is live. All 294 production files match source commit `96f0059386efd6df76eb6041155fb32e1d0e723e`, manifest `21eea6f395a807a9592b7ac325939d70332ed9548fb4aaaf7ac4eaec46326a8e`. Public hosted acceptance passed 34 checks, 12 exact assets and 57 anonymous protected-route denials, with zero unexpected browser errors. Temporary maintenance access was revoked. Existing clients can use the guarded update prompt after finishing pending work.
+
 ## Available
 
 - Password/private setup, optional authenticator MFA, restricted PIN-only clock sessions, developer/owner/administrator/manager/finance/employee roles and explicit unit assignments.

@@ -25,6 +25,8 @@ import { createManagedJob, updateStaffAccount, issueManagedStaffSetupLink } from
 import { getAuthorizedWorkforceReport, exportAuthorizedWorkforceReport, type WorkforceReportProof } from './workforce-report-access';
 import { getAuthorizedWorkforceReportV2, exportAuthorizedWorkforceReportV2 } from './workforce-report-v2-access';
 import { getAuthorizedPayrollHours, exportAuthorizedPayrollHours } from './payroll-hours';
+import { listPayrollViews, createPayrollView, updatePayrollView, deletePayrollView, resolvePayrollView } from './payroll-views';
+import { getAuthorizedPayrollReview, exportAuthorizedPayrollReview } from './payroll-review';
 import { installStaffImports } from './imports';
 import { suggestImport } from './jev';
 import { moduleCatalog, requestInput, dateOnly, isOwnerRole } from '../shared/contracts';
@@ -123,6 +125,18 @@ export function createApp(db: Database, config: AppConfig) {
   });
   app.get('/api/reports/v2',async(req,res)=>res.json(await getAuthorizedWorkforceReportV2(db,actorOf(req),reportProofOf(req),req.query)));
   app.get('/api/payroll/hours',async(req,res)=>res.json(await getAuthorizedPayrollHours(db,actorOf(req),reportProofOf(req),req.query)));
+  app.get('/api/payroll/review',async(req,res)=>res.json(await getAuthorizedPayrollReview(db,actorOf(req),reportProofOf(req),req.query)));
+  app.get('/api/payroll/review/export',async(req,res)=>{
+    const result=await exportAuthorizedPayrollReview(db,actorOf(req),reportProofOf(req),req.query);
+    res.set('Cache-Control','private, no-store').set('X-STJW-Report-As-Of',result.asOf)
+      .attachment(`stjw-payroll-comparison-${result.query.start}-${result.query.end}.${result.format}`)
+      .type(result.format==='csv'?'text/csv':'application/json').send(result.body);
+  });
+  app.get('/api/payroll/views',async(req,res)=>res.json(await listPayrollViews(db,actorOf(req),reportProofOf(req))));
+  app.post('/api/payroll/views',async(req,res)=>res.status(201).json(await createPayrollView(db,actorOf(req),sessionHashOf(req),req.body)));
+  app.patch('/api/payroll/views/:id',async(req,res)=>res.json(await updatePayrollView(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),req.body)));
+  app.delete('/api/payroll/views/:id',async(req,res)=>res.json(await deletePayrollView(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),req.body)));
+  app.get('/api/payroll/views/:id/resolve',async(req,res)=>res.json(await resolvePayrollView(db,actorOf(req),reportProofOf(req),idOf(req.params.id))));
   app.get('/api/payroll/hours/export',async(req,res)=>{
     const controller=new AbortController();
     const closed=()=>{if(!res.writableEnded)controller.abort();};

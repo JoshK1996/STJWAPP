@@ -47,7 +47,7 @@ DO $$ DECLARE immutable_table record; BEGIN
   SELECT DISTINCT n.nspname,c.relname FROM pg_trigger t
   JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
   JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
-  WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN ('protect_staff_schedule_request','protect_standing_policy','protect_standing_series','protect_gpa_policy','protect_gpa_series','protect_staff_import','protect_organization_branding') AND NOT t.tgisinternal
+  WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN ('protect_staff_schedule_request','protect_standing_policy','protect_standing_series','protect_gpa_policy','protect_gpa_series','protect_staff_import','protect_organization_branding','protect_payroll_saved_views') AND NOT t.tgisinternal
  LOOP
   EXECUTE format('REVOKE DELETE ON TABLE %I.%I FROM stjw_runtime',immutable_table.nspname,immutable_table.relname);
  END LOOP;
@@ -70,6 +70,13 @@ export async function inspectRuntimeAccess(db: Queryable) {
     EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN('r','p') AND NOT has_table_privilege(c.oid,'SELECT')) AS missing_table_reads,
     EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prosecdef) AS unreviewed_definers,
     EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace WHERE n.nspname='public' AND f.nspname='public' AND p.proname='protect_audit_events' AND NOT t.tgisinternal AND has_table_privilege(c.oid,'UPDATE,DELETE')) AS mutable_immutable_tables,
+    (NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+      JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+      WHERE n.nspname='public' AND c.relname='payroll_saved_views' AND t.tgname='protected_payroll_saved_views'
+        AND NOT t.tgisinternal AND t.tgenabled IN('O','A') AND t.tgtype=31 AND f.nspname='public' AND p.proname='protect_payroll_saved_views')
+      OR has_table_privilege('public.payroll_saved_views','DELETE')
+      OR NOT has_table_privilege('public.payroll_saved_views','INSERT')
+      OR NOT has_table_privilege('public.payroll_saved_views','UPDATE')) AS unprotected_payroll_saved_views,
     (NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
       JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
       WHERE n.nspname='public' AND c.relname='organization_branding' AND t.tgname='protected_organization_branding'

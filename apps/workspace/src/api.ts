@@ -19,10 +19,24 @@ export async function api<T=any>(path:string,body?:unknown,method=body===undefin
   return await response.json();
   } finally { finish(); }
 }
-export async function download(path:string,name:string) {
+export function download(path:string,name:string):Promise<void>;
+export function download(path:string,name:string,canPublish:()=>boolean):Promise<boolean>;
+export async function download(path:string,name:string,canPublish?:()=>boolean):Promise<void|boolean> {
+  const mayPublish=canPublish??(()=>true);
   const response=await fetch(`/api${path}`,{credentials:'same-origin'});
+  if(!mayPublish())return false;
   if(!response.ok)throw await responseError(response,'Download failed.');
-  const url=URL.createObjectURL(await response.blob());const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const blob=await response.blob();
+  if(!mayPublish())return false;
+  const url=URL.createObjectURL(blob);let published=false;
+  try {
+    const link=document.createElement('a');link.href=url;link.download=name;
+    if(!mayPublish())return false;
+    link.click();published=true;return canPublish?true:undefined;
+  } finally {
+    if(published)setTimeout(()=>URL.revokeObjectURL(url),1000);
+    else URL.revokeObjectURL(url);
+  }
 }
 
 export async function downloadPost(path:string,body:unknown,name:string) {
