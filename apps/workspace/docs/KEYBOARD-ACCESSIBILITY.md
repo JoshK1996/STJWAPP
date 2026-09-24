@@ -1,0 +1,11 @@
+# Bounded keyboard review
+
+Live September 23, 2026, deployment `56b8cbac-dc86-446d-909c-307d3e36c340`. This review covers sign-in, application navigation, personal appearance controls and the shared reviewed-dialog component. It is not a complete accessibility audit, screen-reader assessment or compliance certification.
+
+The browser review reproduced hidden mobile navigation receiving Tab focus, an open drawer leaving focus behind its overlay, missing Escape handling, missing sign-in selection state and lost focus after appearance discard or dialog transitions. Nested dialogs also shared a title ID; Escape could reach the outer dialog, and an untyped Close button could submit an enclosing form.
+
+The application now makes closed mobile navigation inert, contains keyboard focus while open, announces the drawer as a modal, closes on Escape and returns focus to its trigger. A skip link focuses the named main content. Page navigation moves focus into that content. Sign-in methods expose their selected state, and appearance discard keeps focus on a nearby control.
+
+The shared Modal assigns unique accessible titles, tracks its actual opening order, restores connected openers and provides a main-content fallback when an opener disappeared. It preserves an intentional alternate focus destination. Replacing focused dialog content with a review step keeps focus within the open topmost modal. Nested cancel events stop propagation, and Close is explicitly a non-submit button. Reduced-motion behavior and mobile control geometry were checked.
+
+Evidence: `output/playwright/keyboard-inspection-before.json`, `output/playwright/keyboard-browser.json`, `keyboard-navigation-mobile.png` and `keyboard-review-mobile.png`. All 33 keyboard browser checks passed, including nested/async closing and disconnected opener cases. All 34 family-import browser checks were rerun after these shared changes and passed. The combined release passed 212 application tests/build; 10 public hosted checks verified the deployed entry bundle, sign-in behavior, illustration, mobile fit, health and anonymous denial. Owner/staff usability acceptance and the remaining application-wide keyboard/screen-reader review are still open.

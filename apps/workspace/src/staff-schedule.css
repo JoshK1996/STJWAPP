@@ -1,0 +1,38 @@
+.staff-schedule-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; padding: 4px 22px 18px; }
+.staff-schedule-toolbar .week-control { align-self: center; }
+.staff-schedule-toolbar label { margin: 0; min-width: 140px; }
+.staff-schedule-toolbar input, .staff-schedule-toolbar select { margin-top: 5px; }
+.staff-schedule-toolbar .staff-schedule-check { display: flex; align-items: center; gap: 7px; min-width: auto; align-self: center; }
+.staff-schedule-check input { width: 16px; min-height: 16px; margin: 0; }
+.staff-schedule-guidance { margin: 0; padding: 0 22px 20px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.staff-schedule .staff-schedule-grid { grid-template-columns: repeat(7, minmax(150px, 1fr)); }
+.staff-schedule .staff-schedule-grid > section { min-width: 150px; }
+.staff-shift-card { overflow-wrap: anywhere; }
+.staff-shift-card.staff-shift-cancelled { border-left-style: dashed; background: var(--surface); }
+.staff-shift-card.staff-shift-cancelled > strong { text-decoration: line-through; text-decoration-thickness: 1px; }
+.staff-schedule .staff-shift-card .badge.warning, .staff-shift-history .badge.warning { background: var(--warning-soft); color: var(--warning); }
+.staff-shift-card .staff-shift-note { white-space: pre-wrap; font-size: 12px; color: var(--text); margin: 9px 0; line-height: 1.5; }
+.staff-shift-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.staff-shift-actions .button { font-size: 11px; min-height: 32px; padding: 5px 7px; gap: 5px; }
+.staff-shift-editor .form-error, .staff-shift-history .form-error { color: var(--danger, #b42318); padding: 10px 12px; border: 1px solid currentColor; border-radius: var(--radius, 8px); line-height: 1.5; }
+.staff-shift-summary { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 9px 14px; font-size: 13px; line-height: 1.5; margin: 14px 0; }
+.staff-shift-summary dt { color: var(--muted); }
+.staff-shift-summary dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.staff-shift-editor details, .staff-shift-history details { margin-top: 12px; }
+.staff-shift-editor summary, .staff-shift-history summary { cursor: pointer; font-size: 13px; padding: 8px 0; }
+.staff-history-entry { border: 1px solid var(--border); border-radius: var(--radius, 10px); padding: 16px; margin-top: 16px; }
+.staff-history-entry > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.staff-history-entry > p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.staff-history-entry .staff-shift-reason { color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+@media(max-width: 720px) {
+  .staff-schedule-toolbar { padding-inline: 14px; align-items: stretch; }
+  .staff-schedule-toolbar .week-control { width: 100%; justify-content: space-between; }
+  .staff-schedule-toolbar > label { flex: 1 1 180px; }
+  .staff-schedule-guidance { padding-inline: 14px; }
+  .staff-schedule .staff-schedule-grid { display: block; overflow: visible; }
+  .staff-schedule .staff-schedule-grid > section { min-height: auto; border-right: 0; padding: 14px; }
+  .staff-shift-actions .button { min-height: 40px; font-size: 12px; }
+  .staff-shift-summary { grid-template-columns: 1fr; gap: 4px; }
+  .staff-shift-summary dd { margin-bottom: 8px; }
+  .staff-shift-editor .form-row { display: flex; flex-direction: column; }
+}

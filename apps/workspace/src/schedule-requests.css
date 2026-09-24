@@ -1,0 +1,44 @@
+.schedule-request-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; padding: 0 22px 18px; }
+.schedule-request-toolbar label { min-width: 170px; margin: 0; }
+.schedule-request-guidance { padding: 0 22px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.schedule-request-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; padding: 0 22px 22px; }
+.schedule-request-card { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius, 12px); padding: 17px; overflow-wrap: anywhere; }
+.schedule-request-card > div, .schedule-request-detail-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.schedule-request-card h3, .schedule-request-snapshot h3 { font-size: 14px; margin: 12px 0; }
+.schedule-request-card p, .schedule-request-dialog p { font-size: 13px; line-height: 1.6; }
+.schedule-request-more { padding: 0 22px 22px; }
+.schedule-request-dialog { min-width: 0; overflow-wrap: anywhere; }
+.schedule-request-comparison, .schedule-request-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 16px; }
+.schedule-request-snapshot { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius, 10px); margin-block: 10px; }
+.schedule-request-comparison .schedule-request-snapshot { margin-block: 0; }
+.schedule-request-snapshot > p { color: var(--muted); }
+.schedule-request-snapshot dl { margin: 0; font-size: 13px; line-height: 1.5; }
+.schedule-request-snapshot dt { color: var(--muted); margin-top: 9px; }
+.schedule-request-snapshot dd { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.schedule-request-snapshot small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+.schedule-request-note { margin-top: 16px; font-size: 13px; }
+.schedule-request-note p, .schedule-request-event p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.schedule-request-reference { color: var(--muted); overflow-wrap: anywhere; font-size: 12px; }
+.schedule-request-error { color: var(--danger, #b42318); padding: 12px; border: 1px solid currentColor; border-radius: var(--radius, 8px); line-height: 1.6; }
+.schedule-requests > .schedule-request-error { margin-inline: 22px; }
+.schedule-request-stale, .schedule-request-saved { border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius, 10px); padding: 14px; margin-top: 16px; font-size: 13px; line-height: 1.6; }
+.schedule-request-stale ul { padding-left: 22px; }
+.schedule-request-links { display: flex; flex-wrap: wrap; gap: 10px; margin-block: 16px; }
+.schedule-request-evidence { margin-top: 16px; }
+.schedule-request-evidence > summary { cursor: pointer; font-size: 13px; padding-block: 8px; }
+.schedule-request-event { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius, 10px); margin-block: 10px; font-size: 13px; }
+.schedule-request-decision { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 12px; }
+.schedule-request-dialog .schedule-request-confirm { display: flex; flex-direction: row; align-items: start; gap: 10px; line-height: 1.6; font-size: 13px; }
+.schedule-request-confirm span { min-width: 0; }
+.schedule-request-confirm input { width: 18px; min-height: 18px; flex: 0 0 18px; margin-top: 3px; }
+.schedule-request-dialog .dialog-actions { flex-wrap: wrap; }
+.schedule-request-dialog .dialog-actions .button { white-space: normal; }
+@media (max-width: 720px) {
+  .schedule-request-toolbar { padding-inline: 14px; align-items: stretch; }
+  .schedule-request-toolbar label { flex: 1 1 170px; }
+  .schedule-request-guidance { padding-inline: 14px; }
+  .schedule-request-list { padding-inline: 14px; }
+  .schedule-request-comparison, .schedule-request-fields { grid-template-columns: minmax(0, 1fr); }
+  .schedule-request-dialog .button, .schedule-requests .button { min-height: 40px; }
+  .schedule-request-links .button { max-width: 100%; white-space: normal; }
+}

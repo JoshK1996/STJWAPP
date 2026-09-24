@@ -1,0 +1,23 @@
+.workbook-import { min-width: 0; display: grid; gap: 14px; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: color-mix(in srgb,var(--accent) 4%,var(--surface)); }
+.workbook-heading { display: flex; gap: 12px; align-items: flex-start; }
+.workbook-heading > svg { flex-shrink: 0; color: var(--accent); }
+.workbook-heading h3,.workbook-review h4 { margin: 0 0 6px; }
+.workbook-import p { margin: 0; font-size: .9rem; overflow-wrap: anywhere; }
+.workbook-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.workbook-actions label.button { position: relative; cursor: pointer; overflow: hidden; }
+.workbook-actions label.button:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
+.workbook-actions input[type=file] { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
+.workbook-selection { display: grid; grid-template-columns: minmax(0,2fr) minmax(100px,1fr); gap: 14px; }
+.workbook-selection label { min-width: 0; display: grid; gap: 6px; }
+.workbook-sample { overflow: auto; max-height: 350px; min-width: 0; border: 1px solid var(--border); border-radius: 8px; }
+.workbook-sample table { border-collapse: collapse; width: 100%; font-size: .82rem; }
+.workbook-sample th,.workbook-sample td { padding: 9px; border-bottom: 1px solid var(--border); text-align: left; min-width: 80px; max-width: 250px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.workbook-sample caption { text-align: left; padding: 10px; color: var(--muted); }
+.workbook-header-row { background: color-mix(in srgb,var(--accent) 12%,var(--surface)); }
+.workbook-sample em { display: block; color: var(--muted); }
+.workbook-review { display: grid; gap: 12px; padding-top: 15px; border-top: 1px solid var(--border); }
+.workbook-review code { display: block; white-space: normal; overflow-wrap: anywhere; }
+.workbook-review details p { margin-top: 9px; }
+.workbook-import .error { display: grid; gap: 10px; }
+.workbook-import > .button,.workbook-review > .button { justify-self: start; }
+@media (max-width: 580px) { .workbook-import { padding: 14px; } .workbook-selection { grid-template-columns: minmax(0,1fr); } .workbook-actions { align-items: stretch; flex-direction: column; } .workbook-actions .button { justify-content: center; } }

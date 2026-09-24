@@ -1,0 +1,105 @@
+.mfa-settings {
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+}
+.mfa-settings p {
+  margin: 0;
+  line-height: 1.6;
+}
+.mfa-settings form {
+  display: grid;
+  gap: 16px;
+}
+.mfa-settings form > label {
+  display: grid;
+  gap: 7px;
+  max-width: 440px;
+}
+.mfa-status,
+.mfa-actions,
+.mfa-signin-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.mfa-status > span:last-child {
+  font-size: 0.85rem;
+}
+.mfa-enrollment {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.mfa-enrollment > img {
+  background: white;
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+.mfa-enrollment > label {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.mfa-secret {
+  display: block;
+  overflow-wrap: anywhere;
+  user-select: all;
+  letter-spacing: 0.04em;
+}
+.mfa-recovery {
+  display: grid;
+  gap: 14px;
+}
+.mfa-recovery ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 10px;
+  max-width: 850px;
+}
+.mfa-recovery li {
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  user-select: all;
+}
+.mfa-signin-actions {
+  margin-top: 12px;
+}
+.mfa-settings .panel-note {
+  padding: 0;
+}
+.mfa-settings h3 {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .mfa-settings {
+    padding: 18px;
+  }
+  .mfa-recovery ul {
+    grid-template-columns: 1fr;
+  }
+  .mfa-enrollment {
+    justify-content: center;
+  }
+  .mfa-actions > .button {
+    flex: 1 1 180px;
+  }
+  .mfa-recovery code {
+    font-size: 0.72rem;
+  }
+}
+@media print {
+  .mfa-settings,
+  .mfa-signin-actions {
+    display: none !important;
+  }
+}

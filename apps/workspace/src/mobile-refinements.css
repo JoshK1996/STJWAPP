@@ -1,0 +1,137 @@
+/* Responsive refinements verified with synthetic data at 320–1440 CSS pixels.
+   Preserve scrollable data tables; never conceal document overflow to pass a check. */
+.staff-schedule-toolbar .staff-schedule-check {
+  flex-direction: row;
+  justify-content: flex-start;
+  line-height: 1.5;
+}
+.staff-schedule-toolbar .staff-schedule-check input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+}
+.staff-directory .person-cell > span:not(.avatar) {
+  min-width: 160px;
+  width: 220px;
+  max-width: 260px;
+}
+.staff-directory .person-cell strong,
+.staff-directory .person-cell small {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.staff-directory .table-scroll {
+  overscroll-behavior-inline: contain;
+}
+.community-toolbar > *,
+.community-tools > *,
+.staff-schedule-toolbar > * {
+  min-width: 0;
+}
+.mail-row b {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  /* Full labels and a predictable touch target, including multiline controls. */
+  .staff-shift-actions .button,
+  .community-tools .button,
+  .community-toolbar .icon-button,
+  .staff-schedule-toolbar .icon-button,
+  .mail-back,
+  .mail-pagination .icon-button {
+    min-height: 44px;
+    min-width: 44px;
+    white-space: normal;
+    line-height: 1.4;
+  }
+  .staff-directory .person-cell > span:not(.avatar) {
+    width: min(52vw, 230px);
+  }
+  .staff-directory .person-cell small {
+    line-height: 1.5;
+  }
+  .staff-schedule-toolbar .staff-schedule-check {
+    min-height: 44px;
+    flex-basis: 100%;
+  }
+  .mail-folders button {
+    flex-wrap: wrap;
+    min-height: 44px;
+  }
+  .message-sender > div,
+  .message-sender > span:not(.avatar) {
+    min-width: 0;
+  }
+  .agenda-event strong,
+  .agenda-event > span {
+    overflow-wrap: anywhere;
+  }
+  .community-form .dialog-actions .button,
+  .community-dialog .dialog-actions .button {
+    white-space: normal;
+    line-height: 1.4;
+  }
+  .calendar-legend span {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .calendar-month {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    gap: 6px;
+  }
+  .calendar-month h2 {
+    min-width: 0;
+    font-size: 18px;
+    line-height: 1.35;
+  }
+  .calendar-month > .button {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+  .community-tools {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .community-tools > select,
+  .community-tools > .button {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 650px) {
+  /* A dedicated text column prevents the duration caption being squeezed
+     between the date indentation and revision badges on narrow phones. */
+  .time-record-list .time-record-card {
+    display: grid;
+    grid-template-columns: 45px minmax(0, 1fr);
+    align-items: start;
+  }
+  .time-record-list .record-date-tile {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .time-record-list .record-person,
+  .time-record-list .record-span,
+  .time-record-list .time-record-tags {
+    grid-column: 2;
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
+    padding-left: 0;
+  }
+  .time-record-list .time-record-tags {
+    justify-content: flex-start;
+  }
+  .time-record-list .record-span small {
+    line-height: 1.5;
+  }
+}

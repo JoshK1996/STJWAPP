@@ -1,0 +1,12 @@
+.workforce-workflow-nav{display:flex;gap:8px;padding:7px;margin:0 0 24px;border:1px solid var(--border);background:var(--surface);border-radius:18px;box-shadow:0 5px 0 color-mix(in srgb,var(--border) 45%,transparent),0 12px 30px #1724480a;flex-wrap:wrap}
+.workforce-workflow-nav button{display:flex;align-items:center;justify-content:center;gap:9px;padding:13px 19px;border:0;border-radius:12px;background:transparent;font-size:13px;font-weight:650;color:var(--muted);transition:background .16s,transform .16s;min-height:45px}
+.workforce-workflow-nav button.active{background:var(--accent);color:var(--on-accent);box-shadow:0 4px 0 color-mix(in srgb,var(--accent) 68%,#151735),0 6px 14px color-mix(in srgb,var(--accent) 25%,transparent);transform:translateY(-2px)}
+.workforce-workflow-nav button:not(.active):hover{background:var(--accent-soft);color:var(--text)}
+.workforce-personal-toggle{display:flex;align-items:center;gap:10px;padding:15px 19px;margin:24px 0;border:1px solid var(--border);background:var(--surface);border-radius:13px;font-weight:600;color:var(--muted)}
+:root[data-depth="true"] .app-shell .panel{box-shadow:0 5px 0 color-mix(in srgb,var(--border) 55%,transparent),0 15px 35px #1019360b;border-top-color:color-mix(in srgb,var(--accent) 18%,var(--border))}
+:root[data-depth="true"] .app-shell .panel-header{background:linear-gradient(125deg,color-mix(in srgb,var(--accent-soft) 42%,var(--surface)),var(--surface));border-radius:var(--radius) var(--radius) 0 0}
+:root[data-depth="true"] .app-shell .page-heading h1{text-shadow:0 2px 0 color-mix(in srgb,var(--accent) 10%,transparent)}
+:root[data-depth="false"] .workforce-workflow-nav,:root[data-depth="false"] .workforce-workflow-nav button{box-shadow:none;transform:none}
+:root[data-reduced-motion="true"] .workforce-workflow-nav button{transition:none}
+@media(prefers-reduced-motion:reduce){.workforce-workflow-nav button{transition:none}}
+@media(max-width:650px){.workforce-workflow-nav{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:6px}.workforce-workflow-nav button{padding:12px 8px;font-size:12px;gap:6px}.workforce-personal-toggle{width:100%;justify-content:center}}

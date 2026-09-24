@@ -1,0 +1,28 @@
+.staff-import { padding: 0 22px 22px; min-width: 0; }
+.staff-import > p, .staff-import p { color: var(--muted); line-height: 1.65; font-size: 13px; }
+.staff-import > .workbook-import { margin: 20px 0; }
+.staff-import h3 { margin: 0 0 8px; display: flex; gap: 8px; align-items: center; }
+.staff-import-csv, .staff-import-review, .staff-import-history, .staff-import-uncertain { padding: 20px; border: 1px solid var(--border); border-radius: var(--card-radius, 12px); margin: 20px 0; }
+.staff-import-uncertain { background: var(--surface); }
+.staff-import-actions, .staff-import-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
+.staff-import-actions { justify-content: flex-start; }
+.staff-import-guide, .staff-import-advice { margin: 20px 0; }
+.staff-import-advice textarea { display: block; width: 100%; margin-top: 8px; }
+.staff-import details summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
+.staff-import-file, .staff-import code, .staff-import td { overflow-wrap: anywhere; }
+.staff-import-review .table-scroll { max-height: 520px; margin: 16px 0; }
+.staff-import-review table { min-width: 830px; }
+.staff-import-review th { text-align: left; }
+.staff-import-review td { vertical-align: top; }
+.staff-import-review td code, .staff-import-review td small, .staff-import-review td span { display: block; margin: 5px 0; }
+.staff-import-review td > div + div { margin-top: 12px; }
+.staff-import .staff-import-check { display: flex; flex-direction: row; gap: 10px; align-items: flex-start; margin: 20px 0; line-height: 1.6; }
+.staff-import .staff-import-check input { width: auto; margin-top: 5px; flex: 0 0 auto; }
+.staff-import-history-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; border-top: 1px solid var(--border); }
+.staff-import-history-row > div { min-width: 0; }
+@media (max-width: 540px) {
+  .staff-import { padding: 0 12px 16px; }
+  .staff-import-csv, .staff-import-review, .staff-import-history, .staff-import-uncertain { padding: 14px; }
+  .staff-import .staff-import-heading, .staff-import-history-row { flex-direction: column; align-items: stretch; }
+  .staff-import-actions > .button, .staff-import-csv > .button, .staff-import-uncertain > .button { width: 100%; justify-content: center; white-space: normal; }
+}

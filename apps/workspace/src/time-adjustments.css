@@ -1,0 +1,35 @@
+.time-adjustments { min-width: 0; }
+.adjustment-navigation, .adjustment-filters, .adjustment-card-actions, .adjustment-heading { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.adjustment-navigation { margin-bottom: 20px; }
+.adjustment-filters { align-items: end; margin-bottom: 18px; }
+.adjustment-filters label { flex: 1 1 140px; min-width: 0; }
+.adjustment-filters input, .adjustment-filters select { width: 100%; }
+.adjustment-cards { display: grid; gap: 12px; padding: 0 22px 20px; }
+.adjustment-cards article, .adjustment-request-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--border); border-radius: var(--card-radius, 12px); padding: 16px; background: var(--surface); color: var(--text); text-align: left; min-width: 0; }
+.adjustment-cards article > div, .adjustment-request-card > div { min-width: 0; overflow-wrap: anywhere; }
+.adjustment-cards p { margin: 6px 0; }
+.adjustment-card-actions { flex-shrink: 0; flex-direction: column; align-items: stretch; }
+.adjustment-heading { justify-content: space-between; }
+.adjustment-form-grid, .adjustment-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.adjustment-time-field, .adjustment-form-grid label { min-width: 0; }
+.adjustment-time-field input, .adjustment-time-field select { width: 100%; min-width: 0; }
+.adjustment-evidence, .adjustment-readiness, .adjustment-retry { border: 1px solid var(--border); padding: 15px; border-radius: var(--card-radius, 12px); background: var(--surface-raised); min-width: 0; overflow-wrap: anywhere; }
+.adjustment-evidence h3, .adjustment-readiness h3 { margin-top: 0; }
+.adjustment-totals { display: flex; flex-wrap: wrap; gap: 14px; margin: 12px 0; }
+.adjustment-totals div { min-width: 80px; flex: 1; }
+.adjustment-totals dd { margin: 4px 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.adjustment-segments { padding-left: 22px; }
+.adjustment-segments li { margin: 12px 0; }
+.adjustment-segments span, .adjustment-exact code, .adjustment-exact small { display: block; }
+.adjustment-exact { margin: 12px 0; overflow-wrap: anywhere; }
+.adjustment-reason, .adjustment-hash { white-space: pre-wrap; overflow-wrap: anywhere; }
+.time-adjustments details dd { margin-left: 0; overflow-wrap: anywhere; }
+.time-adjustments details summary { cursor: pointer; padding: 8px 0; }
+.time-adjustments fieldset { min-width: 0; }
+@media (max-width: 720px) {
+  .adjustment-form-grid, .adjustment-comparison { grid-template-columns: minmax(0, 1fr); }
+  .adjustment-cards { padding: 0 16px 16px; }
+  .adjustment-cards article, .adjustment-request-card { flex-direction: column; align-items: stretch; }
+  .adjustment-navigation .button { flex: 1 1 auto; justify-content: center; }
+  .adjustment-card-actions { align-items: stretch; }
+}

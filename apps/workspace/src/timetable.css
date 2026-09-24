@@ -1,0 +1,454 @@
+.timetable-module {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.timetable-intro {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: linear-gradient(120deg, var(--surface-raised), var(--surface));
+}
+.timetable-intro h2 {
+  margin: 0 0 5px;
+  font-size: 1.25rem;
+}
+.timetable-intro p,
+.timetable-print-heading p {
+  margin: 0;
+  color: var(--muted);
+}
+.timetable-symbol {
+  padding: 15px;
+  color: var(--accent-text);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  transform: perspective(200px) rotateY(-10deg);
+  box-shadow: 4px 5px 0 var(--border);
+}
+.timetable-intro > .badge {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.timetable-controls,
+.timetable-navigation,
+.timetable-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.timetable-controls {
+  justify-content: space-between;
+}
+.timetable-navigation label,
+.timetable-filters label,
+.timetable-editor label {
+  display: grid;
+  gap: 7px;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+.timetable-filters {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.timetable-filters label {
+  flex: 1;
+  min-width: 160px;
+}
+.timetable-filters input,
+.timetable-filters select {
+  width: 100%;
+}
+.timetable-print-heading h3 {
+  margin: 0 0 5px;
+}
+.timetable-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.timetable-day {
+  min-width: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+.timetable-day:last-child {
+  border-right: 0;
+}
+.timetable-day > header {
+  padding: 14px 12px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border);
+}
+.timetable-day > header strong {
+  font-size: 1.25rem;
+}
+.timetable-day > header small {
+  width: 100%;
+  color: var(--muted);
+}
+.timetable-day > div {
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.timetable-meeting {
+  min-width: 0;
+  padding: 12px 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  overflow-wrap: anywhere;
+}
+.timetable-time {
+  font-size: 0.7rem;
+  font-weight: 750;
+  color: var(--accent-text);
+}
+.timetable-meeting h4 {
+  margin: 9px 0;
+  font-size: 0.88rem;
+}
+.timetable-meeting p {
+  display: flex;
+  align-items: start;
+  gap: 5px;
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.timetable-meeting svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.timetable-meeting button {
+  margin-top: 8px;
+  font-size: 0.75rem;
+}
+.timetable-none {
+  color: var(--muted);
+  font-size: 0.76rem;
+  padding: 8px 2px;
+}
+.timetable-explainer {
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+}
+.timetable-patterns summary {
+  padding: 15px 0;
+  cursor: pointer;
+  font-weight: 650;
+}
+.timetable-pattern-list > article {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.timetable-pattern-list p {
+  margin: 5px 0;
+}
+.timetable-pattern-list small {
+  color: var(--muted);
+}
+.timetable-editor {
+  padding: 6px 0;
+  display: grid;
+  gap: 18px;
+}
+.timetable-field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.timetable-field-grid input,
+.timetable-field-grid select {
+  min-width: 0;
+  width: 100%;
+}
+.timetable-editor textarea {
+  width: 100%;
+  min-height: 80px;
+}
+.timetable-weekdays {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+.timetable-weekdays label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.timetable-weekdays input {
+  width: 16px;
+  height: 16px;
+}
+.timetable-preview {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+.timetable-preview h3 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+}
+.timetable-preview p {
+  line-height: 1.6;
+  font-size: 0.85rem;
+}
+.timetable-preview.has-conflicts,
+.timetable-warning {
+  border: 1px solid var(--danger);
+}
+.timetable-conflict {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.timetable-conflict strong {
+  font-size: 0.88rem;
+  color: var(--danger);
+}
+.timetable-warning {
+  padding: 16px;
+  border-radius: 10px;
+}
+.timetable-history article {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+.timetable-calendar-review {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  line-height: 1.55;
+}
+.timetable-calendar-review p,
+.timetable-calendar-message p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.timetable-calendar-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 16px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.timetable-calendar-summary > div {
+  min-width: 0;
+}
+.timetable-calendar-summary dt,
+.timetable-calendar-provenance {
+  color: var(--muted);
+  font-size: .82rem;
+}
+.timetable-calendar-summary dd {
+  margin: 4px 0 0;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.timetable-calendar-message {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: var(--surface);
+}
+.timetable-calendar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.timetable-calendar-actions .button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .timetable-calendar-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .timetable-calendar-actions .button {
+    width: 100%;
+  }
+}
+@media (max-width: 1100px) {
+  .timetable-week {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .timetable-day {
+    border-bottom: 1px solid var(--border);
+  }
+}
+@media (max-width: 650px) {
+  .timetable-week {
+    grid-template-columns: 1fr;
+  }
+  .timetable-day > header {
+    gap: 10px;
+  }
+  .timetable-day > header small {
+    width: auto;
+    margin-left: auto;
+  }
+  .timetable-day > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .timetable-intro {
+    flex-wrap: wrap;
+    padding: 16px;
+  }
+  .timetable-intro > div:nth-child(2) {
+    flex: 1;
+  }
+  .timetable-intro > .badge {
+    margin-left: 0;
+  }
+  .timetable-pattern-list > article {
+    flex-direction: column;
+  }
+  .timetable-field-grid {
+    grid-template-columns: 1fr;
+  }
+  .timetable-actions {
+    width: 100%;
+  }
+  .timetable-meeting {
+    padding: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .timetable-symbol {
+    transform: none;
+  }
+}
+html[data-depth="false"] .timetable-symbol {
+  transform: none;
+  box-shadow: none;
+}
+@media print {
+  html:has(.timetable-module),
+  body:has(.timetable-module) {
+    background: white !important;
+    color: black !important;
+  }
+  body:has(.timetable-module) * {
+    visibility: hidden;
+  }
+  body:has(.timetable-module) .timetable-module,
+  body:has(.timetable-module) .timetable-module * {
+    visibility: visible;
+  }
+  body:has(.timetable-module) .timetable-module {
+    position: absolute;
+    inset: 0;
+    padding: 12px;
+    display: block;
+    background: white;
+    color: black;
+    --surface: white;
+    --surface-raised: white;
+    --text: black;
+    --muted: #444;
+    --border: #aaa;
+    --accent: #333;
+    --accent-text: #222;
+  }
+  body:has(.timetable-module) .no-timetable-print,
+  body:has(.timetable-module) .timetable-intro {
+    display: none !important;
+  }
+  .timetable-week {
+    display: block;
+    border: 0;
+    margin-top: 16px;
+  }
+  .timetable-day {
+    border: 1px solid #aaa;
+    margin-bottom: 10px;
+    break-inside: avoid;
+  }
+  .timetable-day > header small {
+    width: auto;
+  }
+  .timetable-day > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .timetable-explainer {
+    margin-top: 16px;
+  }
+}
+
+.audience-classes {
+  --event-color: var(--accent);
+  border-color: var(--accent);
+}
+
+@media screen and (max-width: 650px) {
+  .timetable-intro {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+  }
+  .timetable-symbol {
+    padding: 10px;
+  }
+  .timetable-intro h2 {
+    font-size: 1.05rem;
+    line-height: 1.35;
+  }
+  .timetable-intro p {
+    line-height: 1.55;
+  }
+  .timetable-intro > .badge {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+@media print {
+  .timetable-day > div {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+}
+.audience-classes {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+.calendar-legend .audience-classes {
+  background: var(--accent);
+}

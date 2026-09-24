@@ -1,0 +1,48 @@
+name: Workspace CI
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: workspace-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    working-directory: apps/workspace
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NODE_ENV: test
+      TZ: UTC
+    steps:
+      - name: Check out the current application only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            /apps/workspace/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/workspace/package-lock.json
+      - name: Check publication boundary
+        run: node scripts/verify-repository-hygiene.mjs
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
+      - name: Install local MCP bridge dependencies
+        run: npm ci --prefix integrations/mcp
+      - name: Verify local MCP bridge
+        run: npm test --prefix integrations/mcp
+      - name: Build local MCP bridge
+        run: npm run build --prefix integrations/mcp
+      - name: Verify bridge against the synthetic application
+        run: npm run test:workspace --prefix integrations/mcp

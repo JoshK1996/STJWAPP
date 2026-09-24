@@ -1,0 +1,378 @@
+.grading-module {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+}
+.grade-selectors {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+.grade-selectors > label {
+  min-width: 180px;
+  flex: 1;
+}
+.grade-empty-action {
+  padding: 0 24px 26px;
+  text-align: center;
+}
+.grade-summary {
+  display: grid;
+  grid-template-columns: 2.8fr repeat(4, 1fr);
+  gap: 20px;
+  align-items: center;
+  padding: 25px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: linear-gradient(115deg, var(--surface), var(--accent-soft));
+}
+.grade-summary h2 {
+  font-size: 24px;
+  margin: 13px 0 8px;
+}
+.grade-summary p {
+  font-size: var(--small-size);
+  color: var(--muted);
+  line-height: 1.7;
+}
+.grade-summary > div:not(:first-child) {
+  display: grid;
+  gap: 8px;
+}
+.grade-summary > div > strong {
+  font-size: 28px;
+  font-weight: 600;
+}
+.grade-summary > div > span:not(.badge) {
+  font-size: var(--small-size);
+  color: var(--muted);
+}
+.grade-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.grade-assignment-list > div {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding: 0 22px;
+  gap: 14px;
+}
+.grade-assignment-list .is-archived {
+  background: var(--surface-raised);
+}
+.grade-assignment-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 0;
+  background: transparent;
+  border: 0;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+.grade-assignment-main > span:nth-child(2) {
+  display: grid;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.grade-assignment-main strong {
+  overflow-wrap: anywhere;
+}
+.grade-assignment-main small {
+  font-size: var(--small-size);
+  color: var(--muted);
+  line-height: 1.7;
+}
+.grade-student-number {
+  display: block;
+  color: var(--muted);
+  font-size: var(--small-size);
+  margin-top: 6px;
+}
+.grade-release-list > button {
+  display: flex;
+  gap: 17px;
+  width: 100%;
+  text-align: left;
+  padding: 20px 22px;
+  align-items: center;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.grade-release-list > button > span:nth-child(2) {
+  display: grid;
+  gap: 8px;
+  flex: 1;
+}
+.grade-release-list small {
+  font-size: var(--small-size);
+  color: var(--muted);
+}
+.grade-release-list > button > svg {
+  color: var(--accent-text);
+}
+.grade-history {
+  padding: 5px 24px 24px;
+  max-height: 65vh;
+  overflow: auto;
+}
+.grade-history article {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+}
+.grade-history strong {
+  text-transform: capitalize;
+}
+.grade-history span,
+.grade-history p {
+  color: var(--muted);
+  font-size: var(--small-size);
+  line-height: 1.7;
+}
+.grading-editor-group {
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  padding: 18px;
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.grading-editor-group legend {
+  padding: 0 8px;
+  font-weight: 650;
+}
+.grading-editor-group p {
+  font-size: var(--small-size);
+  color: var(--muted);
+  line-height: 1.7;
+}
+.grading-policy-row {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+.grading-policy-row > label {
+  flex: 1;
+  min-width: 0;
+}
+.grading-policy-row > label:first-child {
+  flex: 2;
+}
+.grading-policy-row .icon-button {
+  margin-bottom: 4px;
+}
+.grading-policy-row input {
+  width: 100%;
+}
+.grading-editor-group > .button {
+  justify-self: start;
+}
+.grade-score-rows {
+  display: grid;
+  gap: 18px;
+}
+.grade-score-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  padding: 17px;
+  min-width: 0;
+}
+.grade-score-row legend {
+  font-weight: 650;
+  font-size: var(--body-size);
+  padding: 0 7px;
+}
+.grade-score-row .grade-score-note {
+  grid-column: 1/-1;
+}
+.grade-score-row:disabled {
+  opacity: 1;
+}
+.grade-instructions {
+  white-space: pre-wrap;
+  font-size: var(--body-size);
+  color: var(--muted);
+  line-height: 1.75;
+}
+.grade-release-student {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.grade-release-student > strong {
+  flex: 1;
+}
+.class-progress-report {
+  padding: 24px;
+  color: var(--text);
+}
+.class-progress-report header {
+  display: grid;
+  gap: 13px;
+  margin-bottom: 25px;
+}
+.class-progress-report header h2 {
+  font-size: 27px;
+}
+.class-progress-report header .badge {
+  justify-self: start;
+}
+.class-progress-report p {
+  color: var(--muted);
+  font-size: var(--small-size);
+  line-height: 1.8;
+  margin: 16px 0;
+}
+.grade-report-result {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 22px;
+  background: var(--accent-soft);
+  border-radius: var(--control-radius);
+  color: var(--accent-text);
+}
+.grade-report-result strong {
+  font-size: 32px;
+}
+.grade-report-result span {
+  font-size: 24px;
+}
+.class-progress-report .table-scroll {
+  margin: 20px -24px;
+}
+.grade-print-root {
+  display: none;
+}
+.grading-module .school-notice > .button {
+  margin-top: 12px;
+  display: flex;
+}
+.grading-module .table-scroll td .badge {
+  display: inline-block;
+  margin: 4px 0 4px 8px;
+}
+@media (max-width: 1050px) {
+  .grade-summary {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .grade-summary > div:first-child {
+    grid-column: 1/-1;
+  }
+}
+@media (max-width: 650px) {
+  .grade-selectors {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .grade-selectors > label {
+    min-width: 0;
+  }
+  .grade-summary {
+    padding: 19px;
+    gap: 20px 10px;
+  }
+  .grade-summary > div > strong {
+    font-size: 24px;
+  }
+  .grade-summary > div > span:not(.badge) {
+    font-size: 10px;
+  }
+  .grade-actions > .button {
+    flex: 1 1 44%;
+    font-size: var(--small-size);
+  }
+  .grade-assignment-list > div {
+    padding: 0 16px;
+  }
+  .grade-assignment-main {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .grade-assignment-main > .badge {
+    margin-left: 49px;
+  }
+  .grade-assignment-main > span:nth-child(2) {
+    min-width: 60%;
+  }
+  .grading-policy-row {
+    flex-wrap: wrap;
+  }
+  .grading-policy-row > label:first-child {
+    flex-basis: 100%;
+  }
+  .grade-score-row {
+    padding: 13px;
+  }
+  .class-progress-report {
+    padding: 18px;
+  }
+  .class-progress-report .table-scroll {
+    margin: 18px -18px;
+  }
+}
+@media print {
+  body:has(.grade-print-root) > *:not(.grade-print-root) {
+    display: none !important;
+  }
+  .grade-print-root {
+    display: block !important;
+    background: white !important;
+    color: black !important;
+  }
+  .grade-print-root .class-progress-report {
+    color: black !important;
+    padding: 0;
+  }
+  .grade-print-root .dialog-actions {
+    display: none !important;
+  }
+  .grade-print-root p {
+    color: #333 !important;
+  }
+  .grade-print-root .table-scroll {
+    overflow: visible;
+    margin: 15px 0;
+  }
+  .grade-print-root table {
+    width: 100%;
+    font-size: 10pt;
+  }
+  .grade-print-root th,
+  .grade-print-root td {
+    color: black !important;
+    background: white !important;
+    border-bottom: 1px solid #aaa;
+    padding: 8px;
+    white-space: normal;
+  }
+  .grade-print-root tr {
+    break-inside: avoid;
+  }
+  .grade-print-root .grade-report-result {
+    color: black;
+    background: #eee;
+    print-color-adjust: exact;
+  }
+  .grade-print-root .badge {
+    color: black;
+    border: 1px solid #777;
+    background: white;
+  }
+}
+.grading-module td strong{color:var(--text)}.grade-mobile-status{display:none;color:var(--muted);font-size:10px;margin-top:7px;line-height:1.7}@media(max-width:650px){.grade-progress-table th:nth-child(3),.grade-progress-table td:nth-child(3),.grade-progress-table th:nth-child(4),.grade-progress-table td:nth-child(4){display:none}.grade-mobile-status{display:block}.grade-progress-table td:first-child{min-width:115px}.grade-progress-table th,.grade-progress-table td{padding:13px 10px}.grade-progress-table td:last-child .text-link{font-size:11px}.grade-progress-table td:nth-child(2){min-width:93px}}

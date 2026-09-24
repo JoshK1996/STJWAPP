@@ -1,0 +1,4 @@
+.workspace-skip { position: fixed; top: 12px; left: 12px; z-index: 100; transform: translateY(-160%); padding: 12px 18px; border-radius: var(--control-radius, 8px); background: var(--surface, white); color: var(--text, #172334); border: 2px solid var(--accent, #4657c7); font-weight: 600; text-decoration: none; }
+.workspace-skip:focus { transform: none; }
+.sidebar .navigation-close { flex-shrink: 0; align-self: flex-end; margin: -12px -4px 4px 0; min-height: 40px; min-width: 40px; }
+.workspace main:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }

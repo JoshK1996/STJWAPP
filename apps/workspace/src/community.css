@@ -1,0 +1,605 @@
+.community-module {
+  display: grid;
+  gap: 22px;
+}
+.community-toolbar,
+.community-tools,
+.calendar-month {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.community-toolbar {
+  justify-content: space-between;
+}
+.community-toolbar p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.calendar-month h2 {
+  font-size: 22px;
+  min-width: 178px;
+  text-align: center;
+}
+.community-tools select {
+  width: auto;
+  min-width: 160px;
+}
+.calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 285px;
+  gap: 20px;
+  align-items: start;
+}
+.calendar-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.calendar-weekdays {
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border);
+}
+.calendar-weekdays span {
+  padding: 16px 8px;
+  text-align: center;
+  color: var(--muted);
+  font-weight: 650;
+  font-size: var(--small-size);
+}
+.calendar-day {
+  min-height: 119px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 7px;
+  min-width: 0;
+}
+.calendar-day:nth-child(7n) {
+  border-right: 0;
+}
+.calendar-day.selected {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  background: var(--accent-soft);
+}
+.calendar-day.outside {
+  background: var(--surface-raised);
+}
+.calendar-date {
+  display: block;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  min-height: 31px;
+  min-width: 31px;
+  border-radius: var(--control-radius);
+  font-weight: 600;
+  text-align: center;
+}
+.calendar-day.outside .calendar-date {
+  color: var(--muted);
+}
+.calendar-date.today {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.calendar-day-events {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+.calendar-chip {
+  text-align: left;
+  padding: 4px 5px;
+  font-size: 11px;
+  border: 0;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  min-width: 0;
+}
+.calendar-chip strong {
+  font-weight: 600;
+}
+.audience-unit {
+  background: var(--info-soft);
+  color: var(--info);
+  border-color: var(--info);
+}
+.audience-personal {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-color: var(--warning);
+}
+.calendar-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 14px 16px;
+  color: var(--muted);
+  font-size: var(--small-size);
+}
+.calendar-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.calendar-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.calendar-legend .audience-unit {
+  background: var(--info);
+}
+.calendar-legend .audience-personal {
+  background: var(--warning);
+}
+.calendar-legend small {
+  margin-left: auto;
+}
+.agenda-date {
+  margin: 0 20px 18px;
+  display: grid;
+  gap: 7px;
+  font-size: var(--small-size);
+  color: var(--muted);
+}
+.agenda-event {
+  display: grid;
+  gap: 7px;
+  padding: 18px 20px;
+  text-align: left;
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+.agenda-event:hover {
+  background: var(--surface-raised);
+}
+.agenda-event strong {
+  font-size: 15px;
+}
+.agenda-event > span:not(.badge) {
+  font-size: var(--small-size);
+  color: var(--muted);
+}
+.agenda-event .badge {
+  justify-self: start;
+}
+.agenda-event .agenda-time {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.community-form,
+.community-dialog {
+  padding: 4px 26px 24px;
+  display: grid;
+  gap: 18px;
+}
+.community-form label {
+  display: grid;
+  gap: 8px;
+  font-size: var(--small-size);
+  font-weight: 600;
+}
+.community-form small {
+  color: var(--muted);
+  font-weight: 400;
+}
+.community-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.community-form textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+.community-dialog > p {
+  line-height: 1.8;
+  margin: 0;
+}
+.community-dialog > p svg {
+  vertical-align: middle;
+}
+.preserve-lines {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.event-history {
+  font-size: var(--small-size);
+  color: var(--muted);
+  padding-left: 20px;
+  display: grid;
+  gap: 12px;
+}
+.community-form .dialog-actions,
+.community-dialog .dialog-actions {
+  padding: 16px 0 0;
+  margin: 0;
+}
+.community-loading {
+  padding: 26px;
+  color: var(--muted);
+}
+.mobile-event-count {
+  display: none;
+}
+.mail-layout {
+  display: grid;
+  grid-template-columns: 155px minmax(240px, 0.8fr) minmax(0, 1.2fr);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: 600px;
+  overflow: hidden;
+}
+.mail-folders {
+  padding: 18px 12px;
+  border-right: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+.mail-folders button {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 13px 10px;
+  margin-bottom: 4px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--control-radius);
+  color: var(--muted);
+  font-weight: 550;
+}
+.mail-folders button.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.mail-folders button .badge {
+  margin-left: auto;
+}
+.mail-folders > p {
+  font-size: var(--small-size);
+  line-height: 1.7;
+  color: var(--muted);
+  padding: 20px 10px;
+}
+.mail-list {
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+.mail-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.mail-row {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  padding: 20px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+.mail-row.selected {
+  background: var(--accent-soft);
+}
+.mail-row.unread {
+  border-left: 3px solid var(--accent);
+  padding-left: 13px;
+}
+.mail-row > span:not(.avatar) {
+  display: grid;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+}
+.mail-row b {
+  font-weight: 500;
+  font-size: var(--small-size);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mail-row.unread b {
+  font-weight: 700;
+}
+.mail-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.mail-row i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 5px;
+}
+.mail-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 18px;
+  font-size: var(--small-size);
+  color: var(--muted);
+}
+.mail-reader {
+  padding: 30px;
+  min-width: 0;
+}
+.mail-reader > .empty {
+  padding-top: 130px;
+}
+.message-subject {
+  display: grid;
+  gap: 20px;
+  margin: 4px 0 24px;
+}
+.message-subject .badge {
+  justify-self: start;
+}
+.message-subject h2 {
+  font-size: 24px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.message-sender {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.message-sender p {
+  font-size: var(--small-size);
+  color: var(--muted);
+  margin: 5px 0 0;
+}
+.message-recipients {
+  font-size: var(--small-size);
+  color: var(--muted);
+  line-height: 1.8;
+  margin: 20px 0;
+}
+.message-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.85;
+  padding: 22px 0 30px;
+  border-top: 1px solid var(--border);
+}
+.message-receipts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: var(--small-size);
+  padding-bottom: 20px;
+}
+.mail-reader > .text-link {
+  margin-top: 20px;
+}
+.mail-back {
+  display: none;
+}
+.recipient-picker {
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  padding: 14px;
+}
+.recipient-picker legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: var(--small-size);
+}
+.recipient-options {
+  max-height: 160px;
+  overflow: auto;
+  margin-top: 10px;
+}
+.recipient-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  line-height: 1.5;
+  font-weight: 400;
+}
+.recipient-options input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent);
+}
+@media (min-width: 1600px) {
+  .calendar-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+  .calendar-day {
+    min-height: 135px;
+  }
+  .calendar-chip {
+    font-size: 12px;
+  }
+}
+@media (max-width: 1250px) {
+  .calendar-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .calendar-chip {
+    font-size: 11px;
+  }
+  .mail-layout {
+    grid-template-columns: 130px minmax(210px, 0.8fr) minmax(0, 1.2fr);
+  }
+  .mail-reader {
+    padding: 20px;
+  }
+}
+@media (max-width: 900px) {
+  .mail-layout {
+    grid-template-columns: 1fr;
+    min-height: 460px;
+  }
+  .mail-folders {
+    display: flex;
+    gap: 4px;
+    padding: 10px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    overflow: auto;
+  }
+  .mail-folders button {
+    width: auto;
+    flex: 1;
+    justify-content: center;
+    margin: 0;
+    padding: 12px 8px;
+  }
+  .mail-folders > p {
+    display: none;
+  }
+  .mail-reader {
+    display: none;
+  }
+  .mail-reader.open {
+    display: block;
+  }
+  .mail-list.has-selection {
+    display: none;
+  }
+  .mail-back {
+    display: inline-flex;
+  }
+  .mail-reader .mail-back {
+    margin: 0 0 24px;
+  }
+  .mail-list {
+    border-right: 0;
+  }
+  .calendar-day {
+    min-height: 103px;
+  }
+}
+@media (max-width: 600px) {
+  .community-toolbar {
+    gap: 16px;
+  }
+  .calendar-month {
+    gap: 3px;
+    width: 100%;
+    justify-content: space-between;
+  }
+  .calendar-month h2 {
+    font-size: 20px;
+    min-width: 150px;
+  }
+  .community-tools {
+    width: 100%;
+  }
+  .community-tools select {
+    flex: 1;
+    min-width: 120px;
+  }
+  .calendar-day {
+    min-height: 50px;
+    padding: 5px;
+  }
+  .calendar-date {
+    width: 100%;
+    min-height: 39px;
+    font-size: 12px;
+  }
+  .calendar-day-events {
+    display: none;
+  }
+  .calendar-weekdays span {
+    padding: 13px 2px;
+    font-size: 11px;
+  }
+  .mobile-event-count {
+    display: inline;
+  }
+  .calendar-legend {
+    gap: 12px;
+    padding: 12px;
+  }
+  .calendar-legend small {
+    width: 100%;
+    margin: 0;
+  }
+  .day-agenda {
+    display: block;
+  }
+  .calendar-layout {
+    gap: 16px;
+  }
+  .community-form,
+  .community-dialog {
+    padding: 4px 18px 20px;
+  }
+  .community-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .community-form .dialog-actions {
+    flex-wrap: wrap;
+  }
+  .mail-folders button {
+    font-size: 12px;
+    gap: 5px;
+  }
+  .mail-folders button svg {
+    width: 15px;
+  }
+  .mail-reader {
+    padding: 20px;
+  }
+  .message-subject h2 {
+    font-size: 22px;
+  }
+}
+
+.mail-row strong,
+.message-sender strong,
+.message-recipients {
+  overflow-wrap: anywhere;
+}
+.mail-layout {
+  align-content: start;
+}
+.mail-list,
+.mail-reader {
+  min-height: 540px;
+}
+@media (max-width: 900px) {
+  .mail-folders {
+    min-height: 64px;
+  }
+  .mail-list,
+  .mail-reader {
+    min-height: 420px;
+  }
+}
+
+.recipient-options label{flex-direction:row}
