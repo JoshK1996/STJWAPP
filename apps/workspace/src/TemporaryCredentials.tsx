@@ -33,7 +33,7 @@ export default function TemporaryCredentials({ challenge, onReturn }: {
         challenge: challenge.challenge, password: values.get("password"), pin: values.get("pin"),
       }));
       form.reset();
-      if (alive.current) onReturn("Your password and PIN were updated. Sign in with your new credentials to continue.");
+      if (alive.current) onReturn("Your password and PIN are ready. Sign in with your email and new password to open your workspace. Your new PIN opens the time clock.");
     } catch (cause) {
       if (!alive.current) return;
       if (cause instanceof ApiError && [401, 403, 404].includes(cause.status)) {

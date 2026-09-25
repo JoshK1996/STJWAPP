@@ -3,7 +3,7 @@ import type { Database, Queryable } from './db';
 import { audit, assertUnit, digest, manages, orgWide, requireCondition, type Actor } from './security';
 import { clockInput, requestInput, staffInput } from '../shared/contracts';
 import type { z } from 'zod';
-import { noTimeOverlap } from './time-record-access';
+import { noTimeOverlap,timeMicroseconds } from './time-record-access';
 import { currentReportActor, recheckReportSession } from './report-source-access';
 
 export async function clockState(db: Queryable, actor: Actor) {
@@ -17,15 +17,16 @@ export async function clockState(db: Queryable, actor: Actor) {
 }
 /** Internal transition primitive. Caller holds the employee account lock.
  * Public HTTP callers must use clock-session.ts; no session is created here. */
-export async function clockTransition(tx: Queryable, actor: Actor, raw: z.infer<typeof clockInput>, injectedNow?: Date) {
+export async function clockTransition(tx: Queryable, actor: Actor, raw: z.infer<typeof clockInput>, injectedNow?: Date|string, scheduled?: {intentId:string;scheduleId:string;scheduleVersion:number;requestedAt:string;processedAt:string}, decorate?: (result:Awaited<ReturnType<typeof clockState>>)=>Promise<any>) {
   const input = clockInput.parse(raw);
     const fingerprint = digest(JSON.stringify({ action: input.action, jobId: input.jobId ?? null }));
     const previous = (await tx.query('SELECT fingerprint,result FROM clock_commands WHERE user_id=$1 AND command_id=$2',[actor.id,input.commandId])).rows[0];
     if (previous) { requireCondition(previous.fingerprint===fingerprint,409,'This command identifier was already used for another action.'); return previous.result; }
     // Production time is sampled after waiting for the shared employee lock.
     // Explicit test instants are still checked against exact database bounds.
-    const now = injectedNow ? new Date(injectedNow) : new Date();
-    requireCondition(Number.isFinite(now.valueOf()),400,'Use a valid clock instant.');
+    const now = typeof injectedNow==='string'?injectedNow:injectedNow ? new Date(injectedNow) : new Date();
+    if(typeof now==='string')timeMicroseconds(now);
+    else requireCondition(Number.isFinite(now.valueOf()),400,'Use a valid clock instant.');
     // Serialize new use with job edits/archiving while the account lock is held.
     if ((input.action==='clock_in'||input.action==='switch_job') && input.jobId)
       await tx.query('SELECT id FROM jobs WHERE org_id=$1 AND id=$2 FOR SHARE',[actor.org_id,input.jobId]);
@@ -55,8 +56,8 @@ export async function clockTransition(tx: Queryable, actor: Actor, raw: z.infer<
     }
     if (input.action==='clock_out') await tx.query('UPDATE shifts SET ended_at=$1 WHERE id=$2 AND org_id=$3',[now,shiftId,actor.org_id]);
     else await tx.query('INSERT INTO segments(id,org_id,shift_id,job_id,kind,started_at,revision) VALUES($1,$2,$3,$4,$5,$6,$7)',[randomUUID(),actor.org_id,shiftId,jobId,kind,now,current?.revision??1]);
-    await audit(tx,actor,`clock.${input.action}`,shiftId,{ jobId, at:now.toISOString(), commandId:input.commandId, authentication:actor.mode });
-    const result = await clockState(tx,actor);
+    await audit(tx,actor,`clock.${input.action}`,shiftId,{ jobId, at:typeof now==='string'?now:now.toISOString(), commandId:input.commandId, authentication:actor.mode,...(scheduled?{scheduled}: {}) });
+    const stateAfter = await clockState(tx,actor),result=decorate?await decorate(stateAfter):stateAfter;
     await tx.query('INSERT INTO clock_commands(org_id,user_id,command_id,fingerprint,result) VALUES($1,$2,$3,$4,$5)',[actor.org_id,actor.id,input.commandId,fingerprint,JSON.stringify(result)]);
     return result;
 }

@@ -39,7 +39,7 @@ DO $$ DECLARE immutable_table record; BEGIN
   SELECT DISTINCT n.nspname,c.relname FROM pg_trigger t
   JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
   JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
-  WHERE n.nspname='public' AND f.nspname='public' AND p.proname='protect_audit_events' AND NOT t.tgisinternal
+  WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN('protect_audit_events','reject_staff_credential_command_change') AND NOT t.tgisinternal
  LOOP
   EXECUTE format('REVOKE UPDATE,DELETE ON TABLE %I.%I FROM stjw_runtime',immutable_table.nspname,immutable_table.relname);
  END LOOP;
@@ -47,11 +47,12 @@ DO $$ DECLARE immutable_table record; BEGIN
   SELECT DISTINCT n.nspname,c.relname FROM pg_trigger t
   JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
   JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
-  WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN ('protect_staff_schedule_request','protect_standing_policy','protect_standing_series','protect_gpa_policy','protect_gpa_series','protect_staff_import','protect_organization_branding','protect_payroll_saved_views','protect_accounting_planning','protect_accounting_editable_record') AND NOT t.tgisinternal
+  WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN ('protect_staff_schedule_request','protect_standing_policy','protect_standing_series','protect_gpa_policy','protect_gpa_series','protect_staff_import','protect_organization_branding','protect_payroll_saved_views','protect_accounting_planning','protect_accounting_editable_record','protect_clock_intent','preserve_workforce_import_evidence') AND NOT t.tgisinternal
  LOOP
   EXECUTE format('REVOKE DELETE ON TABLE %I.%I FROM stjw_runtime',immutable_table.nspname,immutable_table.relname);
  END LOOP;
 END $$;
+REVOKE DELETE ON TABLE public.clock_employee_policies FROM stjw_runtime;
 `;
 }
 const accountingProtections = [
@@ -74,6 +75,18 @@ const accountingProtections = [
  ['accounting_planning_commands','immutable_accounting_planning_commands','protect_audit_events',27,true],
 ] as const;
 const accountingProtectionValues = accountingProtections.map(([table,trigger,fn,type,immutable])=>`('${table}','${trigger}','${fn}',${type},${immutable})`).join(',');
+// Exact trigger identities are checked even when a table currently has no rows.
+// Policy rows cannot be deleted and recreated with a reused pending version.
+const workforceProtections = [
+ ['users','advance_clock_authority_version','advance_clock_authority',19,true,false],
+ ['clock_intents','protected_clock_intent','protect_clock_intent',31,true,true],
+ ['clock_intent_events','immutable_clock_intent_events','protect_audit_events',27,false,true],
+ ['clock_intent_commands','immutable_clock_intent_commands','protect_audit_events',27,false,true],
+ ['staff_credential_commands','staff_credential_commands_immutable','reject_staff_credential_command_change',27,false,true],
+ ['workforce_allowance_reviews','immutable_workforce_allowance_reviews','protect_audit_events',27,false,true],
+ ['workforce_import_batches','workforce_import_evidence_immutable','preserve_workforce_import_evidence',27,true,true],
+] as const;
+const workforceProtectionValues = workforceProtections.map(([table,trigger,fn,type,allowUpdate,forbidDelete])=>`('${table}','${trigger}','${fn}',${type},${allowUpdate},${forbidDelete})`).join(',');
 export async function inspectRuntimeAccess(db: Queryable) {
   const result = (
     await db.query(`SELECT current_user AS role, session_user AS login,
@@ -89,7 +102,20 @@ export async function inspectRuntimeAccess(db: Queryable) {
     EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN('r','p') AND has_table_privilege(c.oid,'TRUNCATE,TRIGGER,REFERENCES')) AS dangerous_table_grants,
     EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN('r','p') AND NOT has_table_privilege(c.oid,'SELECT')) AS missing_table_reads,
     EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prosecdef) AS unreviewed_definers,
-    EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace WHERE n.nspname='public' AND f.nspname='public' AND p.proname='protect_audit_events' AND NOT t.tgisinternal AND has_table_privilege(c.oid,'UPDATE,DELETE')) AS mutable_immutable_tables,
+    EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN('protect_audit_events','reject_staff_credential_command_change') AND NOT t.tgisinternal AND has_table_privilege(c.oid,'UPDATE,DELETE')) AS mutable_immutable_tables,
+    EXISTS(SELECT 1 FROM (VALUES ${workforceProtectionValues}) AS expected(table_name,trigger_name,function_name,trigger_type,allow_update,forbid_delete)
+      WHERE NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+        JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
+        WHERE n.nspname='public' AND f.nspname='public' AND c.relname=expected.table_name AND t.tgname=expected.trigger_name
+          AND p.proname=expected.function_name AND t.tgtype=expected.trigger_type AND NOT t.tgisinternal AND t.tgenabled IN('O','A'))
+      OR NOT has_table_privilege('public.'||expected.table_name,'SELECT')
+      OR NOT has_table_privilege('public.'||expected.table_name,'INSERT')
+      OR has_table_privilege('public.'||expected.table_name,'UPDATE')<>expected.allow_update
+      OR (expected.forbid_delete AND has_table_privilege('public.'||expected.table_name,'DELETE'))) AS unprotected_workforce_activation,
+    (NOT has_table_privilege('public.clock_employee_policies','SELECT')
+      OR NOT has_table_privilege('public.clock_employee_policies','INSERT')
+      OR NOT has_table_privilege('public.clock_employee_policies','UPDATE')
+      OR has_table_privilege('public.clock_employee_policies','DELETE')) AS unprotected_clock_policy,
     (NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
       JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
       WHERE n.nspname='public' AND c.relname='payroll_saved_views' AND t.tgname='protected_payroll_saved_views'

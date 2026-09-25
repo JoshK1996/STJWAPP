@@ -4,6 +4,8 @@ import { passwordSchema, staffInput } from "./contracts";
 export const pinSchema = z.string().regex(/^\d{6,8}$/, "Use a PIN with 6 to 8 digits.");
 export const initialCredentialsSchema = z.object({ password: passwordSchema, pin: pinSchema }).strict();
 export const staffCreateInput = staffInput.extend({ initialCredentials: initialCredentialsSchema.optional() }).strict();
+export const staffTemporaryCredentialsInput = initialCredentialsSchema.extend({ commandId: z.uuid(), reason: z.string().trim().min(3).max(1000) }).strict();
+export const staffTemporaryCredentialsResult = z.object({ id: z.uuid(), requiresCredentialChange: z.boolean(), replayed: z.boolean() }).strict();
 export const staffCreateResultSchema = z.union([
   z.object({ id: z.uuid(), setupUrl: z.url() }).strict(),
   z.object({ id: z.uuid(), requiresCredentialChange: z.literal(true) }).strict(),

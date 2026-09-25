@@ -257,7 +257,9 @@ export function installAuth(app: Express, db: Database, secure: boolean) {
       ).rows[0];
       const payrollRead = ["/payroll/hours", "/payroll/hours/export", "/payroll/review", "/payroll/review/export", "/payroll/views"].includes(req.path)
         || /^\/payroll\/views\/[0-9a-f-]{36}\/resolve$/i.test(req.path);
-      const needed = (req.path.startsWith("/reports") || payrollRead)
+      const workforceRead = ["/workforce/overview", "/board", "/workforce/allowance/export.csv", "/workforce/allowance/export.xlsx", "/workforce/allowance/snapshots"].includes(req.path)
+        || /^\/workforce\/allowance\/snapshots\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\/export\.(?:csv|xlsx))?$/i.test(req.path);
+      const needed = (req.path.startsWith("/reports") || payrollRead || workforceRead)
         ? "reports:read"
         : req.path === "/staff"
           ? "staff:read"
@@ -312,7 +314,8 @@ export function installAuth(app: Express, db: Database, secure: boolean) {
     (req as AppRequest).actor = actor;
     if (actor.mode === "pin")
       requireCondition(
-        ["/me", "/clock", "/auth/logout"].includes(req.path),
+        ["/me", "/clock", "/auth/logout"].includes(req.path) ||
+          (req.method === "POST" && /^\/clock\/preclock\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/cancel$/i.test(req.path)),
         403,
         "Sign in with your password to open this area.",
       );

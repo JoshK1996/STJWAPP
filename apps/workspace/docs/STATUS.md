@@ -1,6 +1,14 @@
 # Implementation status
 
-The app is a live synthetic demonstration workspace. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
+The live workspace has been cleared of owner-confirmed demonstration operational records; three real accounts and four basic communities/jobs remain. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
+
+## Workforce simplification and live preparation — September 25, 2026
+
+Implemented and locally validated, awaiting deployment: current-team-first Overview, scheduled-hour allowances and accrued daily employee overages, readable Excel/CSV and immutable saved reviews; per-employee durable scheduled starts; first-sign-in recovery and confirmations; direct pay-rate/clock-rule controls; simpler navigation; bulk job/schedule imports alongside employee imports. See [daily workforce guide](WORKFORCE-DAILY-USE.md), [scheduled starts](SCHEDULED-CLOCK.md), [imports](WORKFORCE-IMPORTS.md) and ADR0009. No location collection is introduced.
+
+Completed operational cleanup: a reviewed dry run and committed transaction removed owner-confirmed demonstrations. Readback shows three retained accounts, four communities, four jobs and zero shifts, segments, schedules, students and accounting journals. Retained credential and role equality was checked without exposing hashes; the runtime cannot access the private rollback archive. The two administrators were subsequently recovered at the owner's request after a case-sensitive temporary-password mismatch. The hosted Password form accepted each corrected credential and opened mandatory password/PIN replacement; no management session or replacement credentials were created. Private receipts remain outside the repository.
+
+Local verification passed the 1,157-test application suite, 21 focused export tests after the final title-layout adjustment, the production build and a production dependency audit with zero reported vulnerabilities. Final synthetic browser checks and actual Excel rendering are recorded in VALIDATION; maintenance, deployment and GitHub evidence follows after completion. The wider original organization request remains incomplete and is tracked separately.
 
 ## Management editing — September 24, 2026
 

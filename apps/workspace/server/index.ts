@@ -1,3 +1,4 @@
+import { startScheduledClockWorker } from "./scheduled-clock";
 import { createApp } from "./app";
 import { connectDatabase, migrate, verifySchema } from "./db";
 import { assertRuntimeAccess } from "./runtime-access";
@@ -42,6 +43,7 @@ if (!config.production && process.env.OWNER_SETUP_TOKEN_HASH) {
     [process.env.OWNER_SETUP_TOKEN_HASH, config.ownerEmail.toLowerCase()],
   );
 }
+const stopScheduledClockWorker = startScheduledClockWorker(db);
 const server = createApp(db, config).listen(
   Number(process.env.PORT ?? 3000),
   "0.0.0.0",
@@ -55,6 +57,7 @@ async function shutdown() {
   if (closing) return;
   closing = true;
   server.close(async () => {
+    await stopScheduledClockWorker();
     await db.close();
     process.exit(0);
   });

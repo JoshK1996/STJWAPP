@@ -17,3 +17,5 @@ For a new decision, add the next numbered file with date, status, context, decis
 - [0007: Accounting ledger and reviewed workflows](0007-accounting-ledger-and-reviewed-workflows.md)
 
 - [0008: Management editing and preserved evidence](0008-management-editing-and-preserved-evidence.md)
+
+- [0009: Workforce activation and durable scheduled starts](0009-workforce-activation.md)

@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowRight,
   Church,
@@ -29,6 +29,8 @@ export default function Auth({
   const [credentialChange, setCredentialChange] = useState<CredentialChangeChallenge | null>(null);
   const [email, setEmail] = useState(""), [formRevision, setFormRevision] = useState(0), [notice, setNotice] = useState("");
   const busyRef = useRef(false);
+  const [demo, setDemo] = useState(false);
+  useEffect(() => { const controller = new AbortController(); void api('/config',undefined,'GET',controller.signal).then(value => setDemo(value.demo === true)).catch(() => {}); return () => controller.abort(); }, []);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busyRef.current) return;
@@ -143,6 +145,7 @@ export default function Auth({
           {notice && <p className="auth-completion-notice" role="status">{notice}</p>}
           {credentialChange ? <TemporaryCredentials challenge={credentialChange} onReturn={(text, isError = false) => {
             setCredentialChange(null); setChallenge(""); setRecovery(false); setFormRevision(value => value + 1);
+            setMode("password");
             setError(isError ? text : ""); setNotice(isError ? "" : text);
           }} /> : <form key={formRevision} onSubmit={submit}>
             {challenge ? (
@@ -213,6 +216,7 @@ export default function Auth({
                 {error}
               </p>
             )}
+            {error && mode === "pin" && !setupToken && !challenge && <button type="button" className="button secondary full" disabled={busy} onClick={() => { setMode("password"); setError(""); setNotice("Use your email and temporary password for first-time setup. After choosing your own PIN, Quick PIN works without an email."); setFormRevision(value => value + 1); }}>Use email and password</button>}
             <button className="button primary full" disabled={busy}>
               {busy
                 ? "Signing in…"
@@ -257,18 +261,18 @@ export default function Auth({
               <>
                 <Clock3 size={17} />
                 PIN sign-in opens only your time clock for five minutes. Use Password for management access.
+                First sign-in or a shared temporary PIN? Use your email and temporary password to set up your account.
               </>
             ) : (
               <>
                 <ShieldCheck size={17} />
-                Accounts are created by your organization. Ask your manager for
-                a private setup link.
+                Accounts are created by your organization. Use the temporary password or private setup link your administrator provided. If neither works, ask them to reset your sign-in from People & jobs.
               </>
             )}
           </p>}
-          <div className="auth-demo">
+          {demo && <div className="auth-demo">
             DEMONSTRATION WORKSPACE <span>Synthetic records for testing</span>
-          </div>
+          </div>}
           {appEntry && <div className="auth-install-entry">{appEntry}</div>}
         </div>
       </section>
