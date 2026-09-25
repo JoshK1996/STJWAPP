@@ -1,3 +1,4 @@
+import { getStaffAssignments, saveStaffAssignments } from "./staff-assignments";
 import { installWorkforceImports } from "./workforce-imports";
 import { saveAllowanceSnapshot, listAllowanceSnapshots, getAllowanceSnapshot, exportAllowance } from "./workforce-allowance-reviews";
 import { installScheduledClockRoutes } from "./scheduled-clock";
@@ -125,6 +126,8 @@ export function createApp(db: Database, config: AppConfig) {
   app.patch('/api/staff/:id',async(req,res)=>{
     res.set('Cache-Control','private, no-store').json(await updateStaffAccount(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),req.body,config.staffDomain));
   });
+  app.get('/api/staff/:id/assignments',async(req,res)=>res.set('Cache-Control','private, no-store').json(await getStaffAssignments(db,actorOf(req),sessionHashOf(req),idOf(req.params.id))));
+  app.put('/api/staff/:id/assignments',async(req,res)=>res.set('Cache-Control','private, no-store').json(await saveStaffAssignments(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),req.body)));
   app.post('/api/staff/:id/setup-link',async(req,res)=>{
     res.set('Cache-Control','private, no-store').json(await issueManagedStaffSetupLink(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),config.origin));
   });

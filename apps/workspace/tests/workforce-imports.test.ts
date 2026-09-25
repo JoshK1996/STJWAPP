@@ -95,7 +95,9 @@ test('source changes after preview require re-review: job revision, employee ass
   await createSchedule(db, owner.actor, { userId: person.id, jobId: duty.id, startsAt: '2026-10-15T12:00:00Z', endsAt: '2026-10-15T14:00:00Z', note: '', commandId: randomUUID(), reason: 'Competing schedule' });
   await assert.rejects(apply('schedules', second), (error: any) => error.status === 409);
   const third = await preview('schedules', source.replaceAll('10-15', '10-16'));
-  await updateStaffAccount(db, owner.actor, owner.hash, person.id, { name: person.name, email: person.email, role: 'employee', unitIds: [units[0].id], jobIds: [], active: true }, 'stjw.org');
+  const currentStaff = await request(application()).get('/api/staff').set('Cookie', owner.cookie); assert.equal(currentStaff.status, 200);
+  const expectedRevision = currentStaff.body.rows.find((row: any) => row.id === person.id).revision;
+  await updateStaffAccount(db, owner.actor, owner.hash, person.id, { name: person.name, email: person.email, role: 'employee', unitIds: [units[0].id], jobIds: [], active: true, expectedRevision }, 'stjw.org');
   await assert.rejects(apply('schedules', third), (error: any) => error.status === 409);
   assert.equal((await db.query('SELECT id FROM schedules WHERE user_id=$1', [person.id])).rows.length, 1);
 });

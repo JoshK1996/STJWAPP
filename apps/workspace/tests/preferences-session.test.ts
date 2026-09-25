@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -96,7 +97,7 @@ test("normal logout committed after middleware prevents preference and audit wri
 
 test("current downgraded role cannot use a stale administrator actor for reports-home", async () => {
   const user = await person("admin"), stale = user.auth.actor;
-  const changed = await send(owner, "/staff/" + user.id, { name: "Synthetic preference account", email: user.email, role: "employee", unitIds: user.units, jobIds: [], active: true }, "patch");
+  const changed = await send(owner, "/staff/" + user.id, { expectedRevision: await testStaffRevision(db, user.id), name: "Synthetic preference account", email: user.email, role: "employee", unitIds: user.units, jobIds: [], active: true }, "patch");
   assert.equal(changed.status, 200); user.auth = await login(user.email, user.password); const before = await state(user);
   await assert.rejects(savePersonalPreferences(db, stale, user.auth.hash, { home: "reports" }), (e: any) => e.status === 403);
   assert.deepEqual(await state(user), before);

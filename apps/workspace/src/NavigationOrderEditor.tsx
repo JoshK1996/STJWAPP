@@ -18,7 +18,7 @@ type NavigationField = keyof NavigationOrders;
 type NavigationId = WorkspaceNavigationId | OrganizationNavigationId;
 const labels: Record<NavigationId, string> = {
   overview: 'Overview', clock: 'My time clock', 'time-records': 'Time records', payroll: 'Payroll',
-  staff: 'People & jobs', schedule: 'Schedule', calendar: 'Calendar', messages: 'Messages',
+  staff: 'Employees & jobs', schedule: 'Schedule', calendar: 'Calendar', messages: 'Messages',
   requests: 'Requests', reports: 'Reports & imports', school: 'School records',
   care: 'Childcare', dismissal: 'Dismissal', workspace: 'School & community',
   audit: 'Activity log', settings: 'Settings',

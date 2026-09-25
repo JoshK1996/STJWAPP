@@ -441,9 +441,9 @@ test("readback integrity detects malformed evidence hashes and receipt scope wit
 test("current onboarding, session and role proof are rechecked on exact receipts and after simulated waits", async () => {
   const f = await fixture(), user = await person("admin"), a = await session(user);
   const created = await changeGpaPolicy(db, user, a.hash, "create", f.input);
-  await db.query("UPDATE users SET password_hash='synthetic-unused-hash',pin_hash='synthetic-unused-hash',requires_credential_change=true WHERE id=$1", [user.id]);
+  await db.query("UPDATE users SET password_hash='synthetic-unused-hash',pin_hash='synthetic-unused-hash',requires_credential_change=true,require_password_change=true,require_pin_change=true WHERE id=$1", [user.id]);
   await assert.rejects(changeGpaPolicy(db, user, a.hash, "create", f.input), denied);
-  await db.query("UPDATE users SET requires_credential_change=false WHERE id=$1", [user.id]);
+  await db.query("UPDATE users SET requires_credential_change=false,require_password_change=false,require_pin_change=false WHERE id=$1", [user.id]);
   const roleChanged = wrapped(async (tx, sql) => {
     if (sql.startsWith("SELECT id,org_id,name,email,role,active FROM users")) await tx.query("UPDATE users SET role='employee' WHERE id=$1", [user.id]);
   });

@@ -1,6 +1,10 @@
 # Implementation status
 
-The live workspace has been cleared of owner-confirmed demonstration operational records; three real accounts and four basic communities/jobs remain. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
+The live workspace was cleared of owner-confirmed demonstration operational records while retaining three initial real accounts and four basic communities/jobs. New live records must be preserved. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
+
+## Employee and job administration - September 25, 2026
+
+Implemented and locally verified, awaiting deployment: the workspace is named **Employees & jobs**. Employee cards show full names, communities and assigned jobs; direct **Manage jobs** supports administrator self/peer assignments while preserving the separate account-role hierarchy. Grouped creation/editing forms keep every permitted active job visible. Account creation and reset add independently configurable password/PIN replacement requirements alongside private setup links, pay-rate and clock-rule controls. Assignment-only writes support safe additions during an open shift, preserve sessions and guard current clock assignments. Full employee edits now reject stale source revisions instead of overwriting a newer account or job change. Existing customer credentials and operational data are preserved. Migration044 retains existing onboarding requirements while storing the two choices independently. See ADR0010, ADR0011 and WORKFORCE-DAILY-USE.
 
 ## Workforce simplification and live preparation — September 25, 2026
 

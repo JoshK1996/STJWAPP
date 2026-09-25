@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes } from 'node:crypto';
@@ -44,7 +45,7 @@ async function person(role = 'employee'): Promise<Person> {
 const actor = (user: Person) => ({ ...owner, id: user.id, email: user.email, role: user.role, unit_ids: [unitId] }) as Actor;
 async function grant(user: Person, enabled: boolean) { await ok('/school/office-grants', { unitId, userId: user.id, enabled }); }
 async function changeStaff(user: Person, changes: { role?: string; active?: boolean; unitIds?: string[] }) {
-  await ok('/staff/' + user.id, { name: 'Synthetic grade import staff', email: user.email, role: user.role, active: true, unitIds: [unitId], jobIds: [], ...changes }, ownerAuth, 'patch');
+  await ok('/staff/' + user.id, { expectedRevision:await testStaffRevision(db,user.id), name: 'Synthetic grade import staff', email: user.email, role: user.role, active: true, unitIds: [unitId], jobIds: [], ...changes }, ownerAuth, 'patch');
 }
 async function teachers(f: Fixture, enabled: boolean) {
   const current = (await send(db, ownerAuth, '/school/sections/' + f.section.id)).body.section;
@@ -278,7 +279,7 @@ test('temporary onboarding, actual PIN and bearer proofs cannot be recast as gra
   const login = await request(app()).post('/api/auth/login').set('Origin', origin).send({ email, credential: password, mode: 'password' }); assert.equal(login.status, 200); assert.equal(login.body.requiresCredentialChange, true);
   assert.ok((login.headers['set-cookie'] as unknown as string[]).every(value => value.startsWith('stjw_session=;') && value.includes('Expires=Thu, 01 Jan 1970')));
   assert.equal((await db.query('SELECT count(*)::int AS n FROM sessions WHERE user_id=$1', [temp.id])).rows[0].n, 0);
-  await assert.rejects(previewGradeImport(db, actor({ id: temp.id, email, password, role: 'admin' }), f.assignment.id, p.raw, ownerAuth.hash), (e: any) => e.status === 403 && /temporary credentials/.test(e.message));
+  await assert.rejects(previewGradeImport(db, actor({ id: temp.id, email, password, role: 'admin' }), f.assignment.id, p.raw, ownerAuth.hash), (e: any) => e.status === 403 && /required credential changes/.test(e.message));
   await ok('/auth/pin', { password: f.user.password, pin: '731958' }, f.auth);
   const pin = await request(app()).post('/api/auth/login').set('Origin', origin).send({ email: f.user.email, credential: '731958', mode: 'pin' }); assert.equal(pin.status, 200);
   const proof = await cookieAuth((pin.headers['set-cookie'] as unknown as string[])[0].split(';')[0]);

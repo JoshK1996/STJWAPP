@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -51,7 +52,7 @@ async function person(role = 'finance', setup = true, assigned = false): Promise
 }
 const asActor = (user: Person): Actor => ({ ...owner, id: user.id, email: user.email, role: user.role as Actor['role'], unit_ids: user.units });
 async function change(user: Person, changes: Record<string, unknown>) {
-  return ok('/staff/' + user.id, { name: 'Synthetic pay session staff', email: user.email, role: user.role, active: true,
+  return ok('/staff/' + user.id, { expectedRevision:await testStaffRevision(db,user.id), name: 'Synthetic pay session staff', email: user.email, role: user.role, active: true,
     unitIds: user.units, jobIds: user.assigned ? [jobId] : [], ...changes }, ownerAuth, 'patch');
 }
 const rate = (): CompensationRate => ({ id: randomUUID(), startsOn: '2026-01-01', endsOn: null, amount: '999999999999.9999', currency: 'USD', basis: 'hour', voided: false, note: '=SYNTHETIC exact café' });

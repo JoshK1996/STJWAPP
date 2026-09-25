@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
@@ -96,7 +97,7 @@ for(const action of ["list","history","run","export"]){
 }
 async function login(auth:Auth){return authenticate(app,await request(app).post("/api/auth/login").set("Origin",origin).send({email:auth.actor.email,mode:"password",credential:password}));}
 async function change(auth:Auth,role:string,unitIds=auth.actor.unit_ids){
- const result=await send(app,owner,`/staff/${auth.actor.id}`,{name:auth.actor.name,email:auth.actor.email,role,unitIds,jobIds:[],active:true},"patch");assert.equal(result.status,200);
+ const result=await send(app,owner,`/staff/${auth.actor.id}`,{expectedRevision:await testStaffRevision(db,auth.actor.id),name:auth.actor.name,email:auth.actor.email,role,unitIds,jobIds:[],active:true},"patch");assert.equal(result.status,200);
  return login(auth);
 }
 test("normal-auth role loss preserves archived author custody but denies active save and restore",async()=>{

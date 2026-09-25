@@ -6,7 +6,7 @@ The visual direction is a colorful dimensional dashboard with interactive charts
 
 ## Current customer priority
 
-Focus the first screen on who is clocked in, their organization/job, elapsed time, worked versus scheduled hours and accrued over-schedule flags. Keep payroll and People & jobs direct; place broader tools behind More tools. Make account creation/recovery, pay-rate editing and employee/job/schedule bulk entry discoverable. Per-employee No early clock-in saves a durable start for the scheduled timestamp. Do not collect location. See WORKFORCE-DAILY-USE and ADR0009; STATUS distinguishes implemented, tested and deployed work.
+Focus the first screen on who is clocked in, their organization/job, elapsed time, worked versus scheduled hours and accrued over-schedule flags. Keep payroll and Employees & jobs direct; place broader tools behind More tools. Make account creation/recovery, pay-rate editing and employee/job/schedule bulk entry discoverable. Per-employee No early clock-in saves a durable start for the scheduled timestamp. Do not collect location. See WORKFORCE-DAILY-USE and ADR0009; STATUS distinguishes implemented, tested and deployed work.
 
 ## Sequence
 

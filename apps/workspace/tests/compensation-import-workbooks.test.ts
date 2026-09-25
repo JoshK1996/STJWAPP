@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
@@ -95,7 +96,7 @@ test('converted pay text requires existing business preview and explicit save; e
 
 test('historical pay templates retain voided entries and remain readable after target deactivation', async () => {
   const person = await provision(), values = [rate(), { ...rate('Historical voided rate'), voided: true }]; await changeRates(person.auth.actor.id, values);
-  await ok(owner, '/api/staff/' + person.auth.actor.id, { ...person.input, active: false, jobIds: [] }, 'patch');
+  await ok(owner, '/api/staff/' + person.auth.actor.id, { ...person.input, expectedRevision: await testStaffRevision(db,person.auth.actor.id), active: false, jobIds: [] }, 'patch');
   const template = await downloadImportWorkbookTemplate(db, finance.actor, finance.hash, scope(person.auth.actor.id));
   const result = await convertImportWorkbook(db, finance.actor, finance.hash, { ...scope(person.auth.actor.id), base64: template.buffer.toString('base64'), sheetId: 1, headerRow: 1, expectedWorkbookHash: template.hash });
   const rows = parse(result.csv, { bom: true, columns: true }) as Record<string, string>[]; assert.equal(rows.length, 2); assert.deepEqual(rows.map(r => r.rateId).sort(), values.map(r => r.id).sort()); assert.equal(rows.find(r => r.rateId === values[1].id)?.voided, 'true');
@@ -106,7 +107,7 @@ test('historical pay templates retain voided entries and remain readable after t
 test('pay templates reject source and captured identity changes during the unlocked worker window', async () => {
   for (const kind of ['record', 'identity'] as const) {
     const person = await provision(), before = await auditCount('import.workbook_template_downloaded');
-    const gated = wrapped(async () => { if (kind === 'record') await changeRates(person.auth.actor.id, [rate()]); else await ok(owner, '/api/staff/' + person.auth.actor.id, { ...person.input, name: 'Changed captured synthetic identity', active: true }, 'patch'); });
+    const gated = wrapped(async () => { if (kind === 'record') await changeRates(person.auth.actor.id, [rate()]); else await ok(owner, '/api/staff/' + person.auth.actor.id, { ...person.input, expectedRevision: await testStaffRevision(db,person.auth.actor.id), name: 'Changed captured synthetic identity', active: true }, 'patch'); });
     await assert.rejects(downloadImportWorkbookTemplate(gated, finance.actor, finance.hash, scope(person.auth.actor.id)), (e: any) => e.status === 409);
     assert.equal(await auditCount('import.workbook_template_downloaded'), before);
   }

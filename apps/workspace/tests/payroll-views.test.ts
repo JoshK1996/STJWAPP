@@ -233,7 +233,7 @@ test('session expiry, credential replacement and inactive accounts deny publicat
     if (change === 'expired') await db.query("UPDATE sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=$1", [reader.hash]);
     else if (change === 'removed') await db.query('DELETE FROM sessions WHERE token_hash=$1', [reader.hash]);
     else if (change === 'inactive') await db.query('UPDATE users SET active=false WHERE id=$1', [reader.actor.id]);
-    else await db.query("UPDATE users SET requires_credential_change=true,password_hash='synthetic-test-hash',pin_hash='synthetic-test-hash' WHERE id=$1", [reader.actor.id]);
+    else await db.query("UPDATE users SET requires_credential_change=true,require_password_change=true,require_pin_change=true,password_hash='synthetic-test-hash',pin_hash='synthetic-test-hash' WHERE id=$1", [reader.actor.id]);
     const status = ['expired', 'removed'].includes(change) ? 401 : 403;
     await rejectStatus(() => list(reader), status); await rejectStatus(() => open(reader, saved.id), status);
     await rejectStatus(() => create(reader), status);

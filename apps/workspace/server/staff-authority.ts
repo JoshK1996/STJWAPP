@@ -6,8 +6,10 @@ import { currentReportActor, recheckReportSession } from './report-source-access
 import { assertManagePerson, validateStaff } from './workforce';
 import { staffInput } from '../shared/contracts';
 import { acquirePinNamespace } from './pin-auth';
+import { staffRecordRevision } from './staff-revision';
+import { staffUpdateInput } from '../shared/staff-editing';
+export { staffUpdateInput } from '../shared/staff-editing';
 
-export const staffUpdateInput = staffInput.extend({ active: z.boolean() });
 export const managedJobInput = z.object({ unitId: z.uuid(), title: z.string().trim().min(2).max(100), description: z.string().trim().max(1000).default('') }).strict();
 const proofOf = (value: string | undefined): string => {
   requireCondition(typeof value === 'string' && /^[a-f0-9]{64}$/.test(value), 401, 'Your session has expired or changed. Sign in again.');
@@ -49,7 +51,7 @@ async function publish<T>(tx: Queryable, actor: Actor, proof: string, result: T)
   await recheckReportSession(tx, actor, proof);
   return result;
 }
-async function lockAssignments(tx: Queryable, actor: Actor, input: z.infer<typeof staffUpdateInput>, targetId: string) {
+async function lockAssignments(tx: Queryable, actor: Actor, input: z.infer<typeof staffInput>, targetId: string) {
   const jobs = [...new Set(input.jobIds)].sort();
   const found = (await tx.query('SELECT id,unit_id,active FROM jobs WHERE org_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE', [actor.org_id, jobs])).rows;
   const retained=(await tx.query('SELECT job_id FROM user_jobs WHERE org_id=$1 AND user_id=$2',[actor.org_id,targetId])).rows.map(row=>row.job_id);
@@ -60,19 +62,22 @@ async function lockAssignments(tx: Queryable, actor: Actor, input: z.infer<typeo
 }
 
 export async function updateStaffAccount(db: Database, supplied: Actor, sessionHash: string | undefined, targetId: string, raw: unknown, staffDomain: string) {
-  const proof = proofOf(sessionHash), identity = capture(supplied), id = z.uuid().parse(targetId).toLowerCase(), input = staffUpdateInput.parse(raw);
+  const proof = proofOf(sessionHash), identity = capture(supplied), id = z.uuid().parse(targetId).toLowerCase();
+  const { expectedRevision, ...input } = staffUpdateInput.parse(raw);
   return transaction(db, async tx => {
     // Active-state changes participate in identifier-free PIN uniqueness before
     // either actor or target account is locked.
     await acquirePinNamespace(tx);
     const actor = await currentActor(tx, identity, proof, id);
     await assertManagePerson(tx, actor, id);
-    await lockAssignments(tx, actor, input, id);
     const before = (await tx.query('SELECT name,email,role,active FROM users WHERE id=$1 AND org_id=$2', [id, actor.org_id])).rows[0];
-    const retainedJobIds=(await tx.query('SELECT job_id FROM user_jobs WHERE org_id=$1 AND user_id=$2',[actor.org_id,id])).rows.map(row=>row.job_id);
-    await validateStaff(tx, actor, input, staffDomain, { role: before.role, email: before.email, retainedJobIds });
     before.unitIds = (await tx.query('SELECT unit_id FROM user_units WHERE user_id=$1 AND org_id=$2 ORDER BY unit_id', [id, actor.org_id])).rows.map(row => row.unit_id);
     before.jobIds = (await tx.query('SELECT job_id FROM user_jobs WHERE user_id=$1 AND org_id=$2 ORDER BY job_id', [id, actor.org_id])).rows.map(row => row.job_id);
+    const revision = staffRecordRevision(actor.org_id, { id, name: before.name, email: before.email, role: before.role, active: before.active, unit_ids: before.unitIds, job_ids: before.jobIds });
+    requireCondition(expectedRevision === revision, 409, 'This employee changed while the editor was open. Reload latest, review the current details and assignments, then save again.');
+    await lockAssignments(tx, actor, input, id);
+    const retainedJobIds=(await tx.query('SELECT job_id FROM user_jobs WHERE org_id=$1 AND user_id=$2',[actor.org_id,id])).rows.map(row=>row.job_id);
+    await validateStaff(tx, actor, input, staffDomain, { role: before.role, email: before.email, retainedJobIds });
     requireCondition(!(await tx.query('SELECT id FROM shifts WHERE user_id=$1 AND org_id=$2 AND ended_at IS NULL', [id, actor.org_id])).rows.length,
       409, 'Clock out before changing this employee’s account or job assignments.');
     // An inactive PIN may now collide with a different active account. Preserve

@@ -210,7 +210,7 @@ export default function Organization({
                 </button>
               </div>
               <p className="school-notice">
-                Assign accounts and jobs in People & jobs. School-office,
+                Assign accounts and jobs in Employees & jobs. School-office,
                 classroom, care and dismissal permissions are configured
                 separately. Creating or moving a unit grants no access.
               </p>

@@ -13,7 +13,7 @@ import { totpAt } from '../server/totp';
 // Committed-boundary gates are not real PostgreSQL lock-queue evidence.
 const origin = 'http://localhost:3194';
 type Auth = { cookie: string; csrf: string; hash: string };
-type Person = { id: string; email: string; password: string; role: string; units: string[]; setupUrl: string };
+type Person = { id: string; email: string; password: string; role: string; units: string[]; setupUrl: string; revision?: string };
 type Fixture = { user: Person; auth: Auth; target: Person; jobTitle: string };
 let db: Database, owner: Actor, ownerAuth: Auth, unitId: string, childId: string, otherUnit: string, jobId: string;
 const app = (database = db) => createApp(database, { origin, production: false, demo: false, staffDomain: 'stjw.org' });
@@ -40,12 +40,17 @@ async function completeSetup(user: Person, token = new URL(user.setupUrl).hash.s
 async function person(role = 'manager', units = [unitId], setup = true): Promise<Person> {
   const email = randomUUID() + '@stjw.org', password = 'Synthetic-' + randomUUID();
   const created = await ok('/staff', { name: 'Synthetic authority staff', email, role, unitIds: units, jobIds: role === 'employee' && units.includes(unitId) ? [jobId] : [] });
-  const result = { id: created.id, email, password, role, units, setupUrl: created.setupUrl };
-  if (setup) await completeSetup(result); return result;
+  const result: Person = { id: created.id, email, password, role, units, setupUrl: created.setupUrl };
+  if (setup) await completeSetup(result); await refreshRevision(result); return result;
 }
 const actor = (user: Person) => ({ ...owner, id: user.id, email: user.email, role: user.role, unit_ids: user.units }) as Actor;
-const bodyFor = (user: Person, changes: Record<string, unknown> = {}) => ({ name: 'Synthetic authority staff', email: user.email, role: user.role, active: true, unitIds: user.units, jobIds: user.role === 'employee' && user.units.includes(unitId) ? [jobId] : [], ...changes });
-async function changeStaff(user: Person, changes: Record<string, unknown>) { return ok('/staff/' + user.id, bodyFor(user, changes), ownerAuth, 'patch'); }
+const bodyFor = (user: Person, changes: Record<string, unknown> = {}) => ({ name: 'Synthetic authority staff', email: user.email, role: user.role, active: true, unitIds: user.units, jobIds: user.role === 'employee' && user.units.includes(unitId) ? [jobId] : [], expectedRevision: user.revision, ...changes });
+async function refreshRevision(user: Person) {
+  const response = await send(db, ownerAuth, '/staff'); assert.equal(response.status, 200);
+  const current = response.body.rows.find((row: any) => row.id === user.id); assert.ok(current);
+  user.revision = current.revision;
+}
+async function changeStaff(user: Person, changes: Record<string, unknown>) { await refreshRevision(user); const result = await ok('/staff/' + user.id, bodyFor(user, changes), ownerAuth, 'patch'); await refreshRevision(user); return result; }
 async function fixture(): Promise<Fixture> {
   const user = await person(), target = await person('employee', [unitId], false);
   return { user, target, auth: await signIn(user), jobTitle: 'Synthetic authority job ' + randomUUID() };
@@ -107,6 +112,7 @@ after(async () => { delete process.env.MFA_ENCRYPTION_KEY; await db?.close(); })
 test('managed writes preserve owner/admin/manager rules and explicit subgroup assignments', async () => {
   const f = await fixture(), admin = await person('admin'), adminAuth = await signIn(admin), child = await person('employee', [childId], false);
   for (const r of routes(f)) assert.ok((await send(db, f.auth, r.path, r.body, r.method)).status < 300);
+  await refreshRevision(f.target);
   assert.equal((await send(db, f.auth, '/staff/' + f.target.id, bodyFor(f.target, { role: 'manager' }), 'patch')).status, 403);
   for (const suffix of ['', '/setup-link']) assert.equal((await send(db, f.auth, '/staff/' + child.id + suffix, suffix ? {} : bodyFor(child), suffix ? 'post' : 'patch')).status, 403);
   assert.equal((await send(db, f.auth, '/jobs', { unitId: childId, title: 'Synthetic inaccessible descendant' })).status, 403);

@@ -127,7 +127,7 @@ export async function issueSetup(
     403,
     "An active account is required to issue a setup link.",
   );
-  requireCondition(!user.requires_credential_change, 403, "Temporary onboarding requires replacing both credentials at sign-in; a setup link cannot bypass it.");
+  requireCondition(!user.requires_credential_change, 403, "Complete the required credential changes at sign-in; a setup link cannot bypass them.");
   const token = opaqueToken();
   await tx.query(
     "UPDATE setup_tokens SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL",

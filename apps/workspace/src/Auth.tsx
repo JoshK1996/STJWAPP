@@ -115,7 +115,7 @@ export default function Auth({
                 : "Welcome to your workday."}
           </h2>
           <p className="muted">
-            {credentialChange ? "Choose a new password and PIN. Your temporary sign-in only opens this setup step." : challenge
+            {credentialChange ? `Choose a new ${credentialChange.requirePasswordChange && credentialChange.requirePinChange ? "password and PIN" : credentialChange.requirePasswordChange ? "password" : "PIN"}. Complete this required update before opening your workspace.` : challenge
               ? "Confirm it’s you with your authenticator app or a saved recovery code."
               : setupToken
                 ? "Choose your private password to finish setting up your account."
@@ -216,7 +216,7 @@ export default function Auth({
                 {error}
               </p>
             )}
-            {error && mode === "pin" && !setupToken && !challenge && <button type="button" className="button secondary full" disabled={busy} onClick={() => { setMode("password"); setError(""); setNotice("Use your email and temporary password for first-time setup. After choosing your own PIN, Quick PIN works without an email."); setFormRevision(value => value + 1); }}>Use email and password</button>}
+            {error && mode === "pin" && !setupToken && !challenge && <button type="button" className="button secondary full" disabled={busy} onClick={() => { setMode("password"); setError(""); setNotice("Use your email and password to complete any required account setup. Once setup is complete, Quick PIN works without an email."); setFormRevision(value => value + 1); }}>Use email and password</button>}
             <button className="button primary full" disabled={busy}>
               {busy
                 ? "Signing in…"
@@ -261,12 +261,12 @@ export default function Auth({
               <>
                 <Clock3 size={17} />
                 PIN sign-in opens only your time clock for five minutes. Use Password for management access.
-                First sign-in or a shared temporary PIN? Use your email and temporary password to set up your account.
+                If your account needs setup, use your email and password first.
               </>
             ) : (
               <>
                 <ShieldCheck size={17} />
-                Accounts are created by your organization. Use the temporary password or private setup link your administrator provided. If neither works, ask them to reset your sign-in from People & jobs.
+                Accounts are created by your organization. Use the password or private setup link your administrator provided. If neither works, ask them to reset your sign-in from Employees & jobs.
               </>
             )}
           </p>}

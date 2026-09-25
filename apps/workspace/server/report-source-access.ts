@@ -40,7 +40,7 @@ export async function currentReportActor(tx: Queryable, actor: Actor, sessionHas
   const row = (await tx.query(`SELECT id,org_id,name,email,role,active FROM users WHERE id=$1 AND org_id=$2 FOR ${write ? "UPDATE" : "SHARE"}`, [actor.id, actor.org_id])).rows[0];
   requireCondition(row?.active, 403, "This account is inactive or unavailable.");
   const credentials = (await tx.query("SELECT requires_credential_change FROM users WHERE id=$1 AND org_id=$2", [actor.id, actor.org_id])).rows[0];
-  requireCondition(credentials && !credentials.requires_credential_change, 403, "Replace both temporary credentials before opening the workspace.");
+  requireCondition(credentials && !credentials.requires_credential_change, 403, "Complete the required credential changes before opening the workspace.");
   if (sessionHash) await recheckReportSession(tx, actor, sessionHash);
   const units = (await tx.query("SELECT unit_id FROM user_units WHERE org_id=$1 AND user_id=$2 ORDER BY unit_id FOR SHARE", [actor.org_id, actor.id])).rows.map(r => r.unit_id);
   return { ...actor, ...row, mode: "password", unit_ids: units };

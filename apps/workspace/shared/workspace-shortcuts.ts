@@ -3,7 +3,7 @@ export const workspaceDestinations = [
   {id:'clock',label:'My time clock',description:'Clock in, change jobs and take a break',keywords:'punch work timeclock',tone:'blue'},
   {id:'time-records',label:'Time records',description:'Review shifts, corrections and missing time',keywords:'history timesheet attendance',tone:'teal'},
   {id:'payroll',label:'Payroll',description:'Employee hours, job breakdowns and accountant exports',keywords:'excel csv wages pay rates',tone:'peach'},
-  {id:'staff',label:'People & jobs',description:'Staff accounts, roles and job assignments',keywords:'employees directory members',tone:'violet'},
+  {id:'staff',label:'Employees & jobs',description:'Staff accounts, roles and job assignments',keywords:'employees directory members',tone:'violet'},
   {id:'schedule',label:'Schedule',description:'Staff shifts and planned work',keywords:'roster availability timetable',tone:'blue'},
   {id:'calendar',label:'Calendar',description:'Personal and community events',keywords:'dates plans events',tone:'peach'},
   {id:'messages',label:'Messages',description:'Internal conversations and saved drafts',keywords:'inbox communication mail',tone:'teal'},

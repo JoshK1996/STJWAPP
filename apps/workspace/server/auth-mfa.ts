@@ -44,7 +44,7 @@ const recoveryDigest = (userId: string, code: string) =>
 // Caller holds the account lock; a password proof never becomes a full session before MFA.
 export async function createMfaChallenge(tx: Queryable, user: Row) {
   const current = (await tx.query("SELECT active,requires_credential_change FROM users WHERE id=$1 AND org_id=$2", [user.id, user.org_id])).rows[0];
-  requireCondition(current?.active && !current.requires_credential_change, 403, "Replace both temporary credentials before signing in.");
+  requireCondition(current?.active && !current.requires_credential_change, 403, "Complete the required credential changes before signing in.");
   const factor = (
     await tx.query(
       "SELECT id FROM mfa_factors WHERE user_id=$1 AND org_id=$2 AND enabled_at IS NOT NULL",

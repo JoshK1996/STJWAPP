@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, beforeEach, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -39,7 +40,7 @@ async function login(user: Actor, mode = "password", credential = tempPassword, 
 async function challenge(user: Actor, mode = "password") {
   const response = await login(user, mode, mode === "pin" ? tempPin : tempPassword);
   assert.equal(response.status, 200); assert.equal(response.body.requiresCredentialChange, true); assert.equal(response.body.ok, undefined);
-  assert.deepEqual(Object.keys(response.body).sort(), ["challenge", "expiresAt", "requiresCredentialChange"]);
+  assert.deepEqual(Object.keys(response.body).sort(), ["challenge", "expiresAt", "requirePasswordChange", "requirePinChange", "requiresCredentialChange"]);
   const cookies = response.headers["set-cookie"] as unknown as string[];
   assert.ok(cookies.every(cookie => cookie.startsWith("stjw_session=;") && cookie.includes("Expires=Thu, 01 Jan 1970")));
   return response.body.challenge as string;
@@ -204,14 +205,14 @@ test("installed staff creation is atomic and lists pending replacements without 
   assert.equal((await request(application()).post("/api/staff").set("Origin", origin).set("Cookie", ownerAuth.cookie).send(input)).status, 403);
   assert.equal((await post("/staff", { ...input, initialCredentials: { ...input.initialCredentials, bypass: true } }, ownerAuth)).status, 400);
   const response = await post("/staff", input, ownerAuth);
-  assert.equal(response.status, 201); assert.deepEqual(Object.keys(response.body).sort(), ["id", "requiresCredentialChange"]); assert.equal(response.body.requiresCredentialChange, true);
+  assert.equal(response.status, 201); assert.deepEqual(Object.keys(response.body).sort(), ["id", "requirePasswordChange", "requirePinChange", "requiresCredentialChange"]); assert.equal(response.body.requiresCredentialChange, true);
   assert.equal(response.headers["cache-control"], "no-store");
   const directory = await request(application()).get("/api/staff").set("Cookie", ownerAuth.cookie), row = directory.body.rows.find((r: Row) => r.id === response.body.id);
   assert.equal(directory.status, 200); assert.equal(row.requires_credential_change, true); assert.equal(row.setup_complete, false);
   assert.equal(row.password_hash, undefined); assert.equal(row.pin_hash, undefined); assert.ok(!JSON.stringify(row).includes(tempPassword) && !JSON.stringify(row).includes(tempPin));
   const user = { ...owner, id: row.id, email: input.email, role: "admin" as const }, proof = await challenge(user);
   const changed = await request(application()).patch("/api/staff/" + user.id).set("Origin", origin).set("Cookie", ownerAuth.cookie).set("X-CSRF-Token", ownerAuth.csrf)
-    .send({ ...staff("admin"), email: input.email, name: "Synthetic changed onboarding identity", active: true });
+    .send({ ...staff("admin"), expectedRevision: await testStaffRevision(db,user.id), email: input.email, name: "Synthetic changed onboarding identity", active: true });
   assert.equal(changed.status, 200); assert.equal((await post("/auth/credentials/complete", { challenge: proof, password, pin })).status, 401);
   assert.equal((await state(user)).user.requires_credential_change, true);
   const plain = await post("/staff", staff(), ownerAuth); assert.equal(plain.status, 201); assert.ok(plain.body.setupUrl); assert.equal(plain.body.requiresCredentialChange, undefined);

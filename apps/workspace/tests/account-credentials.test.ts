@@ -78,7 +78,7 @@ test("fresh authorization rejects deactivated, temporary-credential, expired, cr
   for (const state of ["inactive", "temporary", "expired", "mfa", "cross-org"]) {
     const { actor, auth } = await person();
     if (state === "inactive") await db.query("UPDATE users SET active=false WHERE id=$1", [actor.id]);
-    if (state === "temporary") await db.query("UPDATE users SET requires_credential_change=true WHERE id=$1", [actor.id]);
+    if (state === "temporary") await db.query("UPDATE users SET requires_credential_change=true,require_password_change=true,require_pin_change=true WHERE id=$1", [actor.id]);
     if (state === "expired") await db.query("UPDATE sessions SET expires_at=now()-interval '1 second' WHERE token_hash=$1", [auth.hash]);
     if (state === "mfa") await db.query("INSERT INTO mfa_factors(user_id,org_id,id,secret_cipher,credential_digest,pending_expires_at,enabled_at) VALUES($1,$2,$3,'synthetic', $4,now(),now())", [actor.id, orgId, randomUUID(), digest(passwordHash)]);
     await assert.rejects(changeOwnPassword(db, state === "cross-org" ? { ...actor, org_id: randomUUID() } : actor, auth.hash, input), (error: any) => [401, 403].includes(error.status));

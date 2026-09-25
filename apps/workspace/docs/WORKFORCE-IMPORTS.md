@@ -1,6 +1,6 @@
 # Workforce bulk entry
 
-People & jobs and Staff schedule expose reviewed bulk entry alongside individual editors. Bulk imports create new records. Use the existing edit, archive or schedule-cancellation controls for existing records; imports do not replace historical evidence.
+Employees & jobs and Staff schedule expose reviewed bulk entry alongside individual editors. Bulk imports create new records. Use the existing edit, archive or schedule-cancellation controls for existing records; imports do not replace historical evidence.
 
 | Workflow | Templates | Review and result |
 | --- | --- | --- |
@@ -17,7 +17,7 @@ Keep these exact headers in this order:
 community,title,description
 ```
 
-Copy the community name from People & jobs. The title must be new within that community, including archived jobs. Case and surrounding whitespace do not distinguish otherwise identical titles. If a community name or scheduled job name is ambiguous, rename it through its editor before importing. The preview displays readable community names and titles.
+Copy the community name from Employees & jobs. The title must be new within that community, including archived jobs. Case and surrounding whitespace do not distinguish otherwise identical titles. If a community name or scheduled job name is ambiguous, rename it through its editor before importing. The preview displays readable community names and titles.
 
 ## Staff schedule template
 

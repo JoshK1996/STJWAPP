@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes } from 'node:crypto';
@@ -42,7 +43,7 @@ async function grant(user: Person, enabled: boolean) {
 }
 async function changeStaff(user: Person, changes: { role?: string; active?: boolean; unitIds?: string[] }) {
   const r = await request(app()).patch('/api/staff/' + user.id).set('Cookie', ownerAuth.cookie).set('Origin', origin).set('X-CSRF-Token', ownerAuth.csrf)
-    .send({ name: 'Synthetic school import staff', email: user.email, role: 'employee', active: true, unitIds: [unitId], jobIds: [], ...changes });
+    .send({ expectedRevision: await testStaffRevision(db,user.id), name: 'Synthetic school import staff', email: user.email, role: 'employee', active: true, unitIds: [unitId], jobIds: [], ...changes });
   assert.equal(r.status, 200);
 }
 function input() {
@@ -277,7 +278,7 @@ test('temporary onboarding, actual PIN proof and read-only bearer cannot access 
   assert.equal(login.status, 200); assert.equal(login.body.requiresCredentialChange, true);
   assert.ok((login.headers['set-cookie'] as unknown as string[]).every(value => value.startsWith('stjw_session=;') && value.includes('Expires=Thu, 01 Jan 1970')));
   assert.equal((await db.query('SELECT count(*)::int AS n FROM sessions WHERE user_id=$1', [temp.body.id])).rows[0].n, 0);
-  await assert.rejects(previewSchoolImport(db, supplied({ id: temp.body.id, email, password }, 'admin'), input(), ownerAuth.hash), (e: any) => e.status === 403 && /temporary credentials/.test(e.message));
+  await assert.rejects(previewSchoolImport(db, supplied({ id: temp.body.id, email, password }, 'admin'), input(), ownerAuth.hash), (e: any) => e.status === 403 && /required credential changes/.test(e.message));
   const user = await person(), auth = await signIn(user); assert.equal((await send(db, auth, '/auth/pin', { password: user.password, pin: '731958' })).status, 200);
   const pin = await request(app()).post('/api/auth/login').set('Origin', origin).send({ email: user.email, credential: '731958', mode: 'pin' }); assert.equal(pin.status, 200);
   const proof = await cookieAuth((pin.headers['set-cookie'] as unknown as string[])[0].split(';')[0]);

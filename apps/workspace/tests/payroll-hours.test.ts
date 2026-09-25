@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
@@ -54,7 +55,7 @@ async function person(role: Actor['role'] = 'admin', assigned = units): Promise<
 const actor = (person: Person): Actor => ({ ...owner, id: person.id, email: person.email, role: person.role, unit_ids: person.units });
 const proof = (auth: Auth) => ({ mode: 'password' as const, hash: auth.hash });
 async function change(person: Person, changes: Record<string, unknown>) {
-  await send('/staff/' + person.id, { name: 'Synthetic payroll staff', email: person.email, role: person.role, active: true, unitIds: person.units, jobIds: [], ...changes }, ownerAuth, 'patch');
+  await send('/staff/' + person.id, { expectedRevision:await testStaffRevision(db,person.id), name: 'Synthetic payroll staff', email: person.email, role: person.role, active: true, unitIds: person.units, jobIds: [], ...changes }, ownerAuth, 'patch');
 }
 function probe(effect: (tx: Queryable, sql: string, params: any[]) => Promise<void>): Database {
   return { ...db, transaction: <T>(fn: (tx: Queryable) => Promise<T>) => db.transaction(tx => fn({ query: async <R extends Row = Row>(sql: string, params: any[] = []) => {
