@@ -2,6 +2,12 @@
 
 The live workspace was cleared of owner-confirmed demonstration operational records while retaining three initial real accounts and four basic communities/jobs. New live records must be preserved. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
 
+## Administrator time-card editing - September 25, 2026
+
+Implemented and locally verified; live deployment is pending. Administrators, owners and developers can find all employees' time, open a prefilled date/time editor and save another employee's completed-card correction immediately with retained original punches, reason and named editor. Missing cards and missed clock-outs use the same direct rule; own-account and scoped-manager corrections retain independent review. Whole-range search, inactive-employee history, filters, separate work/break totals and job/community breakdowns replace page-only summaries. Employees, Payroll and Overview provide direct links. See TIME-CARDS and ADR0013.
+
+The complete application suite passed 1,255 tests. Normal synthetic browser acceptance passed 150 time-card checks across 29 desktop/mobile layouts, with zero unexpected errors. Additive migration047 and stricter runtime evidence protection are staged for separate maintenance; existing credentials and operational records must remain unchanged. STATUS/DEPLOYMENT will record hosted evidence after rollout.
+
 ## Job coverage and schedule documents - September 25, 2026
 
 Live and verified. Schedule planning adds recurring job staffing windows/counts, independent day/week/month/year hours targets, visual coverage and reviewed employee assignment. Direct entry from jobs and employees preserves individual shift editing and history. CSV/XLSX/text-PDF/DOCX uploads gain editable mappings/rows before the existing atomic schedule import. Planning rules do not change saved shifts, worked time or employee allowances; saved shifts retain their existing allowance/preclock behavior. See STAFF-PLANNING and ADR0012.

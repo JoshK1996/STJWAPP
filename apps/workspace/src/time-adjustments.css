@@ -26,6 +26,10 @@
 .time-adjustments details dd { margin-left: 0; overflow-wrap: anywhere; }
 .time-adjustments details summary { cursor: pointer; padding: 8px 0; }
 .time-adjustments fieldset { min-width: 0; }
+.adjustment-save-mode { padding: 14px 16px; border: 1px solid var(--border); border-inline-start: 4px solid var(--accent); border-radius: var(--card-radius, 12px); background: var(--surface-raised); color: var(--text); overflow-wrap: anywhere; }
+.adjustment-save-mode p { margin: 6px 0; }
+.time-adjustments .button, .time-adjustments .text-link { min-height: 44px; }
+.time-adjustments .button { white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 720px) {
   .adjustment-form-grid, .adjustment-comparison { grid-template-columns: minmax(0, 1fr); }
   .adjustment-cards { padding: 0 16px 16px; }

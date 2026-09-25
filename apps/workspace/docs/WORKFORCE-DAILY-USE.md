@@ -22,6 +22,10 @@ Create shifts in **Schedule**, or use **Import scheduled shifts**. For an employ
 
 See [Scheduled clock starts](SCHEDULED-CLOCK.md) for exact boundaries, recovery, cancellation and worker behavior. Recorded time corrections still use **Time records**; clock duration alone is not a wage calculation.
 
+## Review and edit time cards
+
+Open **Time records** to see all employees, then filter dates, names, jobs, communities or status. Each card shows its work, breaks and job breakdown. Choose **Edit time card**, adjust the prefilled dates/times, enter a reason and **Save changes**. Administrators, owners and developers can save another employee's correction immediately; original entries and the named editor remain in history. Own-account and scoped-manager changes still require independent review. **Add missing time card** and **Open shifts → Correct clock-out** cover missing entries. Employee cards, Payroll and Overview provide direct links. See [the time-card guide](TIME-CARDS.md) for advanced entries, conflicts and report effects.
+
 ## Overview and payroll
 
 **Overview** opens with people currently clocked in, their job/community and a server-anchored running time indicator. Offline or unavailable data is labeled; the indicator must not suggest new records have been fetched. Today and This week compare worked hours with **scheduled shift hours**, the owner-selected allowance.

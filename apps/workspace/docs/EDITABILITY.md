@@ -21,7 +21,7 @@ If another person saved first, the editor preserves your unsaved values and show
 | Overview and workforce charts | Adjust filters/views; edit the underlying people, jobs or time records. Aggregated chart values are calculated. |
 | My time clock | Clock in/out, change job and start/end a break. Submit a time adjustment for a past punch. |
 | Employees & jobs | Create/edit employees; manage own and permitted employee jobs; create/edit/archive/restore jobs; inspect job history. |
-| Time records | Open a shift and use the reasoned correction/review workflow. Original evidence remains. |
+| Time records | Find an employee and choose **Edit time card**. Administrators save another employee's correction immediately with original evidence and history retained; own/scoped-manager proposals keep independent review. Missing shifts and missed clock-outs have dedicated controls. See [time cards](TIME-CARDS.md) and STATUS for delivery. |
 | Requests | Edit or withdraw your own pending general request. Reviewed requests stay recorded. A reviewer must acknowledge its current revision. |
 | Staff schedule | Open a planned shift to edit or cancel with a reason. Submitted schedule-change proposals can be withdrawn and replaced. |
 | Payroll / reports | Customize and save views, report definitions, columns and exports. Correct hours at their source; prepare a new retained report copy. |

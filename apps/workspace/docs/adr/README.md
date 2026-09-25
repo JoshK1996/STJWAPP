@@ -25,3 +25,5 @@ For a new decision, add the next numbered file with date, status, context, decis
 - [0011: Independent employee sign-in requirements](0011-configurable-employee-sign-in.md)
 
 - [0012: Job coverage and reviewed schedule documents](0012-job-coverage-and-reviewed-schedule-documents.md)
+
+- [0013: Direct administrator time-card corrections](0013-direct-administrator-time-cards.md)

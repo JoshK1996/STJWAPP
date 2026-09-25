@@ -191,6 +191,90 @@
 .time-edit-actions button {
   font-size: var(--small-size);
 }
+.time-records-module .button,.time-records-module .text-link,.records-date-shortcuts button,.time-card-editor .button,.time-card-editor summary{min-height:44px}
+.records-local-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;border-top:1px solid var(--border)}
+.records-local-tools>label{min-width:0;font-size:12px}
+.records-local-tools .records-search{grid-column:1/-1;min-width:0}
+.records-local-tools input,.records-local-tools select{width:100%;min-width:0;max-width:100%;min-height:44px}
+.records-result-count>span{display:grid;gap:8px;line-height:1.6}
+.records-result-count small{font-size:11px;max-width:80ch}
+/* The card now contains a header, jobs and footer. Keep those full width even
+   when the later legacy mobile stylesheet supplies its old two-column grid. */
+.time-records-module .time-record-list .time-record-card{display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch;gap:15px;box-shadow:0 3px 0 var(--surface-raised);border-left:4px solid var(--accent-text)}
+.time-record-list .time-record-card:hover{transform:none;background:var(--surface)}
+.time-record-list .time-record-card.record-is-open{border-left-color:var(--success)}
+.record-card-main{display:flex;align-items:center;gap:14px;min-width:0}
+.record-card-main .record-person{flex:1;min-width:0;width:auto}
+.record-person>strong{font-size:16px;line-height:1.4;overflow-wrap:anywhere}
+.record-person>.badge{margin:4px}
+.record-card-main .record-clock-range{width:auto;min-width:0;align-items:start;line-height:1.6}
+.record-clock-range svg{flex-shrink:0;margin-top:2px}
+.record-card-main .record-span{padding:0;flex:none;min-width:100px;text-align:right}
+.record-card-main .record-span>span{color:var(--muted);font-size:11px}
+.record-jobs{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+.record-jobs>span{display:flex;gap:8px;padding:9px 11px;background:var(--accent-soft);border:1px solid var(--border);border-radius:10px;min-width:0;max-width:100%}
+.record-jobs svg{color:var(--accent-text);flex-shrink:0;margin-top:2px}
+.record-jobs>span>span{display:grid;gap:4px;min-width:0;line-height:1.5;overflow-wrap:anywhere}
+.record-jobs strong{font-size:12px;font-weight:650}.record-jobs small{font-size:11px;color:var(--muted)}
+.record-card-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--border);padding-top:13px;min-width:0}
+.record-card-footer .time-record-tags{padding:0;max-width:none;width:auto;justify-content:start;flex:1;gap:6px}
+.record-card-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:end}
+.record-card-actions .button{font-size:12px;white-space:normal;line-height:1.45}
+.records-job-breakdown{padding:16px 20px;border:1px solid var(--border);border-radius:17px;background:var(--surface);box-shadow:0 3px 0 var(--surface-raised);min-width:0}
+.records-job-breakdown>summary{display:flex;align-items:center;gap:9px;min-height:44px;cursor:pointer;color:var(--accent-text);font-weight:650;list-style-position:inside}
+.records-job-breakdown>summary::before{content:'+';font-size:20px}.records-job-breakdown[open]>summary::before{content:'−'}
+.records-job-breakdown>summary span{margin-left:auto;font-size:11px;color:var(--muted);font-weight:400}
+.records-job-breakdown>p{font-size:12px;line-height:1.7;color:var(--muted)}
+.records-job-breakdown>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.records-job-breakdown article{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);font-size:12px;min-width:0}
+.records-job-breakdown article>div:first-child{display:grid;gap:5px;min-width:0;overflow-wrap:anywhere}
+.records-job-breakdown article span,.records-job-breakdown article small{color:var(--muted);font-size:11px}
+.records-job-breakdown article>strong{font-variant-numeric:tabular-nums;text-align:right;line-height:1.5}
+.records-job-bar{grid-column:1/-1;height:12px;overflow:hidden;border:1px solid var(--border);border-radius:8px;background:var(--surface);box-shadow:inset 0 2px 3px #00000012}
+.records-job-bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent-text),#588eae);border-radius:7px;box-shadow:inset 0 2px 0 #ffffff55}
+.records-job-breakdown article small{grid-column:1/-1}
+.time-records-module dialog .dialog-heading .icon-button{width:44px;height:44px;min-width:44px;min-height:44px;flex-shrink:0}
+.time-card-editor{gap:14px;min-width:0;max-width:100%}
+.time-card-editor-person{display:flex;align-items:start;justify-content:space-between;gap:12px;min-width:0}
+.time-card-editor-person>div{display:grid;gap:6px;min-width:0;overflow-wrap:anywhere}
+.time-card-editor-person strong{font-size:17px}.time-card-editor-person span{font-size:12px;line-height:1.5;color:var(--muted)}
+.time-card-revision{flex-shrink:0;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface-raised)}
+.time-card-editor .time-card-help{margin:0;display:flex;align-items:start;flex-wrap:wrap;gap:5px;font-size:12px;line-height:1.6;color:var(--muted)}
+.time-card-basic{border:0;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}
+.time-card-editor .time-edit-time{min-width:0}
+.time-card-editor label{font-size:12px;line-height:1.5;min-width:0}
+.time-card-editor input,.time-card-editor select{width:100%;min-width:0;max-width:100%;min-height:44px;font-size:13px}
+.time-card-before-after{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:9px;padding:14px 16px;border:1px solid var(--border);border-radius:14px;background:var(--accent-soft);box-shadow:0 3px 0 var(--surface-raised)}
+.time-card-before-after>div{display:grid;gap:6px;min-width:0}.time-card-before-after>div:last-of-type{text-align:right}
+.time-card-before-after span{font-size:11px;color:var(--muted)}.time-card-before-after strong{font-size:19px;font-variant-numeric:tabular-nums;line-height:1.35;overflow-wrap:anywhere}
+.time-card-before-after>p{display:flex;align-items:start;gap:6px;grid-column:1/-1;border-top:1px solid var(--border);padding-top:9px;margin:3px 0 0;font-size:12px;line-height:1.5}
+.time-card-advanced{border:1px solid var(--border);border-radius:12px;padding:0 13px;min-width:0}
+.time-card-advanced>summary{padding:10px 0;cursor:pointer;font-size:13px;line-height:1.7;color:var(--accent-text);font-weight:600}
+.time-card-advanced>summary>span{font-size:11px;font-weight:400;color:var(--muted);margin-left:8px}
+.time-card-advanced>.time-edit-list{margin:14px 0}.time-card-advanced .time-edit-list fieldset{padding:12px}
+.time-card-move{display:flex;flex-wrap:wrap;align-items:end;gap:10px;min-width:0;border:1px solid var(--border);border-radius:10px;margin:14px 0;padding:12px;background:var(--surface-raised)}
+.time-card-move label{display:grid;gap:6px;flex:1;min-width:170px}.time-card-move label svg{display:none}
+.time-card-move p{flex-basis:100%;margin:0;font-size:11px;line-height:1.6;color:var(--muted)}
+.time-card-warning{padding:13px;border:1px solid var(--border);border-left:4px solid var(--warning);border-radius:9px;background:var(--surface-raised);font-size:12px;line-height:1.65;overflow-wrap:anywhere;margin:0}
+.time-card-warning p{margin-top:0}.time-card-editor .time-edit-actions{flex-wrap:wrap;gap:8px}.time-card-editor .time-edit-actions .button{font-size:11px;flex:1}
+.time-card-editor .dialog-actions{position:sticky;bottom:-1px;padding:12px 0 4px;background:var(--surface);border-top:1px solid var(--border);z-index:2;margin-top:0;gap:10px}
+.time-card-editor .dialog-actions .button{min-height:44px;flex:1;white-space:normal;line-height:1.5}
+[data-depth="false"] .records-hero-art,[data-depth="false"] .records-hero-art *{transform:none!important;box-shadow:none!important}
+[data-depth="false"] .time-records-module *,[data-depth="false"] .time-card-editor *{box-shadow:none!important}
+@media(max-width:850px){.record-card-footer{flex-wrap:wrap}.record-card-actions{width:100%;justify-content:end}.records-job-breakdown>div{grid-template-columns:1fr}}
+@media(max-width:650px){
+ .records-local-tools{grid-template-columns:repeat(2,minmax(0,1fr));padding:13px;gap:12px}.records-local-tools .records-search{grid-column:1/-1}.records-local-tools>label{font-size:11px}
+ .record-card-main{align-items:start;gap:10px;flex-wrap:wrap}.record-card-main .record-person{flex-basis:calc(100% - 60px)}
+ .record-card-main .record-span{width:100%;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;text-align:left;padding:8px 0 0;border-top:1px solid var(--border)}
+ .record-card-main .record-span strong{font-size:17px}.record-card-main .record-span small{margin-left:auto;font-size:11px}
+ .time-record-list .time-record-card{padding:13px;gap:12px}.record-card-footer .time-record-tags{max-width:100%;padding:0;justify-content:start}
+ .record-card-actions{justify-content:stretch;display:grid;grid-template-columns:1fr 1fr;min-width:0;gap:7px}.record-card-actions .button{padding:9px 7px;font-size:11px;min-width:0;gap:5px}.record-card-actions .button svg{flex-shrink:0;width:15px}
+ .record-jobs>span{flex:1 1 100%}.records-job-breakdown{padding:12px}.records-job-breakdown>summary{font-size:12px;flex-wrap:wrap}.records-job-breakdown article{grid-template-columns:1fr}.records-job-breakdown article>strong{text-align:left}
+ .time-card-basic{grid-template-columns:1fr;gap:12px}.time-card-before-after{padding:12px}.time-card-before-after strong{font-size:16px}
+ .time-card-editor .community-form-grid{grid-template-columns:1fr}.time-card-editor-person{flex-wrap:wrap}.time-card-revision{font-size:10px!important}
+ .time-card-move label{min-width:0;flex-basis:100%}.time-card-move .button{width:100%}.time-card-editor .dialog-actions{bottom:0}.time-card-editor .time-card-help{font-size:11px}
+ .records-date-shortcuts button{padding:9px 7px;flex:1 1 40%}.records-page-stats strong.records-duration{font-size:16px}.records-page-stats article div>span{font-size:10px}
+}
 @media (max-width: 650px) {
   .time-record-card {
     flex-wrap: wrap;
@@ -227,4 +311,12 @@
   .correction-list > article {
     padding: 17px;
   }
+}
+
+/* Keep long audit actions below their headings on phones. */
+@media(max-width:650px){
+ .time-records-module .panel-heading{flex-wrap:wrap;align-items:stretch;gap:12px}
+ .time-records-module .panel-heading>div{flex:1 1 100%;min-width:0}
+ .time-records-module .panel-heading>.button{width:100%;white-space:normal;overflow-wrap:normal}
+ .time-records-module .records-local-tools>label:has(select[aria-label="Time-card employee"]){grid-column:1/-1}
 }

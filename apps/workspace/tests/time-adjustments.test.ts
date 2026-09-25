@@ -7,7 +7,7 @@ import {initialize} from '../server/seed';
 import {createApp} from '../server/app';
 import {clockCommand,clockState,createStaff} from '../server/workforce';
 import {digest,opaqueToken,type Actor} from '../server/security';
-import {proposeTimeAdjustment,reviewTimeAdjustment,cancelTimeAdjustment,getTimeAdjustment,getTimeAdjustmentSource,getTimeAdjustmentOptions,getTimeAdjustmentHistory,exportTimeAdjustment,listTimeAdjustments,listOpenTimeShifts} from '../server/time-adjustments';
+import {applyDirectTimeAdjustment,proposeTimeAdjustment,reviewTimeAdjustment,cancelTimeAdjustment,getTimeAdjustment,getTimeAdjustmentSource,getTimeAdjustmentOptions,getTimeAdjustmentHistory,exportTimeAdjustment,listTimeAdjustments,listOpenTimeShifts} from '../server/time-adjustments';
 import {proposeCorrection,reviewCorrection,timeRecordDetail} from '../server/time-records';
 import {getReport} from '../server/reports';
 import {timeMicroseconds} from '../server/time-record-access';
@@ -31,6 +31,85 @@ async function open(p:Person,start=0){const state=await clockCommand(db,p.actor,
 async function closure(p:Person,shiftId:string,end=90){const source=await getTimeAdjustmentSource(db,p.actor,p.auth.hash,{shiftId});const input={kind:'close_open_shift',shiftId,sourceHash:source.sourceHash,endedAt:at(end),reason:'Synthetic missing final clock-out reviewed separately.',commandId:randomUUID()};const saved=await proposeTimeAdjustment(db,p.actor,p.auth.hash,input);return {source,input,saved,detail:await getTimeAdjustment(db,p.actor,p.auth.hash,saved.result.requestId)};}
 function intercept(operation:(sql:string,params:any[],tx:Queryable)=>Promise<void>):Database{return {...db,transaction:fn=>db.transaction(tx=>fn({query:async<T extends Record<string,any>>(sql:string,params:any[]=[])=>{await operation(sql,params,tx);return tx.query<T>(sql,params);}}))};}
 const post=(path:string,body:unknown,auth:Auth)=>request(app).post('/api'+path).set('Origin',origin).set('Cookie',auth.cookie).set('X-CSRF-Token',auth.csrf).send(body as object);
+
+test('administrator missing time saves immediately with one honest applied history and exact lost-response replay',async()=>{
+ const p=await person(),admin=await person('admin'),input=missing(p),saved=await applyDirectTimeAdjustment(db,admin.actor,admin.auth.hash,input),id=saved.result.requestId;
+ assert.equal(saved.result.status,'applied');assert.equal(saved.result.version,1);assert.equal(saved.result.resultRevision,1);
+ const detail=await getTimeAdjustment(db,p.actor,p.auth.hash,id),history=await getTimeAdjustmentHistory(db,admin.actor,admin.auth.hash,id);
+ assert.equal(detail.result!.totals!.workMicroseconds,'5400000000');assert.deepEqual(detail.allowedActions,{approve:false,decline:false,cancel:false});
+ assert.equal(detail.request.proposedBy.id,admin.actor.id);assert.equal(detail.request.resolvedBy!.id,admin.actor.id);assert.equal(history.items.length,1);assert.equal(history.items[0].action,'applied');
+ assert.deepEqual((await applyDirectTimeAdjustment(db,admin.actor,admin.auth.hash,input)).result,saved.result);
+ assert.equal((await db.query('SELECT count(*)::int AS n FROM shifts WHERE user_id=$1',[p.actor.id])).rows[0].n,1);
+ assert.equal((await db.query("SELECT count(*)::int AS n FROM audit_events WHERE target_id=$1 AND action='time_adjustment.applied'",[id])).rows[0].n,1);
+ await assert.rejects(applyDirectTimeAdjustment(db,admin.actor,admin.auth.hash,{...input,reason:'A different reason for a reused command.'}),/different/);
+ await assert.rejects(proposeTimeAdjustment(db,admin.actor,admin.auth.hash,input),/different/);
+ await assert.rejects(reviewTimeAdjustment(db,owner,ownerAuth.hash,id,approve(detail)),/resolved|changed/);
+ const csv=await exportTimeAdjustment(db,admin.actor,admin.auth.hash,id,{format:'csv',version:'1'});assert.equal(digest(csv.text),csv.hash);assert.match(csv.text,/applied/);
+ for(const [table,where] of [['time_adjustment_requests','id'],['time_adjustment_history','request_id'],['time_adjustment_commands','request_id']])await assert.rejects(db.query(`DELETE FROM ${table} WHERE ${where}=$1`,[id]),/deleted|immutable|append-only/i);
+ await assert.rejects(db.query("UPDATE time_adjustment_requests SET reason='Attempted terminal evidence rewrite' WHERE id=$1",[id]),/immutable/);
+ assert.equal((await listTimeAdjustments(db,admin.actor,admin.auth.hash,{start:'2025-11-02',end:'2025-11-02',employeeId:p.actor.id,status:'applied'})).items[0].id,id);
+ assert.equal((await listTimeAdjustments(db,admin.actor,admin.auth.hash,{sourceShiftId:saved.result.resultShiftId})).items[0].id,id);
+});
+
+test('direct closure preserves precise original events, updates clocks/reports and stales an older review request',async()=>{
+ const p=await person(),shiftId=await open(p);await db.query("UPDATE segments SET started_at='2025-11-02T05:00:00.000001Z' WHERE shift_id=$1",[shiftId]);await db.query("UPDATE shifts SET started_at='2025-11-02T05:00:00.000001Z' WHERE id=$1",[shiftId]);
+ await clockCommand(db,p.actor,{action:'start_break',commandId:randomUUID()},new Date(at(30)));await clockCommand(db,p.actor,{action:'end_break',commandId:randomUUID()},new Date(at(40)));
+ const old=await closure(p,shiftId),original=(await db.query('SELECT * FROM segments WHERE shift_id=$1 AND revision=1 ORDER BY started_at',[shiftId])).rows;
+ const source=await getTimeAdjustmentSource(db,owner,ownerAuth.hash,{shiftId});assert.equal(source.allowedActions.applyDirect,true);
+ const saved=await applyDirectTimeAdjustment(db,owner,ownerAuth.hash,{...old.input,sourceHash:source.sourceHash,commandId:randomUUID()});
+ assert.equal(saved.result.resultRevision,2);assert.deepEqual((await db.query('SELECT * FROM segments WHERE shift_id=$1 AND revision=1 ORDER BY started_at',[shiftId])).rows,original);
+ const detail=await getTimeAdjustment(db,owner,ownerAuth.hash,saved.result.requestId);assert.equal(detail.request.source!.segments.at(-1)!.endedAt,null);assert.equal(detail.result!.segments[0].startedAt,'2025-11-02T05:00:00.000001Z');assert.equal(detail.result!.totals!.workMicroseconds,'4799999999');
+ assert.equal((await clockState(db,p.actor)).shift,null);assert.equal((await getTimeAdjustment(db,owner,ownerAuth.hash,old.saved.result.requestId)).readiness.state,'stale');
+ // This legacy chart API displays milliseconds; exact microseconds are asserted above.
+ const report=await getReport(db,p.actor,{start:'2025-11-02',end:'2025-11-02',group:'hour'});assert.equal(report.workMs,4800000);assert.equal(report.breakMs,600000);
+});
+
+test('direct saves enforce fresh administrator role, other-employee rule, password session and same authority on retry',async()=>{
+ const p=await person(),admin=await person('admin'),manager=await person('manager'),finance=await person('finance');
+ for(const actor of [p,manager,finance])await assert.rejects(applyDirectTimeAdjustment(db,actor.actor,actor.auth.hash,missing(p)),(e:any)=>e.status===403);
+ await assert.rejects(applyDirectTimeAdjustment(db,admin.actor,admin.auth.hash,missing(admin)),/another employee/);
+ assert.equal((await getTimeAdjustmentOptions(db,admin.actor,admin.auth.hash,{employeeId:p.actor.id})).allowedActions.applyDirect,true);
+ assert.equal((await getTimeAdjustmentOptions(db,admin.actor,admin.auth.hash,{employeeId:admin.actor.id})).allowedActions.applyDirect,false);
+ assert.equal((await getTimeAdjustmentOptions(db,manager.actor,manager.auth.hash,{employeeId:p.actor.id})).allowedActions.applyDirect,false);
+ const input=missing(p),saved=await applyDirectTimeAdjustment(db,admin.actor,admin.auth.hash,input);assert.equal(saved.result.status,'applied');
+ await db.query("UPDATE users SET role='manager' WHERE id=$1",[admin.actor.id]);await assert.rejects(applyDirectTimeAdjustment(db,admin.actor,admin.auth.hash,input),(e:any)=>e.status===403);
+ await assert.rejects(applyDirectTimeAdjustment(db,{...manager.actor,role:'admin'},manager.auth.hash,missing(await person())),(e:any)=>e.status===403);
+ const pin=await session(owner,'pin');await assert.rejects(applyDirectTimeAdjustment(db,{...owner,mode:'pin'},pin.hash,missing(await person())),/password/);
+ const revoked=await session(owner);await db.query('DELETE FROM sessions WHERE token_hash=$1',[revoked.hash]);await assert.rejects(applyDirectTimeAdjustment(db,owner,revoked.hash,missing(await person())),(e:any)=>e.status===401);
+});
+
+test('direct edits reject changed open sources, overlaps, future times and unavailable assignments',async()=>{
+ const p=await person(),shiftId=await open(p),source=await getTimeAdjustmentSource(db,owner,ownerAuth.hash,{shiftId});
+ const input={kind:'close_open_shift',shiftId,sourceHash:source.sourceHash,endedAt:at(90),reason:'Administrator fixing a forgotten clock-out.',commandId:randomUUID()};
+ await clockCommand(db,p.actor,{action:'start_break',commandId:randomUUID()},new Date(at(10)));
+ await assert.rejects(applyDirectTimeAdjustment(db,owner,ownerAuth.hash,input),/changed/);assert.ok((await clockState(db,p.actor)).shift);
+ const q=await person();await applyDirectTimeAdjustment(db,owner,ownerAuth.hash,missing(q));await assert.rejects(applyDirectTimeAdjustment(db,owner,ownerAuth.hash,missing(q,10,100)),/overlaps/);
+ const r=await person(),future=missing(r);future.segments[0].endedAt='2099-11-02T06:00:00.000Z';await assert.rejects(applyDirectTimeAdjustment(db,owner,ownerAuth.hash,future),/future/);
+ await db.query('DELETE FROM user_jobs WHERE user_id=$1',[r.actor.id]);await assert.rejects(applyDirectTimeAdjustment(db,owner,ownerAuth.hash,missing(r)),/assigned/);
+ assert.equal((await db.query('SELECT count(*)::int AS n FROM shifts WHERE user_id=$1',[r.actor.id])).rows[0].n,0);
+});
+
+test('competing direct saves serialize, exact command races replay and final authorization/audit failures roll back',async()=>{
+ const p=await person(),input=missing(p),same=await Promise.all([applyDirectTimeAdjustment(db,owner,ownerAuth.hash,input),applyDirectTimeAdjustment(db,owner,ownerAuth.hash,input)]);
+ assert.deepEqual(same[0].result,same[1].result);assert.equal(same.filter(value=>value.replayed).length,1);
+ const q=await person(),competing=await Promise.allSettled([applyDirectTimeAdjustment(db,owner,ownerAuth.hash,missing(q)),applyDirectTimeAdjustment(db,owner,ownerAuth.hash,missing(q))]);assert.equal(competing.filter(value=>value.status==='fulfilled').length,1);
+ for(const mode of ['audit','session']) {
+  const r=await person(),bad=intercept(async(sql,_params,tx)=>{if(sql.includes('INSERT INTO audit_events')){if(mode==='audit')throw Error('synthetic direct audit failure');await tx.query("UPDATE sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=$1",[ownerAuth.hash]);}});
+  await assert.rejects(applyDirectTimeAdjustment(bad,owner,ownerAuth.hash,missing(r)),mode==='audit'?/synthetic direct audit failure/:(e:any)=>e.status===401);
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM shifts WHERE user_id=$1',[r.actor.id])).rows[0].n,0);assert.equal((await db.query('SELECT count(*)::int AS n FROM time_adjustment_requests WHERE user_id=$1',[r.actor.id])).rows[0].n,0);
+ }
+});
+
+test('direct HTTP endpoint enforces CSRF/password/strict inputs and returns the same private receipt on retry',async()=>{
+ const p=await person(),input=missing(p),path='/api/time-adjustments/direct';
+ assert.equal((await request(app).post(path).set('Origin',origin).send(input)).status,401);
+ assert.equal((await request(app).post(path).set('Origin',origin).set('Cookie',ownerAuth.cookie).send(input)).status,403);
+ assert.equal((await request(app).post(path).set('Origin','https://foreign.example.test').set('Cookie',ownerAuth.cookie).set('X-CSRF-Token',ownerAuth.csrf).send(input)).status,403);
+ const pin=await session(owner,'pin');assert.equal((await post('/time-adjustments/direct',input,pin)).status,403);
+ assert.equal((await post('/time-adjustments/direct',{...input,orgId:owner.org_id},ownerAuth)).status,400);
+ const response=await post('/time-adjustments/direct',input,ownerAuth);assert.equal(response.status,201);assert.equal(response.body.status,'applied');assert.match(response.headers['cache-control'],/no-store/);
+ const retry=await post('/time-adjustments/direct',input,ownerAuth);assert.equal(retry.status,200);assert.deepEqual(retry.body,response.body);
+});
 
 test('missing proposal does not write time; independent approval, exact receipts and immutable evidence',async()=>{
  const p=await person(),proposal=await proposed(p),id=proposal.saved.result.requestId;

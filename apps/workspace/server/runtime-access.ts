@@ -47,7 +47,7 @@ DO $$ DECLARE immutable_table record; BEGIN
   SELECT DISTINCT n.nspname,c.relname FROM pg_trigger t
   JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
   JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
-  WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN ('protect_staff_schedule_request','protect_standing_policy','protect_standing_series','protect_gpa_policy','protect_gpa_series','protect_staff_import','protect_organization_branding','protect_payroll_saved_views','protect_accounting_planning','protect_accounting_editable_record','protect_clock_intent','preserve_workforce_import_evidence') AND NOT t.tgisinternal
+  WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN ('protect_time_correction','protect_time_adjustment_request','protect_staff_schedule_request','protect_standing_policy','protect_standing_series','protect_gpa_policy','protect_gpa_series','protect_staff_import','protect_organization_branding','protect_payroll_saved_views','protect_accounting_planning','protect_accounting_editable_record','protect_clock_intent','preserve_workforce_import_evidence') AND NOT t.tgisinternal
  LOOP
   EXECUTE format('REVOKE DELETE ON TABLE %I.%I FROM stjw_runtime',immutable_table.nspname,immutable_table.relname);
  END LOOP;
@@ -79,6 +79,10 @@ const accountingProtectionValues = accountingProtections.map(([table,trigger,fn,
 // Policy rows cannot be deleted and recreated with a reused pending version.
 const workforceProtections = [
  ['users','advance_clock_authority_version','advance_clock_authority',19,true,false],
+ ['time_corrections','immutable_time_correction','protect_time_correction',27,true,true],
+ ['time_adjustment_requests','protected_time_adjustment_request','protect_time_adjustment_request',31,true,true],
+ ['time_adjustment_history','immutable_time_adjustment_history','protect_audit_events',27,false,true],
+ ['time_adjustment_commands','immutable_time_adjustment_commands','protect_audit_events',27,false,true],
  ['clock_intents','protected_clock_intent','protect_clock_intent',31,true,true],
  ['clock_intent_events','immutable_clock_intent_events','protect_audit_events',27,false,true],
  ['clock_intent_commands','immutable_clock_intent_commands','protect_audit_events',27,false,true],

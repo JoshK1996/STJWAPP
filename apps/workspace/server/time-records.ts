@@ -12,11 +12,10 @@ import {
   requireCondition,
   type Actor,
 } from "./security";
-import { reportBounds } from "./reports";
+import { listTimeRecords } from "./time-record-list";
 import {
   correctionInput,
   correctionReviewInput,
-  timeRecordsQuery,
   type timeSegmentInput,
 } from "../shared/time-records";
 import { currentTimeActor, preciseTimeSql, timeMicroseconds, timeNow, timeTransaction, timeJobs } from "./time-record-access";
@@ -45,6 +44,7 @@ function normalized(rows: Row[]): Segment[] {
 function reviewer(actor: Actor) {
   return manages(actor);
 }
+const directAdministrator = (actor: Actor) => actor.mode === 'password' && ['developer','owner','admin'].includes(actor.role);
 async function jobsFor(tx: Queryable, actor: Actor, ids: string[]) {
   return timeJobs(tx, actor, ids);
 }
@@ -170,6 +170,7 @@ export async function timeRecordDetail(
     jobs: choices,
     canPropose:
       !!shift.ended_at && (shift.user_id === actor.id || reviewer(actor)),
+    canAdjust: !!shift.ended_at && shift.user_id !== actor.id && directAdministrator(actor),
   };
  });
 }
@@ -336,6 +337,52 @@ export async function proposeCorrection(
     return row;
   });
 }
+/** Explicit administrator action; the proposal/independent-review API is unchanged. */
+export async function adjustTimeRecord(
+  db: Database,
+  suppliedActor: Actor,
+  shiftId: string,
+  raw: unknown,
+  sessionHash: string,
+): Promise<Row & {resultRevision:number}> {
+  const input = correctionInput.parse(raw);
+  requireCondition(input.shiftId === shiftId, 400, 'The edited time card must match this request.');
+  return timeTransaction(db, async tx => {
+    const identity = (await tx.query('SELECT user_id FROM shifts WHERE id=$1 AND org_id=$2', [shiftId,suppliedActor.org_id])).rows[0];
+    requireCondition(identity,404,'Time record not found.');
+    const actor = await currentTimeActor(tx,suppliedActor,sessionHash,identity.user_id,true);
+    requireCondition(directAdministrator(actor) && actor.id !== identity.user_id,403,'An administrator may directly adjust another employee\'s time card. Your own corrections require independent review.');
+    const fingerprint = digest(JSON.stringify({action:'administrative_adjustment',shiftId,inputRevision:input.sourceRevision,reason:input.reason,
+      segments:input.segments.map(segment=>({...segment,startedAt:canonicalBoundary(segment.startedAt),endedAt:canonicalBoundary(segment.endedAt)}))}));
+    const previous = (await tx.query('SELECT * FROM time_corrections WHERE org_id=$1 AND proposed_by=$2 AND command_id=$3',[actor.org_id,actor.id,input.commandId])).rows[0];
+    if(previous) {
+      await authorizeCorrection(tx,actor,previous);
+      requireCondition(previous.fingerprint === fingerprint && previous.original.action === 'administrative_adjustment',409,'This command identifier was used for a different correction.');
+      await recheckReportSession(tx,actor,sessionHash);
+      return {...previous,resultRevision:previous.source_revision+1};
+    }
+    const record = await shiftRecord(tx,actor,shiftId,true);
+    requireCondition(record.shift.revision === input.sourceRevision,409,'This time card changed. Reload the latest card before saving your adjustment.');
+    const bounds = await validateProposal(tx,actor,record,input.segments);
+    const comparable = (values:Segment[])=>values.map(s=>[s.jobId,s.kind,timeMicroseconds(s.startedAt).toString(),timeMicroseconds(s.endedAt).toString()]);
+    requireCondition(JSON.stringify(comparable(normalized(record.rows))) !== JSON.stringify(comparable(input.segments)),400,'Change at least one time, job or segment before saving.');
+    const resultRevision=record.shift.revision+1, segmentIds=input.segments.map(()=>randomUUID()).sort();
+    for(const [index,segment] of input.segments.entries()) await tx.query(
+      'INSERT INTO segments(id,org_id,shift_id,job_id,kind,started_at,ended_at,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+      [segmentIds[index],actor.org_id,shiftId,segment.jobId,segment.kind,segment.startedAt,segment.endedAt,resultRevision]);
+    await tx.query('UPDATE shifts SET started_at=$1,ended_at=$2,revision=$3 WHERE id=$4',[bounds.start,bounds.end,resultRevision,shiftId]);
+    const original={action:'administrative_adjustment',resultRevision,employee:{id:record.shift.user_id,name:record.shift.employee_name},editor:{id:actor.id,name:actor.name},
+      shift:{id:record.shift.id,startedAt:inst(record.shift.started_at),endedAt:inst(record.shift.ended_at),revision:record.shift.revision},
+      segments:normalized(record.rows),scope:{unitIds:bounds.unitIds}};
+    const row=(await tx.query(`INSERT INTO time_corrections(id,org_id,shift_id,user_id,proposed_by,command_id,fingerprint,source_revision,original,proposed,reason,status,version,reviewed_by,review_note,reviewed_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'approved',2,$5,$11,clock_timestamp()) RETURNING *`,
+      [randomUUID(),actor.org_id,shiftId,record.shift.user_id,actor.id,input.commandId,fingerprint,input.sourceRevision,JSON.stringify(original),JSON.stringify(input.segments),input.reason])).rows[0];
+    await audit(tx,actor,'time_correction.adjusted',row.id,{shiftId,sourceRevision:input.sourceRevision,resultRevision,reason:input.reason});
+    await recheckReportSession(tx,actor,sessionHash);
+    return {...row,resultRevision};
+  });
+}
+
 export async function reviewCorrection(
   db: Database,
   suppliedActor: Actor,
@@ -434,42 +481,12 @@ export async function reviewCorrection(
 }
 export function installTimeRecords(app: Express, db: Database) {
   app.get("/api/time-records", async (req, res) => {
-    const suppliedActor = password(req), sessionHash = session(req), input = timeRecordsQuery.parse(req.query);
-    const result = await timeTransaction(db, async tx => {
-    const actor = await currentTimeActor(tx, suppliedActor, sessionHash),
-      organization = (
-        await tx.query("SELECT timezone FROM organizations WHERE id=$1", [
-          actor.org_id,
-        ])
-      ).rows[0],
-      bounds = reportBounds({ ...input, group: "day" }, organization.timezone);
-    const rows = (
-      await tx.query(
-        `SELECT s.*,u.name AS employee_name,(SELECT count(*)::int FROM time_corrections c WHERE c.org_id=s.org_id AND c.shift_id=s.id AND c.status='pending'
- AND (c.user_id=$5 OR ($6::boolean AND ($7::boolean OR (
- NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text(coalesce(c.original#>'{scope,unitIds}','[]'::jsonb)) u(id) WHERE NOT u.id::uuid=ANY($8::uuid[]))
- AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements((c.original->'segments')||c.proposed) g LEFT JOIN jobs j ON j.org_id=c.org_id AND j.id=(g->>'jobId')::uuid WHERE j.id IS NULL OR NOT j.unit_id=ANY($8::uuid[]))))))) AS pending_corrections FROM shifts s JOIN users u ON u.id=s.user_id WHERE s.org_id=$1 AND s.started_at<$3 AND coalesce(s.ended_at,'infinity'::timestamptz)>$2 AND ($4::uuid IS NULL OR s.user_id=$4) AND (s.user_id=$5 OR ($6::boolean AND ($7::boolean OR NOT EXISTS(SELECT 1 FROM segments g JOIN jobs j ON j.id=g.job_id WHERE g.shift_id=s.id AND g.revision=s.revision AND NOT j.unit_id=ANY($8::uuid[]))))) ORDER BY s.started_at DESC,s.id LIMIT 101 OFFSET $9`,
-        [
-          actor.org_id,
-          bounds.start.toJSDate(),
-          bounds.end.toJSDate(),
-          input.userId ?? null,
-          actor.id,
-          canReport(actor),
-          orgWide(actor),
-          actor.unit_ids,
-          input.offset,
-        ],
-      )
-    ).rows;
-    await recheckReportSession(tx, actor, sessionHash);
-    return {
-      rows: rows.slice(0, 100),
-      hasMore: rows.length > 100,
-      timezone: organization.timezone,
-    };
-    });
-    res.json(result);
+    res.set('Cache-Control','private, no-store');
+    res.json(await listTimeRecords(db,password(req),session(req),req.query));
+  });
+  app.post('/api/time-records/:id/adjust',async(req,res)=>{
+    res.set('Cache-Control','private, no-store');
+    res.json(await adjustTimeRecord(db,password(req),z.uuid().parse(req.params.id),req.body,session(req)));
   });
   app.get("/api/time-records/:id", async (req, res) =>
     res.json(
@@ -521,7 +538,12 @@ export function installTimeRecords(app: Express, db: Database) {
         404,
         "Correction not found.",
       );
+      requireCondition(row.user_id === actor.id || reviewer(actor),403,"Only the currently authorized employee or manager may cancel this correction.");
       await authorizeCorrection(tx, actor, row);
+      if (row.status === 'cancelled' && row.version === input.version + 1) {
+        await recheckReportSession(tx, actor, sessionHash);
+        return;
+      }
       requireCondition(
         row.status === "pending" && row.version === input.version,
         409,
