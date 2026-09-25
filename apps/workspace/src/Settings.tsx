@@ -13,6 +13,7 @@ import { api } from "./api";
 import { Badge, Panel, Modal } from "./components";
 import Personalization from "./Personalization";
 import Authenticator from './Authenticator';
+import AccountPassword from './AccountPassword';
 import OrganizationBranding, { type BrandingAccess } from './OrganizationBranding';
 import type { Preferences } from '../shared/preferences';
 export default function Settings({
@@ -28,10 +29,11 @@ export default function Settings({
   onDirty: (value: boolean) => void;
   appEntry?: ReactNode;
 }) {
-  const [personalDirty, setPersonalDirty] = useState(false), [brandingDirty, setBrandingDirty] = useState(false);
+  const [personalDirty, setPersonalDirty] = useState(false), [brandingDirty, setBrandingDirty] = useState(false), [passwordDirty, setPasswordDirty] = useState(false);
   const personalChanged = useCallback((value: boolean) => setPersonalDirty(value), []);
   const brandingChanged = useCallback((value: boolean) => setBrandingDirty(value), []);
-  useEffect(() => { onDirty(personalDirty || brandingDirty); return () => onDirty(false); }, [personalDirty, brandingDirty, onDirty]);
+  const passwordChanged = useCallback((value: boolean) => setPasswordDirty(value), []);
+  useEffect(() => { onDirty(personalDirty || brandingDirty || passwordDirty); return () => onDirty(false); }, [personalDirty, brandingDirty, passwordDirty, onDirty]);
   const [busy, setBusy] = useState(false),
     [tokens, setTokens] = useState<any[]>([]),
     [secret, setSecret] = useState("");
@@ -88,6 +90,7 @@ export default function Settings({
       {me.permissions.owner && <OrganizationBranding branding={branding} reloadBranding={reloadBranding} onSessionExpired={onSessionExpired} isSessionCurrent={isSessionCurrent} onDirty={brandingChanged} />}
       <Authenticator notify={notify} onChange={onChange}/>
       <div className="account-settings-row">
+        <AccountPassword onChange={onChange} onDirty={passwordChanged} isSessionCurrent={isSessionCurrent} onSessionExpired={onSessionExpired} notify={notify} />
         <Panel
           title="Quick PIN sign-in"
           detail="A short session, dedicated to your time clock."

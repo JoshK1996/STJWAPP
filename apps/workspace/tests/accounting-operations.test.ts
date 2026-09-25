@@ -8,7 +8,7 @@ import { digest, issueSetup, type Actor } from '../server/security';
 import { createApp } from '../server/app';
 import { accountingTransaction, saveAccountingConfig, saveAccountingAccount, saveAccountingFund, createAccountingPeriod, setAccountingPeriodStatus, postJournalTx } from '../server/accounting-ledger';
 import { createAccountingContact, createAccountingDocument, issueAccountingDocument, payAccountingDocument, creditAccountingDocument, refundAccountingPayment, voidAccountingDocument,
-  documentRecord, accountingAging, allocateExact, listAccountingContacts } from '../server/accounting-operations';
+  documentRecord, accountingAging, allocateExact, listAccountingContacts, editAccountingContact, editAccountingDocumentDraft, discardAccountingDocumentDraft } from '../server/accounting-operations';
 import { previewBankStatement, importBankStatement, matchBankLine, reconcileBankStatement, bankCandidates, bankStatementRecord, cancelBankStatement } from '../server/accounting-banking';
 
 let db: Database, actor: Actor, hash: string, cookie: string, csrf: string, app: ReturnType<typeof createApp>;
@@ -206,6 +206,9 @@ test('cash basis recognizes only recorded settlements and credits refund the ori
   let doc=await createAccountingDocument(db,current,proof,{commandId:command(),kind:'invoice',contactId:contact.id,number:'CASH-1',date:'2026-01-01',dueDate:'2026-01-31',description:'Explicit tuition and care charges',lines:[{description:'Tuition',accountId:tuition,amount:'100.00'},{description:'Care',accountId:care,amount:'100.00'}]});
   doc=await issueAccountingDocument(db,current,proof,doc.id,{commandId:command()}); assert.equal(doc.events[0].journalId,undefined);
   assert.equal((await db.query('SELECT count(*)::int AS n FROM accounting_journals WHERE org_id=$1',[org])).rows[0].n,0);
+  await cashRun((tx,user)=>saveAccountingAccount(tx,user,{id:care,expectedRevision:1,code:care.slice(0,12),name:'Care',type:'expense',isCash:false,cashFlowCategory:'operating',functionalCategory:'program',active:true}));
+  await assert.rejects(payAccountingDocument(db,current,proof,doc.id,{commandId:command(),date:'2026-02-01',amount:'200.00',cashAccountId:bank,reference:'Blocked reclassified revenue'}),/revenue coding/);
+  await cashRun((tx,user)=>saveAccountingAccount(tx,user,{id:care,expectedRevision:2,code:care.slice(0,12),name:'Care',type:'revenue',isCash:false,cashFlowCategory:'operating',functionalCategory:'program',active:true}));
   doc=await payAccountingDocument(db,current,proof,doc.id,{commandId:command(),date:'2026-02-01',amount:'200.00',cashAccountId:bank,reference:'External receipt'});
   const payment=doc.events.find(value=>value.type==='payment')!;
   doc=await creditAccountingDocument(db,current,proof,doc.id,{commandId:command(),date:'2026-02-02',reason:'Tuition cancellation',lines:[{lineIndex:0,amount:'100.00'}]});
@@ -216,4 +219,78 @@ test('cash basis recognizes only recorded settlements and credits refund the ori
   assert.deepEqual(coded,[{account_id:tuition,debit:'10000'}]);
   await assert.rejects(createAccountingDocument(db,current,proof,{commandId:command(),kind:'invoice',contactId:contact.id,number:'CROSS-ORG',date:'2026-01-01',dueDate:'2026-01-31',description:'Must reject foreign account',lines:[{description:'Foreign account',accountId:revenue,amount:'1.00'}]}),/organization/);
   await assert.rejects(matchBankLine(db,current,proof,randomUUID(),{commandId:command(),statementLineId:randomUUID(),journalLineId:randomUUID()}),/not found/);
+});
+
+const draftEdit=(doc:any,change:Record<string,unknown>={})=>({commandId:command(),expectedRevision:doc.revision,reason:'Correct reviewed draft details',kind:doc.kind,contactId:doc.contactId,number:doc.number,date:doc.date,dueDate:doc.dueDate,description:doc.description,controlAccountId:doc.controlAccountId,lines:doc.lines,...change});
+const contactEdit=(contact:any,change:Record<string,unknown>={})=>({commandId:command(),expectedRevision:contact.revision,name:contact.name,kind:contact.kind,email:contact.email||undefined,note:contact.note,active:contact.active,reason:'Correct reviewed contact details',...change});
+test('contact edits are revisioned and auditable, archive blocks new business, issued names remain captured',async()=>{
+ const doc=await issued(),before=(await listAccountingContacts(db,actor,hash)).rows.find(c=>c.id===doc.contactId)!;
+ const changed=await editAccountingContact(db,actor,hash,before.id,contactEdit(before,{name:'Updated family name',active:false}));
+ assert.equal(changed.revision,2);assert.equal(changed.active,false);
+ assert.equal((await run((tx,current)=>documentRecord(tx,current,doc.id))).contactName,before.name);
+ await assert.rejects(editAccountingContact(db,actor,hash,before.id,contactEdit(before)),/changed/);
+ await assert.rejects(editAccountingContact(db,actor,hash,before.id,contactEdit(changed,{kind:'customer'})),/already used/);
+ const body={commandId:command(),kind:doc.kind,contactId:doc.contactId,number:'Archived-'+command().slice(0,6),date:doc.date,dueDate:doc.dueDate,description:doc.description,controlAccountId:receivable,lines:doc.lines};
+ await assert.rejects(createAccountingDocument(db,actor,hash,body),/active contact/);
+ const restored=await editAccountingContact(db,actor,hash,before.id,contactEdit(changed,{active:true}));assert.equal(restored.revision,3);
+ const audit=(await db.query("SELECT detail FROM audit_events WHERE target_id=$1 AND action='accounting.contact_updated' ORDER BY created_at",[before.id])).rows;
+ assert.equal(audit.length,2);assert.equal(audit[0].detail.before.name,before.name);assert.equal(audit[0].detail.after.name,'Updated family name');
+});
+test('concurrent draft edits reject stale changes, issue requires current review, posted documents never mutate',async()=>{
+ const doc=await draft(),input=draftEdit(doc,{description:'Corrected draft',lines:[{...doc.lines[0],amount:'123.45'}]});
+ const results=await Promise.allSettled([editAccountingDocumentDraft(db,actor,hash,doc.id,input),editAccountingDocumentDraft(db,actor,hash,doc.id,{...input,commandId:command(),description:'Other editor'})]);
+ assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(results.filter(r=>r.status==='rejected').length,1);
+ const updated=await run((tx,current)=>documentRecord(tx,current,doc.id));assert.equal(updated.revision,2);assert.equal(updated.total,'123.45');
+ await assert.rejects(issueAccountingDocument(db,actor,hash,doc.id,{commandId:command()}),/changed/);
+ await assert.rejects(issueAccountingDocument(db,actor,hash,doc.id,{commandId:command(),expectedRevision:1}),/changed/);
+ const posted=await issueAccountingDocument(db,actor,hash,doc.id,{commandId:command(),expectedRevision:2});assert.equal(posted.status,'issued');
+ await assert.rejects(editAccountingDocumentDraft(db,actor,hash,doc.id,draftEdit(posted)),/unissued/);
+ await assert.rejects(db.query('UPDATE accounting_documents SET description=$1,revision=revision+1 WHERE id=$2',['forbidden',doc.id]),/append-only/);
+ await assert.rejects(db.query('DELETE FROM accounting_documents WHERE id=$1',[doc.id]),/retain their history/);
+ const audit=(await db.query("SELECT detail FROM audit_events WHERE target_id=$1 AND action='accounting.document_draft_edited'",[doc.id])).rows[0];assert.equal(audit.detail.before.total,'100.00');assert.equal(audit.detail.after.total,'123.45');
+});
+test('draft discard is retained without ledger money and refuses subsequent edit or issue',async()=>{
+ const doc=await draft(),before=Number((await db.query('SELECT count(*) FROM accounting_journals')).rows[0].count),input={commandId:command(),expectedRevision:1,reason:'Duplicate unissued document'};
+ const discarded=await discardAccountingDocumentDraft(db,actor,hash,doc.id,input);assert.equal(discarded.status,'void');assert.equal(discarded.outstanding,'0.00');assert.equal(discarded.events[0].amount,'0.00');assert.equal(discarded.events[0].journalId,undefined);
+ assert.deepEqual(await discardAccountingDocumentDraft(db,actor,hash,doc.id,input),discarded);
+ assert.equal(Number((await db.query('SELECT count(*) FROM accounting_journals')).rows[0].count),before);
+ await assert.rejects(editAccountingDocumentDraft(db,actor,hash,doc.id,draftEdit(doc)),/unissued/);
+ await assert.rejects(issueAccountingDocument(db,actor,hash,doc.id,{commandId:command(),expectedRevision:1}),/draft/);
+ await assert.rejects(db.query('UPDATE accounting_documents SET description=$1,revision=revision+1 WHERE id=$2',['forbidden',doc.id]),/append-only/);
+});
+test('draft edits enforce current session authority, organization, duplicate numbers and audit atomicity',async()=>{
+ const doc=await draft(),input=draftEdit(doc),path='/api/accounting/documents/'+doc.id+'/draft';
+ assert.equal((await request(app).post(path).set('Origin',origin).send(input)).status,401);
+ await assert.rejects(editAccountingDocumentDraft(db,actor,undefined,doc.id,input),/session|sign in|inactive or unavailable/i);
+ await assert.rejects(editAccountingDocumentDraft(db,{...actor,org_id:command()},hash,doc.id,input),/session|sign in|inactive or unavailable/i);
+ const role=actor.role;await db.query("UPDATE users SET role='employee' WHERE id=$1",[actor.id]);
+ try{assert.equal((await request(app).post(path).set('Origin',origin).set('Cookie',cookie).set('X-CSRF-Token',csrf).send(input)).status,403);}finally{await db.query('UPDATE users SET role=$2 WHERE id=$1',[actor.id,role]);}
+ const another=await createAccountingDocument(db,actor,hash,{commandId:command(),kind:doc.kind,contactId:doc.contactId,number:'Other-'+command().slice(0,6),date:doc.date,dueDate:doc.dueDate,description:doc.description,controlAccountId:receivable,lines:doc.lines});
+ await assert.rejects(editAccountingDocumentDraft(db,actor,hash,doc.id,draftEdit(doc,{number:another.number})),/already exists/);
+ await db.query(`CREATE FUNCTION fail_edit_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='accounting.document_draft_edited' THEN RAISE EXCEPTION 'Synthetic edit audit rejection'; END IF; RETURN NEW; END; $$`);
+ await db.query('CREATE TRIGGER fail_edit_audit BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION fail_edit_audit()');
+ try{await assert.rejects(editAccountingDocumentDraft(db,actor,hash,doc.id,input),/Synthetic edit audit rejection/);}finally{await db.query('DROP TRIGGER fail_edit_audit ON audit_events');await db.query('DROP FUNCTION fail_edit_audit()');}
+ assert.equal((await run((tx,current)=>documentRecord(tx,current,doc.id))).revision,1);
+ assert.equal((await db.query('SELECT command_id FROM accounting_operation_commands WHERE command_id=$1',[input.commandId])).rows.length,0);
+ const response=await request(app).post(path).set('Origin',origin).set('Cookie',cookie).set('X-CSRF-Token',csrf).send(input);assert.equal(response.status,200);assert.equal(response.body.revision,2);
+});
+
+test('racing draft edit and issue never posts unreviewed changed amounts',async()=>{
+ const doc=await draft(),results=await Promise.allSettled([
+  editAccountingDocumentDraft(db,actor,hash,doc.id,draftEdit(doc,{lines:[{...doc.lines[0],amount:'321.09'}]})),
+  issueAccountingDocument(db,actor,hash,doc.id,{commandId:command(),expectedRevision:1})
+ ]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+ const current=await run((tx,who)=>documentRecord(tx,who,doc.id));
+ if(current.status==='issued'){assert.equal(current.total,'100.00');assert.equal(current.revision,1);}
+ else{assert.equal(current.status,'draft');assert.equal(current.total,'321.09');assert.equal(current.events.length,0);}
+});
+
+test('issuing a draft rechecks reclassified document accounts instead of posting to the wrong category',async()=>{
+ const source=await newAccount('Unposted invoice coding','revenue'),contact=await createAccountingContact(db,actor,hash,{commandId:command(),name:'Classification review family',kind:'family'});
+ const doc=await createAccountingDocument(db,actor,hash,{commandId:command(),kind:'invoice',contactId:contact.id,number:'RECLASS-'+command().slice(0,6),date:'2026-01-10',dueDate:'2026-01-31',description:'Draft before catalog change',controlAccountId:receivable,lines:[{description:'Tuition',accountId:source,amount:'14.00'}]});
+ await run((tx,current)=>saveAccountingAccount(tx,current,{id:source,expectedRevision:1,code:source.slice(0,12),name:'Reclassified unposted account',type:'expense',isCash:false,cashFlowCategory:'operating',functionalCategory:'program',active:true}));
+ await assert.rejects(issueAccountingDocument(db,actor,hash,doc.id,{commandId:command(),expectedRevision:1}),/revenue coding/);
+ assert.equal((await run((tx,current)=>documentRecord(tx,current,doc.id))).events.length,0);
+ const corrected=await editAccountingDocumentDraft(db,actor,hash,doc.id,draftEdit(doc,{lines:[{...doc.lines[0],accountId:revenue}]}));
+ assert.equal((await issueAccountingDocument(db,actor,hash,doc.id,{commandId:command(),expectedRevision:corrected.revision})).status,'issued');
 });

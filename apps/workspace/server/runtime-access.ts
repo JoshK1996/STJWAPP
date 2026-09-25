@@ -47,7 +47,7 @@ DO $$ DECLARE immutable_table record; BEGIN
   SELECT DISTINCT n.nspname,c.relname FROM pg_trigger t
   JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
   JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
-  WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN ('protect_staff_schedule_request','protect_standing_policy','protect_standing_series','protect_gpa_policy','protect_gpa_series','protect_staff_import','protect_organization_branding','protect_payroll_saved_views','protect_accounting_planning') AND NOT t.tgisinternal
+  WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN ('protect_staff_schedule_request','protect_standing_policy','protect_standing_series','protect_gpa_policy','protect_gpa_series','protect_staff_import','protect_organization_branding','protect_payroll_saved_views','protect_accounting_planning','protect_accounting_editable_record') AND NOT t.tgisinternal
  LOOP
   EXECUTE format('REVOKE DELETE ON TABLE %I.%I FROM stjw_runtime',immutable_table.nspname,immutable_table.relname);
  END LOOP;
@@ -59,8 +59,8 @@ const accountingProtections = [
  ['accounting_journal_lines','accounting_lines_immutable','accounting_immutable_posted',31,false],
  ['accounting_commands','immutable_accounting_commands','protect_audit_events',27,true],
  ['accounting_operation_commands','immutable_accounting_operation_commands','protect_audit_events',27,true],
- ['accounting_contacts','immutable_accounting_contacts','protect_audit_events',27,true],
- ['accounting_documents','immutable_accounting_documents','protect_audit_events',27,true],
+ ['accounting_contacts','protected_accounting_contacts','protect_accounting_editable_record',27,false],
+ ['accounting_documents','protected_accounting_document_drafts','protect_accounting_editable_record',27,false],
  ['accounting_document_events','immutable_accounting_document_events','protect_audit_events',27,true],
  ['accounting_bank_previews','immutable_accounting_bank_previews','protect_audit_events',27,true],
  ['accounting_bank_statements','immutable_accounting_bank_statements','protect_audit_events',27,true],
@@ -165,9 +165,9 @@ export async function inspectRuntimeAccess(db: Queryable) {
       OR (expected.immutable AND has_table_privilege('public.'||expected.table_name,'UPDATE,DELETE'))
       OR NOT has_table_privilege('public.'||expected.table_name,'SELECT')
       OR NOT has_table_privilege('public.'||expected.table_name,'INSERT')
-      OR (expected.table_name IN('accounting_journals','accounting_journal_lines','accounting_budgets','accounting_payroll_runs') AND NOT has_table_privilege('public.'||expected.table_name,'UPDATE'))
+      OR (expected.table_name IN('accounting_journals','accounting_journal_lines','accounting_budgets','accounting_payroll_runs','accounting_contacts','accounting_documents') AND NOT has_table_privilege('public.'||expected.table_name,'UPDATE'))
       OR (expected.table_name IN('accounting_journals','accounting_journal_lines','accounting_bank_matches') AND NOT has_table_privilege('public.'||expected.table_name,'DELETE'))
-      OR (expected.table_name IN('accounting_budgets','accounting_payroll_runs') AND has_table_privilege('public.'||expected.table_name,'DELETE'))) AS unprotected_accounting,
+      OR (expected.table_name IN('accounting_budgets','accounting_payroll_runs','accounting_contacts','accounting_documents') AND has_table_privilege('public.'||expected.table_name,'DELETE'))) AS unprotected_accounting,
     NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
       JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
       WHERE n.nspname='public' AND c.relname='gpa_previews' AND NOT t.tgisinternal AND t.tgenabled IN('O','A')

@@ -20,7 +20,7 @@ The application's `.gitattributes` preserves source bytes across operating syste
 
 ## Branches and review
 
-Use `codex/<short-change>` branches and focused pull requests into `main`. Describe the user-visible result, validation, migration implications and known limitations. Update `docs/STATUS.md`, the affected feature document and the relevant architecture decision when behavior or an architectural constraint changes. Do not rewrite immutable deployed migrations 001–037.
+Use `codex/<short-change>` branches and focused pull requests into `main`. Describe the user-visible result, validation, migration implications and known limitations. Update `docs/STATUS.md`, the affected feature document and the relevant architecture decision when behavior or an architectural constraint changes. Do not rewrite immutable deployed migrations 001–039.
 
 The `Workspace CI / verify` job runs repository hygiene, application tests/build, production dependency audit and the MCP bridge tests/build. It uses a sparse checkout of the current application, read-only repository permission, no deployment credentials, and immutable action SHAs. All pull requests run the job so a required check is not left pending by a path filter. The workflow never deploys to Railway. These choices follow [GitHub's secure use guidance](https://docs.github.com/en/actions/reference/security/secure-use).
 

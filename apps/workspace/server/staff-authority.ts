@@ -8,7 +8,7 @@ import { staffInput } from '../shared/contracts';
 import { acquirePinNamespace } from './pin-auth';
 
 export const staffUpdateInput = staffInput.extend({ active: z.boolean() });
-export const managedJobInput = z.object({ unitId: z.uuid(), title: z.string().trim().min(2).max(100) }).strict();
+export const managedJobInput = z.object({ unitId: z.uuid(), title: z.string().trim().min(2).max(100), description: z.string().trim().max(1000).default('') }).strict();
 const proofOf = (value: string | undefined): string => {
   requireCondition(typeof value === 'string' && /^[a-f0-9]{64}$/.test(value), 401, 'Your session has expired or changed. Sign in again.');
   return value;
@@ -49,10 +49,11 @@ async function publish<T>(tx: Queryable, actor: Actor, proof: string, result: T)
   await recheckReportSession(tx, actor, proof);
   return result;
 }
-async function lockAssignments(tx: Queryable, actor: Actor, input: z.infer<typeof staffUpdateInput>) {
+async function lockAssignments(tx: Queryable, actor: Actor, input: z.infer<typeof staffUpdateInput>, targetId: string) {
   const jobs = [...new Set(input.jobIds)].sort();
   const found = (await tx.query('SELECT id,unit_id,active FROM jobs WHERE org_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE', [actor.org_id, jobs])).rows;
-  requireCondition(found.length === jobs.length && found.every(job => job.active), 400, 'Jobs must be current active jobs in the assigned units.');
+  const retained=(await tx.query('SELECT job_id FROM user_jobs WHERE org_id=$1 AND user_id=$2',[actor.org_id,targetId])).rows.map(row=>row.job_id);
+  requireCondition(found.length === jobs.length && found.every(job => job.active || retained.includes(job.id)), 400, 'New assignments must use active jobs in the assigned units.');
   const units = [...new Set([...input.unitIds, ...found.map(job => job.unit_id as string)])].sort();
   const rows = (await tx.query('SELECT id FROM units WHERE org_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE', [actor.org_id, units])).rows;
   requireCondition(rows.length === units.length, 400, 'Unknown organizational unit.');
@@ -66,9 +67,10 @@ export async function updateStaffAccount(db: Database, supplied: Actor, sessionH
     await acquirePinNamespace(tx);
     const actor = await currentActor(tx, identity, proof, id);
     await assertManagePerson(tx, actor, id);
-    await lockAssignments(tx, actor, input);
+    await lockAssignments(tx, actor, input, id);
     const before = (await tx.query('SELECT name,email,role,active FROM users WHERE id=$1 AND org_id=$2', [id, actor.org_id])).rows[0];
-    await validateStaff(tx, actor, input, staffDomain, { role: before.role, email: before.email });
+    const retainedJobIds=(await tx.query('SELECT job_id FROM user_jobs WHERE org_id=$1 AND user_id=$2',[actor.org_id,id])).rows.map(row=>row.job_id);
+    await validateStaff(tx, actor, input, staffDomain, { role: before.role, email: before.email, retainedJobIds });
     before.unitIds = (await tx.query('SELECT unit_id FROM user_units WHERE user_id=$1 AND org_id=$2 ORDER BY unit_id', [id, actor.org_id])).rows.map(row => row.unit_id);
     before.jobIds = (await tx.query('SELECT job_id FROM user_jobs WHERE user_id=$1 AND org_id=$2 ORDER BY job_id', [id, actor.org_id])).rows.map(row => row.job_id);
     requireCondition(!(await tx.query('SELECT id FROM shifts WHERE user_id=$1 AND org_id=$2 AND ended_at IS NULL', [id, actor.org_id])).rows.length,
@@ -107,8 +109,48 @@ export async function createManagedJob(db: Database, supplied: Actor, sessionHas
     assertUnit(actor, input.unitId);
     requireCondition((await tx.query('SELECT id FROM units WHERE id=$1 AND org_id=$2 FOR SHARE', [input.unitId, actor.org_id])).rows.length, 404, 'Unit not found.');
     const id = randomUUID();
-    await tx.query('INSERT INTO jobs(id,org_id,unit_id,title) VALUES($1,$2,$3,$4)', [id, actor.org_id, input.unitId, input.title]);
+    await tx.query('INSERT INTO jobs(id,org_id,unit_id,title,description) VALUES($1,$2,$3,$4,$5)', [id, actor.org_id, input.unitId, input.title, input.description]);
     await audit(tx, actor, 'job.created', id, input);
     return publish(tx, actor, proof, { id });
+  });
+}
+
+export const managedJobUpdateInput = managedJobInput.extend({ active: z.boolean(), expectedVersion: z.number().int().positive(), reason: z.string().trim().min(3).max(1000) });
+async function jobHasReferences(tx: Queryable, orgId: string, jobId: string) {
+  return (await tx.query(`SELECT
+    EXISTS(SELECT 1 FROM user_jobs WHERE org_id=$1 AND job_id=$2) OR
+    EXISTS(SELECT 1 FROM segments WHERE org_id=$1 AND job_id=$2) OR
+    EXISTS(SELECT 1 FROM schedules WHERE org_id=$1 AND job_id=$2) OR
+    EXISTS(SELECT 1 FROM compensation_schedules WHERE org_id=$1 AND job_id=$2) OR
+    EXISTS(SELECT 1 FROM staff_schedule_requests WHERE org_id=$1 AND (source_job_id=$2 OR target_job_id=$2)) OR
+    EXISTS(SELECT 1 FROM time_corrections WHERE org_id=$1 AND (proposed @> jsonb_build_array(jsonb_build_object('jobId',$2::text)) OR original->'segments' @> jsonb_build_array(jsonb_build_object('jobId',$2::text)))) OR
+    EXISTS(SELECT 1 FROM time_adjustment_requests WHERE org_id=$1 AND scope_snapshot->'jobIds' ? $2::text)
+    AS used`, [orgId,jobId])).rows[0].used;
+}
+export async function updateManagedJob(db: Database, supplied: Actor, sessionHash: string | undefined, targetId: string, raw: unknown) {
+  const proof=proofOf(sessionHash), identity=capture(supplied), id=z.uuid().parse(targetId).toLowerCase(), input=managedJobUpdateInput.parse(raw);
+  return transaction(db,async tx=>{
+    const actor=await currentActor(tx,identity,proof);
+    // Clock-in/switch and assignment writers hold SHARE on this stable identity.
+    const before=(await tx.query('SELECT * FROM jobs WHERE id=$1 AND org_id=$2 FOR UPDATE',[id,actor.org_id])).rows[0];
+    requireCondition(before,404,'Job not found.'); assertUnit(actor,before.unit_id); assertUnit(actor,input.unitId);
+    requireCondition(before.version===input.expectedVersion,409,'This job changed while you were editing. Close this editor, refresh the directory and review the latest version.');
+    requireCondition((await tx.query('SELECT id FROM units WHERE id=$1 AND org_id=$2 FOR SHARE',[input.unitId,actor.org_id])).rows.length,404,'Community not found.');
+    if(before.unit_id!==input.unitId) requireCondition(!await jobHasReferences(tx,actor.org_id,id),409,'This job has assignments or retained records, so its community must stay the same. Create a job in the destination community and archive this one when it is no longer needed.');
+    if(before.active && !input.active) requireCondition(!(await tx.query(`SELECT 1 FROM segments g JOIN shifts s ON s.id=g.shift_id AND s.org_id=g.org_id
+      WHERE g.org_id=$1 AND g.job_id=$2 AND g.revision=s.revision AND g.ended_at IS NULL AND s.ended_at IS NULL LIMIT 1`,[actor.org_id,id])).rows.length,409,'Someone is currently clocked in under this job. They must switch jobs or clock out before it can be archived.');
+    const after=(await tx.query('UPDATE jobs SET title=$1,description=$2,unit_id=$3,active=$4,version=version+1 WHERE id=$5 AND org_id=$6 RETURNING id,title,description,unit_id,active,version',[input.title,input.description,input.unitId,input.active,id,actor.org_id])).rows[0];
+    await audit(tx,actor,'job.updated',id,{before:{title:before.title,description:before.description,unitId:before.unit_id,active:before.active,version:before.version},after:{title:after.title,description:after.description,unitId:after.unit_id,active:after.active,version:after.version},reason:input.reason});
+    return publish(tx,actor,proof,{job:after});
+  });
+}
+export async function managedJobHistory(db: Database, supplied: Actor, sessionHash: string | undefined, targetId: string) {
+  const proof=proofOf(sessionHash), identity=capture(supplied), id=z.uuid().parse(targetId).toLowerCase();
+  return transaction(db,async tx=>{
+    const actor=await currentActor(tx,identity,proof), job=(await tx.query('SELECT * FROM jobs WHERE id=$1 AND org_id=$2 FOR SHARE',[id,actor.org_id])).rows[0];
+    requireCondition(job,404,'Job not found.');assertUnit(actor,job.unit_id);
+    const rows=(await tx.query(`SELECT e.action,e.detail,e.created_at,u.name AS actor_name FROM audit_events e LEFT JOIN users u ON u.id=e.actor_id AND u.org_id=e.org_id
+      WHERE e.org_id=$1 AND e.target_id=$2 AND e.action IN('job.created','job.updated') ORDER BY e.created_at DESC,e.id DESC LIMIT 101`,[actor.org_id,id])).rows;
+    return publish(tx,actor,proof,{rows:rows.slice(0,100),truncated:rows.length>100,communityLocked:await jobHasReferences(tx,actor.org_id,id)});
   });
 }

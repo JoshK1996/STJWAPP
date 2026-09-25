@@ -452,3 +452,6 @@ html[data-depth="false"] .timetable-symbol {
 .calendar-legend .audience-classes {
   background: var(--accent);
 }
+.timetable-room-directory { display:grid;gap:.6rem;min-width:0; }
+.timetable-room-directory article { display:flex;align-items:center;flex-wrap:wrap;gap:.7rem;padding:.8rem;border:1px solid var(--border);border-radius:14px;min-width:0; }
+.timetable-room-directory article strong { flex:1 1 12rem;min-width:0;overflow-wrap:anywhere; }

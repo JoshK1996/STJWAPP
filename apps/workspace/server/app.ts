@@ -1,3 +1,5 @@
+import { editOwnRequest } from './request-editing';
+import { installAccountCredentials } from './account-credentials';
 import { registerAccountingLedgerRoutes } from './accounting-ledger';
 import { registerAccountingOperationsRoutes } from './accounting-operations';
 import { registerAccountingBankingRoutes } from './accounting-banking';
@@ -22,10 +24,10 @@ import { installPublicWeb } from './web-static';
 import type { Database } from './db';
 import { installAuth, type AppRequest } from './auth';
 import { audit, canReport, digest, manages, opaqueToken, orgWide, Problem, requireCondition } from './security';
-import { listStaff, listRequests, createRequest, reviewRequest } from './workforce';
+import { listStaff, listRequests, createRequest, reviewAuthenticatedRequest } from './workforce';
 import { getAuthenticatedClock, applyAuthenticatedClockCommand } from './clock-session';
 import { createStaffAccount } from './temporary-credentials';
-import { createManagedJob, updateStaffAccount, issueManagedStaffSetupLink } from './staff-authority';
+import { createManagedJob, updateManagedJob, managedJobHistory, updateStaffAccount, issueManagedStaffSetupLink } from './staff-authority';
 import { getAuthorizedWorkforceReport, exportAuthorizedWorkforceReport, type WorkforceReportProof } from './workforce-report-access';
 import { getAuthorizedWorkforceReportV2, exportAuthorizedWorkforceReportV2 } from './workforce-report-v2-access';
 import { getAuthorizedPayrollHours, exportAuthorizedPayrollHours } from './payroll-hours';
@@ -76,6 +78,7 @@ export function createApp(db: Database, config: AppConfig) {
   });
   app.use(express.json({limit:'512kb'}));app.use(cookieParser());
   installAuth(app,db,config.production);
+  installAccountCredentials(app,db,config.production);
   app.get('/api/me',async(req,res)=>{
     const actor=actorOf(req);const organization=(await db.query('SELECT * FROM organizations WHERE id=$1',[actor.org_id])).rows[0];
     const units=(await db.query('SELECT * FROM units WHERE org_id=$1 AND ($2::boolean OR id=ANY($3::uuid[])) ORDER BY name',[actor.org_id,orgWide(actor),actor.unit_ids])).rows;
@@ -102,6 +105,8 @@ export function createApp(db: Database, config: AppConfig) {
   app.post('/api/jobs',async(req,res)=>{
     res.set('Cache-Control','private, no-store').status(201).json(await createManagedJob(db,actorOf(req),sessionHashOf(req),req.body));
   });
+  app.patch('/api/jobs/:id',async(req,res)=>res.set('Cache-Control','private, no-store').json(await updateManagedJob(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),req.body)));
+  app.get('/api/jobs/:id/history',async(req,res)=>res.set('Cache-Control','private, no-store').json(await managedJobHistory(db,actorOf(req),sessionHashOf(req),idOf(req.params.id))));
   app.post('/api/staff',async(req,res)=>{
     const result=await createStaffAccount(db,actorOf(req),(req as AppRequest).sessionHash,req.body,config.staffDomain,config.origin);
     res.status(201).json(result);
@@ -114,9 +119,11 @@ export function createApp(db: Database, config: AppConfig) {
   });
   app.get('/api/requests',async(req,res)=>res.json({rows:await listRequests(db,actorOf(req))}));
   app.post('/api/requests',async(req,res)=>res.status(201).json(await createRequest(db,actorOf(req),requestInput.parse(req.body))));
+  app.patch('/api/requests/:id',async(req,res)=>res.set('Cache-Control','private, no-store').json(await editOwnRequest(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),req.body)));
+  app.post('/api/requests/:id/withdraw',async(req,res)=>res.set('Cache-Control','private, no-store').json(await editOwnRequest(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),req.body,true)));
   app.post('/api/requests/:id/review',async(req,res)=>{
-    const input=z.object({status:z.enum(['approved','declined']),note:z.string().trim().min(3).max(1000)}).strict().parse(req.body);
-    res.json(await reviewRequest(db,actorOf(req),idOf(req.params.id),input.status,input.note));
+    const input=z.object({status:z.enum(['approved','declined']),note:z.string().trim().min(3).max(1000),expectedVersion:z.number().int().positive().optional()}).strict().parse(req.body);
+    res.json(await reviewAuthenticatedRequest(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),input.status,input.note,input.expectedVersion));
   });
   installStaffScheduling(app,db);
   installScheduleRequests(app,db);

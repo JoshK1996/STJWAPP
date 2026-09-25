@@ -7,12 +7,15 @@ const amount = z.string().regex(/^-?(?:0|[1-9]\d{0,11})(?:\.\d{1,4})?$/, 'Enter 
 const command = z.uuid();
 export const accountingContactInput = z.object({ commandId: command, name: z.string().trim().min(1).max(160),
   kind: z.enum(['vendor','customer','family','donor']), email: z.email().max(254).optional(), note: z.string().trim().max(500).default('') }).strict();
+export const accountingContactEditInput=accountingContactInput.extend({expectedRevision:z.number().int().positive(),active:z.boolean(),reason:z.string().trim().min(3).max(500)}).strict();
 export const accountingDocumentInput = z.object({ commandId: command, kind: z.enum(['bill','invoice']), contactId: z.uuid(),
   number: z.string().trim().min(1).max(60), date: operationsDate, dueDate: operationsDate, description: z.string().trim().min(1).max(300),
   controlAccountId: z.uuid().optional(), lines: z.array(z.object({ description: z.string().trim().min(1).max(200), accountId: z.uuid(),
     amount, unitId: z.uuid().optional(), fundId: z.uuid().optional() }).strict()).min(1).max(100) }).strict()
   .refine(value => value.dueDate >= value.date, 'Due date must be on or after the document date.');
-export const accountingIssueInput = z.object({ commandId: command }).strict();
+export const accountingDocumentEditInput=accountingDocumentInput.safeExtend({expectedRevision:z.number().int().positive(),reason:z.string().trim().min(3).max(500)});
+export const accountingDraftDiscardInput=z.object({commandId:command,expectedRevision:z.number().int().positive(),reason:z.string().trim().min(3).max(500)}).strict();
+export const accountingIssueInput = z.object({ commandId: command,expectedRevision:z.number().int().positive().optional() }).strict();
 export const accountingVoidInput = z.object({ commandId: command, date: operationsDate, reason: z.string().trim().min(3).max(300) }).strict();
 export const accountingPaymentInput = z.object({ commandId: command, date: operationsDate, amount, cashAccountId: z.uuid(),
   reference: z.string().trim().min(1).max(120) }).strict();
@@ -20,14 +23,14 @@ export const accountingCreditInput = z.object({ commandId: command, date: operat
   lines: z.array(z.object({ lineIndex: z.number().int().min(0).max(99), amount }).strict()).min(1).max(100) }).strict();
 export const accountingRefundInput = z.object({ commandId: command, date: operationsDate, amount, reference: z.string().trim().min(1).max(120) }).strict();
 
-export type AccountingContact = { id: string; name: string; kind: 'vendor'|'customer'|'family'|'donor'; email: string; note: string };
+export type AccountingContact = { id: string; name: string; kind: 'vendor'|'customer'|'family'|'donor'; email: string; note: string;revision:number;active:boolean };
 export type AccountingDocumentLine = { description: string; accountId: string; amount: string; unitId?: string; fundId?: string };
 export type AccountingDocumentEvent = { id: string; type: 'issue'|'credit'|'payment'|'refund'|'payment_void'|'void'; date: string;
   amount: string; reference: string; reason: string; paymentId?: string; journalId?: string; allocations: { lineIndex: number; amount: string }[] };
 export type AccountingDocument = { id: string; kind: 'bill'|'invoice'; contactId: string; contactName: string; number: string; date: string;
   dueDate: string; description: string; controlAccountId?: string; currency: string; precision: number; basis: 'cash'|'accrual';
   status: 'draft'|'issued'|'void'; lines: AccountingDocumentLine[]; total: string; credited: string; paid: string; refunded: string;
-  outstanding: string; events: AccountingDocumentEvent[] };
+  outstanding: string; events: AccountingDocumentEvent[];revision:number };
 export type AccountingAging = { asOf: string; currency: string; precision: number; rows: (AccountingDocument & {
   daysOverdue: number; bucket: 'Current'|'1–30 days'|'31–60 days'|'61–90 days'|'Over 90 days'|'Credit balance' })[] };
 

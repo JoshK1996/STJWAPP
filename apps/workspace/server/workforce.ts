@@ -4,6 +4,7 @@ import { audit, assertUnit, digest, manages, orgWide, requireCondition, type Act
 import { clockInput, requestInput, staffInput } from '../shared/contracts';
 import type { z } from 'zod';
 import { noTimeOverlap } from './time-record-access';
+import { currentReportActor, recheckReportSession } from './report-source-access';
 
 export async function clockState(db: Queryable, actor: Actor) {
   const jobs = (await db.query(`SELECT j.*,u.name AS unit_name FROM user_jobs uj JOIN jobs j ON j.id=uj.job_id
@@ -25,6 +26,9 @@ export async function clockTransition(tx: Queryable, actor: Actor, raw: z.infer<
     // Explicit test instants are still checked against exact database bounds.
     const now = injectedNow ? new Date(injectedNow) : new Date();
     requireCondition(Number.isFinite(now.valueOf()),400,'Use a valid clock instant.');
+    // Serialize new use with job edits/archiving while the account lock is held.
+    if ((input.action==='clock_in'||input.action==='switch_job') && input.jobId)
+      await tx.query('SELECT id FROM jobs WHERE org_id=$1 AND id=$2 FOR SHARE',[actor.org_id,input.jobId]);
     const state = await clockState(tx,actor);
     const current = state.shift;
     let shiftId = current?.id;
@@ -73,7 +77,7 @@ export async function listStaff(db: Queryable, actor: Actor) {
     AND ($2::boolean OR EXISTS(SELECT 1 FROM user_units uu WHERE uu.user_id=u.id AND uu.unit_id=ANY($3::uuid[]))) ORDER BY u.name`,[actor.org_id,orgWide(actor),actor.unit_ids])).rows;
 }
 export async function validateStaff(tx: Queryable, actor: Actor, input: z.infer<typeof staffInput>, staffDomain: string,
-  existing?: { role: string; email: string }) {
+  existing?: { role: string; email: string; retainedJobIds?: string[] }) {
   requireCondition(manages(actor),403,'Staff management access required.');
   // Only the already-locked existing highest-role identity may retain that role.
   // New developer/owner provisioning never enters ordinary staff/import creation.
@@ -86,7 +90,7 @@ export async function validateStaff(tx: Queryable, actor: Actor, input: z.infer<
   const units = (await tx.query('SELECT id FROM units WHERE org_id=$1 AND id=ANY($2::uuid[])',[actor.org_id,input.unitIds])).rows;
   requireCondition(units.length===new Set(input.unitIds).size,400,'Unknown organizational unit.');
   input.unitIds.forEach(id=>assertUnit(actor,id));
-  const jobs = (await tx.query('SELECT id,unit_id FROM jobs WHERE org_id=$1 AND active=true AND id=ANY($2::uuid[])',[actor.org_id,input.jobIds])).rows;
+  const jobs = (await tx.query('SELECT id,unit_id FROM jobs WHERE org_id=$1 AND (active=true OR id=ANY($3::uuid[])) AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE',[actor.org_id,input.jobIds,existing?.retainedJobIds??[]])).rows;
   requireCondition(jobs.length===new Set(input.jobIds).size && jobs.every(j=>input.unitIds.includes(j.unit_id)),400,'Jobs must belong to the assigned units.');
 }
 export async function createStaff(tx: Queryable, actor: Actor, input: z.infer<typeof staffInput>, staffDomain: string) {
@@ -133,16 +137,28 @@ export async function createRequest(db: Database, actor: Actor, input: z.infer<t
     await audit(tx,actor,'request.created',id,{ kind:input.kind, startsOn:input.startsOn, endsOn:input.endsOn }); return { id };
   });
 }
-export async function reviewRequest(db: Database, actor: Actor, id: string, status: string, note: string) {
-  return db.transaction(async tx=>{
-    actor=await currentRequestActor(tx,actor);
+async function recordRequestReview(tx: Queryable, actor: Actor, id: string, status: string, note: string, expectedVersion?: number) {
     requireCondition(manages(actor),403,'Request review access required.');
     const row=(await tx.query('SELECT * FROM requests WHERE id=$1 AND org_id=$2 FOR UPDATE',[id,actor.org_id])).rows[0];
     requireCondition(row,404,'Request not found.'); assertUnit(actor,row.unit_id);
     requireCondition(row.user_id!==actor.id,403,'A different manager must review your request.');
     requireCondition(row.status==='pending',409,'This request has already been reviewed.');
-    await tx.query('UPDATE requests SET status=$1,review_note=$2,reviewer_id=$3,reviewed_at=now() WHERE id=$4',[status,note,actor.id,id]);
+    requireCondition(expectedVersion===undefined?row.version===1:row.version===expectedVersion,409,'This request changed. Reload it before reviewing the current details.');
+    await tx.query('UPDATE requests SET status=$1,review_note=$2,reviewer_id=$3,reviewed_at=now(),version=version+1 WHERE id=$4',[status,note,actor.id,id]);
     await audit(tx,actor,`request.${status}`,id,{ note }); return { id,status };
+}
+/** Public review boundary: verify the actual password session before locking the request and again before commit. */
+export async function reviewAuthenticatedRequest(db: Database, supplied: Actor, sessionHash: string | undefined, id: string, status: string, note: string, expectedVersion?: number) {
+  requireCondition(typeof sessionHash==='string' && /^[a-f0-9]{64}$/.test(sessionHash),401,'A current password session is required to review requests.');
+  return db.transaction(async tx=>{
+    const actor=await currentReportActor(tx,supplied,sessionHash);
+    const result=await recordRequestReview(tx,actor,id,status,note,expectedVersion);
+    await recheckReportSession(tx,actor,sessionHash);
+    return result;
   });
+}
+/** Trusted local-fixture compatibility only. HTTP routes must use reviewAuthenticatedRequest. */
+export async function reviewRequest(db: Database, actor: Actor, id: string, status: string, note: string, expectedVersion?: number) {
+  return db.transaction(async tx=>recordRequestReview(tx,await currentRequestActor(tx,actor),id,status,note,expectedVersion));
 }
 export { createSchedule } from './staff-scheduling';

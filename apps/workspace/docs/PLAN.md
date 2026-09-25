@@ -16,6 +16,8 @@ Current implementation: the accounting ledger and reviewed manual workflows, inc
 
 ## Engineering boundaries
 
+Management editing is part of every feature's lifecycle: nearby prefilled edit controls, archive/restore or a reviewed correction path, conflict recovery, current authorization and retained history. The cross-page inventory and remaining amendment gaps are in [EDITABILITY](EDITABILITY.md) and ADR0008. Preserve these requirements when adding new pages.
+
 Server-verified accounts and organization scope control every action. Code owns authorization, arithmetic, validation, execution and audit writes. AI may advise mappings/classifications; it cannot grant access, approve pay or release a child. Preserve exact history and immutable migrations.
 
 Use focused branches, passing CI, review and ADRs. Deploy an exact reviewed manifest after separate database maintenance; the web runtime never migrates production. See [development](DEVELOPMENT.md), [database operations](DATABASE-OPERATIONS.md), [status](STATUS.md) and [remaining scope](REMAINING-SCOPE.md).

@@ -2,7 +2,13 @@
 
 Railway hosts the app and its separate PostgreSQL database independently of the reference applications. The root prototype is not a deployment source for `apps/workspace`.
 
-## Current accounting release
+## Current management editing release
+
+Deployment `03da1d01-7f87-4425-874a-309c89bfb58f` is live, publicly verified 2026-09-25 UTC. Separate maintenance dry-run and commit passed; schema039 is deployed. All 339 staged runtime files match source commit `fbdeadad55cf93318ddc633926a6ad324a346768`, manifest SHA256 `023390b87288d3e3f02742788a6f8dedc6331c816ea2d28dc728176e74578beb`. Public hosted acceptance passed 34 checks, 12 exact asset comparisons and 81 anonymous protected-route denials, with zero unexpected errors. Temporary maintenance access was revoked. These public checks are separate from the local authenticated synthetic workflows.
+
+Build version `7faeab7148e8df229aa0f0ed88be6adc681a074a9c169fac3b90699524c936dc`; entry SHA256 `5ea710ff678e16c3d8c227452cb5729577e2716c43e6b22d28c3358dcae75d87`. The exact executed maintenance plan SHA256 is `2451deb6c8b72e3a0f8b2fccd28f8975cc475f912de01ef7ae8bf863833719c1`; dry run rolled back to37, then that same serialized plan committed39. Migrations001–039 are immutable. Runtime startup verifies schema and restricted privileges without migration/seeding. Roll forward with a reviewed schema039-compatible release. Use the guarded update prompt after finishing pending work. See EDITABILITY for available controls and remaining historical amendment limits.
+
+## Previous accounting release
 
 Deployment `e3bbb811-6c1e-49fa-9feb-30d399603e2c` is live, verified September 24, 2026 UTC. Separate maintenance dry-run and commit passed; schema 037 is deployed. Migrations 001–037 are now immutable. The web runtime passed startup schema/privilege checks using its restricted role, without migrations or seeding. Temporary maintenance access was revoked.
 

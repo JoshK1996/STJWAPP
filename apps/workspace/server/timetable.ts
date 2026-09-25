@@ -30,6 +30,7 @@ import {
 import { toCsv } from "./reports";
 import { exportTimetableCalendar } from "./timetable-export";
 import type { AppRequest } from "./auth";
+import {updateTimetableRoom} from './school-definitions';
 
 async function scope(tx: Queryable, actor: Actor, unitId: string) {
   requireCondition(
@@ -87,15 +88,15 @@ async function candidate(
   const room = input.roomId
     ? (
         await tx.query(
-          "SELECT id,name FROM timetable_rooms WHERE id=$1 AND org_id=$2 AND unit_id=$3",
+          "SELECT id,name,active FROM timetable_rooms WHERE id=$1 AND org_id=$2 AND unit_id=$3",
           [input.roomId, actor.org_id, section.unit_id],
         )
       ).rows[0]
     : null;
   requireCondition(
-    !input.roomId || room,
+    !input.roomId || (room && (room.active || old?.room_id===room.id)),
     400,
-    "Choose a timetable room in this unit.",
+    "Choose an active timetable room in this unit. Existing meetings retain their assigned room.",
   );
   const row: Row = {
     id: input.id ?? randomUUID(),
@@ -468,7 +469,7 @@ export function installTimetable(app: Express, db: Database) {
     res.json({
       rows: (
         await db.query(
-          "SELECT id,name FROM timetable_rooms WHERE org_id=$1 AND unit_id=$2 ORDER BY name",
+          "SELECT id,name,active,version FROM timetable_rooms WHERE org_id=$1 AND unit_id=$2 ORDER BY name",
           [actor.org_id, unitId],
         )
       ).rows,
@@ -483,7 +484,7 @@ export function installTimetable(app: Express, db: Database) {
         await assertOffice(tx, actor, input.unitId);
         const row = (
           await tx.query(
-            "INSERT INTO timetable_rooms(id,org_id,unit_id,name,created_by) VALUES($1,$2,$3,$4,$5) RETURNING id,name",
+            "INSERT INTO timetable_rooms(id,org_id,unit_id,name,created_by) VALUES($1,$2,$3,$4,$5) RETURNING id,name,active,version",
             [randomUUID(), actor.org_id, input.unitId, input.name, actor.id],
           )
         ).rows[0];
@@ -501,6 +502,7 @@ export function installTimetable(app: Express, db: Database) {
       }),
     );
   });
+  app.patch('/api/school/timetable/rooms/:id',async(req,res)=>res.json(await updateTimetableRoom(db,schoolActor(req),(req as unknown as AppRequest).sessionHash,z.uuid().parse(req.params.id),req.body)));
   app.post("/api/school/timetable/preview", async (req, res) => {
     const actor = schoolActor(req),
       input = meetingInput.parse(req.body);

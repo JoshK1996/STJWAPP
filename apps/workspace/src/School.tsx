@@ -371,7 +371,7 @@ export default function School({
           </button>
         ))}
       </nav>
-      {tab === "timetable" && <Timetable key={unitId+yearId} unitId={unitId} yearId={yearId} years={data.years} sections={data.sections} staff={data.staff} office={office} notify={notify} onDirty={attendanceDirty} />}
+      {tab === "timetable" && <Timetable key={unitId+yearId} unitId={unitId} yearId={yearId} years={data.years} sections={data.sections} staff={data.staff} office={office} notify={notify} onDirty={attendanceDirty} showHistory={showHistory} />}
       {tab === "grades" && <Gradebook key={unitId+yearId} unitId={unitId} yearId={yearId} sections={data.sections} office={office} notify={notify} onDirty={attendanceDirty} />}
       {tab === "report-cards" && office && <ReportCards key={unitId+yearId} unitId={unitId} yearId={yearId} terms={data.terms} notify={notify} onDirty={attendanceDirty} />}
       {tab === "standing-policies" && office && <StandingPolicies key={unitId+yearId} unitId={unitId} yearId={yearId} actorRole={me.actor.role} notify={notify} onDirty={attendanceDirty} />}
@@ -695,6 +695,7 @@ export default function School({
                 unitId={unitId}
                 admin={access.admin}
                 edit={edit}
+                history={showHistory}
               />
               <AttendanceSettings
                 key={unitId + yearId}
@@ -743,6 +744,7 @@ export default function School({
           data={data}
           onClose={() => setDialog(null)}
           onSaved={saved}
+          onDirty={attendanceDirty}
         />
       )}
       {history && (
@@ -1229,12 +1231,14 @@ function SchoolSetup({
   unitId,
   admin,
   edit,
+  history,
 }: {
   data: SchoolData;
   yearId: string;
   unitId: string;
   admin: boolean;
   edit: (kind: string, initial?: any, target?: string) => void;
+  history: (id:string)=>Promise<void>;
 }) {
   return (
     <div className="school-setup-grid">
@@ -1257,10 +1261,13 @@ function SchoolSetup({
               <CalendarDays size={22} />
               <div>
                 <strong>{year.name}</strong>
+                {year.archived&&<Badge>Archived</Badge>}
                 <p>
                   {dateLabel(year.starts_on)}–{dateLabel(year.ends_on)}
                 </p>
               </div>
+              <button className="text-link" onClick={()=>edit('year',year)} aria-label={'Edit school year '+year.name}>Edit</button>
+              <button className="text-link" onClick={()=>void history(year.id)} aria-label={'History for school year '+year.name}>History</button>
             </div>
           ))}
         </div>
@@ -1289,6 +1296,8 @@ function SchoolSetup({
                 </p>
               </div>
               <Badge>{term.locked_at ? "Locked" : "Open"}</Badge>
+              <button className="text-link" disabled={!!term.locked_at} title={term.locked_at?'Locked term definitions retain their reviewed history.':undefined} onClick={()=>edit('term',term)} aria-label={'Edit term '+term.name}>Edit</button>
+              <button className="text-link" onClick={()=>void history(term.id)} aria-label={'History for term '+term.name}>History</button>
             </div>
           ))}
         </div>
@@ -1318,10 +1327,13 @@ function SchoolSetup({
               <BookOpen size={22} />
               <div>
                 <strong>{course.title}</strong>
+                {course.archived&&<Badge>Archived</Badge>}
                 <p>
                   {course.code} · {course.description}
                 </p>
               </div>
+              <button className="text-link" onClick={()=>edit('course',course)} aria-label={'Edit course '+course.title}>Edit</button>
+              <button className="text-link" onClick={()=>void history(course.id)} aria-label={'History for course '+course.title}>History</button>
             </div>
           ))}
         </div>
@@ -1377,6 +1389,7 @@ function SchoolDialog({
   data,
   onClose,
   onSaved,
+  onDirty,
 }: {
   dialog: any;
   unitId: string;
@@ -1384,11 +1397,13 @@ function SchoolDialog({
   data: SchoolData;
   onClose: () => void;
   onSaved: (kind: string, result: any) => Promise<void>;
+  onDirty:(value:boolean)=>void;
 }) {
   const { kind, target } = dialog,
     initial = dialog.data ?? {},
     editing = !!dialog.data;
   const [busy, setBusy] = useState(false),
+    [changed,setChanged]=useState(false),
     [error, setError] = useState(""),
     [chosenYear, setChosenYear] = useState(
       initial.year_id ?? yearId ?? data.years[0]?.id ?? "",
@@ -1400,9 +1415,9 @@ function SchoolDialog({
       student: editing ? "Edit student profile" : "Add a student",
       household: editing ? "Edit household" : "Add a household",
       person: editing ? "Edit contact" : "Create a contact",
-      year: "Create a school year",
-      term: "Add a term",
-      course: "Add a course",
+      year: editing ? 'Edit school year' : "Create a school year",
+      term: editing ? 'Edit term' : "Add a term",
+      course: editing ? 'Edit course' : "Add a course",
       section: editing ? "Edit classroom" : "Create a classroom",
       enrollment: editing ? "Update enrollment" : "Enroll in a school year",
       contact: "Student contact permissions",
@@ -1411,6 +1426,8 @@ function SchoolDialog({
       curriculum: editing ? "Edit curriculum unit" : "Add a curriculum unit",
       grant: "School office access",
     };
+  useEffect(()=>{onDirty(changed);return()=>onDirty(false);},[changed,onDirty]);
+  function close(){if(!busy&&(!changed||window.confirm('Discard unsaved school record changes?')))onClose();}
   useEffect(() => {
     if (kind !== "roster" || editing) return;
     let current = true;
@@ -1477,27 +1494,27 @@ function SchoolDialog({
         };
       }
       if (kind === "year") {
-        path = "/school/years";
+        path = "/school/years"+(editing?'/'+initial.id:'');method=editing?'PATCH':'POST';
         body = {
-          unitId,
+          ...(editing?{version:initial.version,archived:checked('archived'),reason:text('reason')}:{unitId}),
           name: text("name"),
           startsOn: text("startsOn"),
           endsOn: text("endsOn"),
         };
       }
       if (kind === "term") {
-        path = "/school/terms";
+        path = "/school/terms"+(editing?'/'+initial.id:'');method=editing?'PATCH':'POST';
         body = {
-          yearId: chosenYear,
+          ...(editing?{version:initial.version,reason:text('reason')}:{yearId:chosenYear}),
           name: text("name"),
           startsOn: text("startsOn"),
           endsOn: text("endsOn"),
         };
       }
       if (kind === "course") {
-        path = "/school/courses";
+        path = "/school/courses"+(editing?'/'+initial.id:'');method=editing?'PATCH':'POST';
         body = {
-          unitId,
+          ...(editing?{version:initial.version,archived:checked('archived'),reason:text('reason')}:{unitId}),
           code: text("code"),
           title: text("name"),
           description: text("description"),
@@ -1602,7 +1619,7 @@ function SchoolDialog({
       School year
       <select
         value={chosenYear}
-        disabled={editing && kind === "enrollment"}
+        disabled={editing && ['enrollment','term'].includes(kind)}
         onChange={(e) => setChosenYear(e.target.value)}
         required
       >
@@ -1632,8 +1649,8 @@ function SchoolDialog({
     </div>
   );
   return (
-    <Modal title={titles[kind]} onClose={onClose}>
-      <form className="community-form" onSubmit={submit}>
+    <Modal title={titles[kind]} onClose={close}>
+      <form className="community-form" onSubmit={submit} onChange={()=>setChanged(true)}>
         {kind === "student" && (
           <>
             <Field
@@ -1743,31 +1760,35 @@ function SchoolDialog({
               name="name"
               placeholder="Use your school’s year label"
               minLength={2}
+              value={initial.name}
             />
             <div className="community-form-grid">
-              <Field label="Start date" name="startsOn" type="date" />
-              <Field label="End date" name="endsOn" type="date" />
+              <Field label="Start date" name="startsOn" type="date" value={day(initial.starts_on)} />
+              <Field label="End date" name="endsOn" type="date" value={day(initial.ends_on)} />
             </div>
+            {editing&&<><Toggle name="archived" checked={initial.archived}>Archive this school year</Toggle><p className="muted">Restore an archived year here when needed. Existing history is retained. Years with classes or enrollment can expand their dates, but cannot shrink around existing records.</p></>}
           </>
         )}
         {kind === "term" && (
           <>
             {selectYear}
-            <Field label="Term name" name="name" minLength={2} />
+            <Field label="Term name" name="name" minLength={2} value={initial.name} />
             {dates}
             <p className="muted">
               Term dates must fit within the selected school year.
+              {editing&&' Once a gradebook uses the term, its dates remain fixed; its name can still be corrected.'}
             </p>
           </>
         )}
         {kind === "course" && (
           <>
-            <Field label="Course code" name="code" maxLength={30} />
-            <Field label="Course title" name="name" minLength={2} />
+            <Field label="Course code" name="code" maxLength={30} value={initial.code} />
+            <Field label="Course title" name="name" minLength={2} value={initial.title} />
             <label>
               Course description
-              <textarea name="description" rows={4} maxLength={2000} />
+              <textarea name="description" rows={4} maxLength={2000} defaultValue={initial.description} />
             </label>
+            {editing&&<><Toggle name="archived" checked={initial.archived}>Archive this course</Toggle><p className="muted">Archived courses remain on existing classes and records. Restore here to use the course for new classes.</p></>}
           </>
         )}
         {kind === "section" && (
@@ -2077,13 +2098,14 @@ function SchoolDialog({
             </p>
           </>
         )}
+        {editing&&['year','term','course'].includes(kind)&&<label>Reason for this change<textarea name="reason" required minLength={5} maxLength={1000} rows={2} placeholder="Describe the correction for the record history." /></label>}
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
         <div className="dialog-actions">
-          <button className="button secondary" type="button" onClick={onClose}>
+          <button className="button secondary" type="button" disabled={busy} onClick={close}>
             Cancel
           </button>
           <button className="button primary" disabled={busy}>
@@ -2160,6 +2182,9 @@ function HistoryChanges({ snapshot, staff }: { snapshot: any; staff: any[] }) {
     active: "Active",
     archived: "Archived",
     title: "Title",
+    code: "Course code",
+    description: "Description",
+    change_reason: "Reason for this change",
     content: "Learning plan",
     room: "Room",
     capacity: "Capacity",
