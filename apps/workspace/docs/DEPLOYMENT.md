@@ -2,7 +2,17 @@
 
 Railway hosts the app and its separate PostgreSQL database independently of the reference applications. The root prototype is not a deployment source for `apps/workspace`.
 
-## Current employee administration release
+## Current job coverage and schedule document release
+
+Deployment `ee207b5a-6d45-4959-a898-391959eca882` is live, verified September 25, 2026 UTC. Separate maintenance dry-run and commit passed with existing credentials, account roles/active states and operational-record counts preserved. Schema 046 is deployed; migrations 001-046 are immutable. All 383 staged runtime files match source commit `f96b9cd8ff87d8c5582f301b693a994b4000a3ad`, manifest SHA256 `62da8ec4153f8a459cd0e7b5e5571f3aeceae9b1cb34d177ba5522d57c8d2fce`.
+
+Build version `a2aaea84a1eabeacb9c48a0f93fd8e971d0d0e04d4878afd1e80a54a20aa0af3`; entry SHA256 `abdc42551ce36565a1f990a42c8e2e748cf892f24540f9a3b4fe4add3b2c6d3d`. The reviewed maintenance file SHA256 is `a350a22c2d043178785b9ec8a8b2b5b1d2f6e8a98570bc6dfee7538b995535cb` (raw file bytes). The same file was used for rollback and commit; the maintenance runner consistently normalizes text input. Dry run rolled back to44, then commit advanced to46. No deployed migration was changed. Roll forward with schema046-compatible source.
+
+Hosted public acceptance passed 36 checks, 12 exact asset comparisons and 102 anonymous protected-route denials, with zero unexpected errors. Actual web-container readback verified `stjw_runtime` as runtime/login identity, 32 protection flags, no private archive access, consistent credential policy flags and active required management roles. Temporary maintenance access was revoked. No cleanup or credential reset was performed. See VALIDATION for local synthetic planner/import/mobile acceptance and its limitations.
+
+Open Schedule or Plan coverage on a job to define staffing windows and separate hours targets. Uploaded CSV/XLSX/DOCX/text-PDF rows remain editable before reviewed import. Original documents are not retained; scans require manual entry or a text version. Planning definitions do not modify saved shifts, worked time or employee allowances. Existing clients can finish pending work and use the update prompt or reload.
+
+## Previous employee administration release
 
 Deployment `d1f9cb55-d1e8-4641-a55e-42db50652fe3` is live, verified September 25, 2026 UTC. Separate maintenance dry-run and commit passed with existing credentials, account roles/active states and operational-record counts preserved. Schema 044 is deployed; migrations 001-044 are immutable. All 367 staged runtime files match source commit `ce0460a269ace7d07ee7296e41dbb1bcb8a77d6d`, manifest SHA256 `db23abdf2662674175311be8c7d61396c10ba8cb2b7459767e2ca07d2684bce6`. Hosted public acceptance passed 36 checks, 12 exact asset comparisons and 99 anonymous protected-route denials, with zero unexpected errors. Actual web-container readback verified `stjw_runtime` as runtime/login identity, 31 protection flags, no private archive access, consistent credential policy flags and active required management roles. Temporary maintenance access was revoked.
 
@@ -52,7 +62,7 @@ Roll forward with a reviewed release retaining schema034 if a correction is need
 
 ## Reviewed source
 
-Use Node 22.12 or newer, `npm ci`, `npm test` and `npm run build`. Review the source, lockfile, assets and additive migrations. `scripts/stage-release.ps1` creates an explicitly bounded production directory and hash manifest from a clean application checkout. Do not stage a historical workspace containing paused experiments.
+Use Node 22.13 or newer, `npm ci`, `npm test` and `npm run build`. Review the source, lockfile, assets and additive migrations. `scripts/stage-release.ps1` creates an explicitly bounded production directory and hash manifest from a clean application checkout. Do not stage a historical workspace containing paused experiments.
 
 Keep the manifest immutable through maintenance and deployment. Local credentials, records and development artifacts are excluded. A GitHub merge does not automatically deploy; CI has no Railway credentials.
 

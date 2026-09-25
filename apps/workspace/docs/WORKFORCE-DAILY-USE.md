@@ -41,3 +41,7 @@ Employees & jobs exposes **Import employees** and **Import jobs**; Schedule expo
 The owner confirmed that only three existing accounts were real and all other operational records were demonstrations. A reviewed, guarded maintenance transaction removed demonstration accounts, school/time/financial records and retained those accounts plus four basic STJW communities/jobs. Password/PIN hashes and retained MFA were preserved internally; no credential contents were exported. The runtime cannot read the private on-host rollback archive. Public-facing demonstration mode is disabled. Synthetic fixtures remain isolated in development/testing.
 
 The live reset is not a restore drill or certification of complete payroll, SIS, accounting, policy or physical-device workflows. Current release evidence and remaining boundaries are in [STATUS](STATUS.md) and [REMAINING-SCOPE](REMAINING-SCOPE.md).
+
+## Job coverage and recurring shifts
+
+Open Schedule or choose Plan coverage on a job to set staffing windows and separate day/week/month/year hours targets. Preview open slots, select eligible employees and review before saving shifts. Employee cards link directly to their schedules. The schedule importer supports editable spreadsheet and text-document rows before the existing preview/apply step. Planning targets do not change recorded time or employee allowances; saved shifts do. See [the planning guide](STAFF-PLANNING.md) for limits, calendar behavior and review steps.

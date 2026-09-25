@@ -4,6 +4,8 @@ import { z } from "zod";
 import type { AppRequest } from "./auth";
 import type { Database, Queryable, Row } from "./db";
 import { audit, digest, requireCondition, type Actor } from "./security";
+import { currentTimeActor } from "./time-record-access";
+import { recheckReportSession } from "./report-source-access";
 import {
   staffScheduleCreateInput, staffScheduleUpdateInput, staffScheduleCancelInput,
   staffScheduleQuery, staffScheduleHistoryQuery,
@@ -189,9 +191,25 @@ export async function scheduleHistory(db: Database, suppliedActor: Actor, id: st
 }
 export function installStaffScheduling(app: Express, db: Database) {
   const actor = (req: Request) => (req as AppRequest).actor;
-  app.get("/api/schedules", async (req, res) => res.json(await listSchedules(db, actor(req), staffScheduleQuery.parse(req.query))));
-  app.post("/api/schedules", async (req, res) => res.status(201).json(await createSchedule(db, actor(req), staffScheduleCreateInput.parse(req.body))));
-  app.patch("/api/schedules/:id", async (req, res) => res.json(await updateSchedule(db, actor(req), z.uuid().parse(req.params.id), staffScheduleUpdateInput.parse(req.body))));
-  app.post("/api/schedules/:id/cancel", async (req, res) => res.json(await cancelSchedule(db, actor(req), z.uuid().parse(req.params.id), staffScheduleCancelInput.parse(req.body))));
-  app.get("/api/schedules/:id/history", async (req, res) => res.json(await scheduleHistory(db, actor(req), z.uuid().parse(req.params.id), staffScheduleHistoryQuery.parse(req.query).beforeVersion)));
+  const authenticated = (req: Request) => authenticatedScheduleDatabase(db, actor(req), (req as AppRequest).sessionHash);
+  app.get("/api/schedules", async (req, res) => res.set('Cache-Control','private, no-store').json(await listSchedules(authenticated(req), actor(req), staffScheduleQuery.parse(req.query))));
+  app.post("/api/schedules", async (req, res) => res.set('Cache-Control','private, no-store').status(201).json(await createSchedule(authenticated(req), actor(req), staffScheduleCreateInput.parse(req.body))));
+  app.patch("/api/schedules/:id", async (req, res) => res.set('Cache-Control','private, no-store').json(await updateSchedule(authenticated(req), actor(req), z.uuid().parse(req.params.id), staffScheduleUpdateInput.parse(req.body))));
+  app.post("/api/schedules/:id/cancel", async (req, res) => res.set('Cache-Control','private, no-store').json(await cancelSchedule(authenticated(req), actor(req), z.uuid().parse(req.params.id), staffScheduleCancelInput.parse(req.body))));
+  app.get("/api/schedules/:id/history", async (req, res) => res.set('Cache-Control','private, no-store').json(await scheduleHistory(authenticated(req), actor(req), z.uuid().parse(req.params.id), staffScheduleHistoryQuery.parse(req.query).beforeVersion)));
+}
+
+/** HTTP boundary only. Keep the trusted transaction helper usable by imports and
+ * reviewed plans; original actor/employee lock ordering runs before proof locks. */
+export function authenticatedScheduleDatabase(db: Database, actor: Actor, sessionHash: string | undefined): Database {
+  requireCondition(actor.mode === 'password',403,'Staff schedules require password sign-in.');
+  requireCondition(typeof sessionHash === 'string' && /^[a-f0-9]{64}$/.test(sessionHash),401,'A current password session is required.');
+  return { ...db, transaction: operation => db.transaction(async tx => {
+    // Existing service functions lock their sorted actor/employee accounts first.
+    // A failed final proof rolls the entire service operation and audit back.
+    const result = await operation(tx);
+    const current = await currentTimeActor(tx,actor,sessionHash);
+    await recheckReportSession(tx,current,sessionHash);
+    return result;
+  }) };
 }

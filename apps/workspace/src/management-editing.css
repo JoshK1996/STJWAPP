@@ -3,3 +3,5 @@
 :root[data-depth="false"] .managed-job{box-shadow:none}:root[data-corners="crisp"] .managed-job{border-radius:6px}
 
 .management-editor-form .dialog-actions{flex-wrap:wrap}.management-editor-form .dialog-actions button{min-width:0;white-space:normal}@media(max-width:480px){.management-editor-form .dialog-actions>button{flex:1 1 90px}.management-editor-form .dialog-actions>button:first-child:nth-last-child(3){flex-basis:100%}}
+
+.managed-job-actions .button{min-height:44px}

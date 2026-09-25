@@ -2,14 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowDownToLine, Check, FileSpreadsheet, Upload } from 'lucide-react';
 import { api, ApiError, download } from './api';
 import WorkbookImport from './WorkbookImport';
+import ScheduleDocumentImport from './ScheduleDocumentImport';
+import type { ScheduleImportContext } from '../shared/schedule-documents';
 import { workforceImportColumns, workforceImportLimits, workforceImportDetail, workforceImportReceipt, workforceImportList,
   type WorkforceImportKind, type WorkforceImportDetail } from '../shared/workforce-imports';
 import './workforce-import.css';
 
 const when = (value: string) => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-export default function WorkforceImport({ kind, onChange, notify, onDirty, isSessionCurrent, onSessionExpired }: {
+export default function WorkforceImport({ kind, onChange, notify, onDirty, isSessionCurrent, onSessionExpired, scheduleContext }: {
   kind: WorkforceImportKind; onChange: () => Promise<void>; notify: (message: string, error?: boolean) => void;
   onDirty: (dirty: boolean) => void; isSessionCurrent: () => boolean; onSessionExpired: () => void;
+  scheduleContext?: ScheduleImportContext;
 }) {
   const [csv, setCsv] = useState(''), [fileName, setFileName] = useState(''), [detail, setDetail] = useState<WorkforceImportDetail | null>(null);
   const [reviewed, setReviewed] = useState(false), [busy, setBusy] = useState(''), [error, setError] = useState(''), [denied, setDenied] = useState(false);
@@ -20,6 +23,7 @@ export default function WorkforceImport({ kind, onChange, notify, onDirty, isSes
   const current = (epoch: number) => mounted.current && generation.current === epoch && isSessionCurrent();
   const dirty = !!csv || workbookPending || uncertain, locked = !!busy || uncertain || denied;
   const base = '/imports/workforce/' + kind;
+  const when = (value: string) => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', ...(scheduleContext ? { timeZone: scheduleContext.timezone } : {}) });
   function clear() { generation.current++; attempt.current = null; setCsv(''); setFileName(''); setDetail(null); setReviewed(false); setUncertain(false); setError(''); setPage(0); setWorkbookPending(false); setWorkbookKey(value => value + 1); if (input.current) input.current.value = ''; }
   function rejectAccess(status: 401 | 403) { clear(); setHistory([]); setDenied(true); onDirty(false); if (status === 401) onSessionExpired(); else setError('Management access changed. Reopen this page after access is restored.'); }
   function failed(cause: unknown) {
@@ -62,7 +66,7 @@ export default function WorkforceImport({ kind, onChange, notify, onDirty, isSes
         const receipt = workforceImportReceipt.parse(await api(base + '/' + command.id + '/apply', { sourceHash: command.sourceHash }));
         if (receipt.batchId !== command.id || receipt.sourceHash !== command.sourceHash || receipt.kind !== kind) throw Error('The response did not identify the reviewed import.');
         if (!current(epoch)) return;
-        attempt.current = null; setUncertain(false); setCsv(''); setFileName(''); setWorkbookPending(false); setWorkbookKey(value => value + 1); setReviewed(false); setDetail(value => value ? { ...value, receipt } : null); if (input.current) input.current.value = '';
+        attempt.current = null; setUncertain(false); setCsv(''); setFileName(''); setWorkbookPending(false); setWorkbookKey(value => value + 1); setReviewed(false); setDetail(value => value ? workforceImportDetail.parse({ ...value, receipt }) : null); if (input.current) input.current.value = '';
         notify(`${receipt.created} ${kind === 'jobs' ? 'jobs' : 'scheduled shifts'} created. The import receipt is saved.`);
         try { await onChange(); } catch { if (current(epoch)) setError('The import saved, but the page could not refresh. Refresh the workspace to view current records.'); }
         if (current(epoch)) await loadHistory();
@@ -74,10 +78,14 @@ export default function WorkforceImport({ kind, onChange, notify, onDirty, isSes
     });
   }
   return <section className="workforce-import" aria-label={`Bulk ${kind} import`}>
-    <header><span className="small-icon"><FileSpreadsheet size={23} /></span><div><h3>Import {kind === 'jobs' ? 'jobs' : 'staff schedules'}</h3><p>Create up to 100 records from CSV or Excel. Preview every row before applying; existing records stay unchanged.</p></div></header>
+    <header><span className="small-icon"><FileSpreadsheet size={23} /></span><div><h3>Import {kind === 'jobs' ? 'jobs' : 'staff schedules'}</h3><p>Create up to {kind === 'jobs' ? '100 jobs' : '1,000 scheduled shifts'}. Preview every row before applying; existing records stay unchanged.</p></div></header>
+    {kind === 'schedules' && scheduleContext && <ScheduleDocumentImport key={'documents-' + workbookKey} context={scheduleContext} disabled={locked} onDirty={setWorkbookPending} onAccessDenied={rejectAccess} isSessionCurrent={isSessionCurrent}
+      onEdit={() => { if (locked) return; generation.current++; setCsv(''); setFileName(''); setDetail(null); setReviewed(false); setPage(0); }}
+      onPrepared={(source, name) => { generation.current++; setCsv(source); setFileName(name); setDetail(null); setReviewed(false); setPage(0); }} />}
+    <details open={kind === 'jobs' || !scheduleContext}><summary>Use an exact import template</summary>
     <div className="workforce-import-steps"><span>1 · Download a template</span><span>2 · Fill in and preview</span><span>3 · Review and create</span></div>
     <p>Use exact community and job names from Employees &amp; jobs. {kind === 'jobs' ? 'A job title must be new within its community. Assign the new jobs to employees after import.' : 'Use each employee’s email and an active job already assigned to them. Overlapping shifts are blocked.'}</p>
-    {kind === 'schedules' && <p>Enter times as text with an explicit UTC offset, for example <code>2026-10-05T08:00:00-04:00</code>. The offset must match the intended date and time zone. This creates scheduled shifts; it does not clock anyone in. Preview times below use your device’s time zone.</p>}
+    {kind === 'schedules' && <p>For the exact template, enter times as text with an explicit UTC offset, for example <code>2026-10-05T08:00:00-04:00</code>. The offset must match the intended date and time zone. This creates scheduled shifts; it does not clock anyone in. Preview time zone: {scheduleContext?.timezone ?? 'your device time zone'}.</p>}
     <details><summary>Template columns</summary><p className="workforce-import-columns">{workforceImportColumns[kind].join(' · ')}</p><p>Keep these headers in order. Dates, names and emails must be plain text; formulas and Excel numeric dates are rejected. Passwords, PINs and pay rates are not part of these templates.</p></details>
     <div className="workforce-import-actions"><button type="button" className="button secondary" disabled={locked} onClick={() => void run('Downloading…', async epoch => { await download(base + '/template', `stjw-${kind}-template.csv`, () => current(epoch)); })}><ArrowDownToLine size={16} />Blank CSV template</button>
       <label className="button secondary"><Upload size={16} />Choose CSV<input ref={input} type="file" accept=".csv,text/csv" disabled={locked} onChange={event => void choose(event.target.files?.[0])} /></label>
@@ -86,6 +94,8 @@ export default function WorkforceImport({ kind, onChange, notify, onDirty, isSes
     {fileName && <p role="status">Selected: <strong>{fileName}</strong></p>}
     <WorkbookImport key={workbookKey} kind={kind} disabled={locked} beforeReplace={replace} onClear={() => { generation.current++; attempt.current = null; setCsv(''); setFileName(''); setDetail(null); setReviewed(false); setError(''); }} onPending={setWorkbookPending}
       onApply={(result, name) => { generation.current++; setCsv(result.csv); setFileName(name); setDetail(null); setReviewed(false); setPage(0); }} onAccessDenied={rejectAccess} />
+    </details>
+    {!!csv && <p role="status">Ready for final preview: <strong>{fileName}</strong>{scheduleContext ? ` · ${scheduleContext.timezone}` : ''}</p>}
     {!!csv && !uncertain && <button type="button" className="button primary" disabled={locked} onClick={() => void preview()}><FileSpreadsheet size={16} />Preview {kind}</button>}
     {busy && <p role="status">{busy}</p>}{error && <p className="error" role="alert">{error}</p>}
     {detail && <div className="workforce-import-preview"><h4>{detail.receipt ? `${detail.receipt.created} records created` : `Review ${detail.rows.length} proposed ${kind === 'jobs' ? 'jobs' : 'shifts'}`}</h4>

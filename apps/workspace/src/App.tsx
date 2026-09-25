@@ -82,7 +82,7 @@ const School = lazy(() => import("./School"));
 const Care = lazy(() => import("./Care"));
 const Dismissal = lazy(() => import("./Dismissal"));
 const TimeRecords = lazy(() => import("./TimeRecords"));
-import StaffSchedule from "./StaffSchedule";
+import SchedulePlanning, { type SchedulePlanningTarget } from "./SchedulePlanning";
 import ScheduleRequests from "./ScheduleRequests";
 import { normalizePreferences } from "../shared/preferences";
 import { applyAppearance } from "./appearance";
@@ -198,6 +198,8 @@ export default function App() {
   const [scheduleWeek, setScheduleWeek] = useState(
     day().startOf("week").toISODate()!,
   );
+  const [schedulePlanningTarget,setSchedulePlanningTarget]=useState<SchedulePlanningTarget|null>(null);
+  const consumeSchedulePlanningTarget=useCallback(()=>setSchedulePlanningTarget(null),[]);
   const [scheduleRequestTarget, setScheduleRequestTarget] = useState<{ scheduleId?: string; requestId?: string } | null>(null);
   useEffect(() => { if (page !== "requests") setScheduleRequestTarget(null); }, [page]);
   useEffect(() => {
@@ -258,6 +260,7 @@ export default function App() {
     clockPendingRef.current = false; setClockPending(false);
     setScope(""); setSearch(""); setIncludeInactiveStaff(false);
     setScheduleWeek(day().startOf("week").toISODate()!);
+    setSchedulePlanningTarget(null);setScheduleRequestTarget(null);
     setPage("overview"); setSetupToken(""); setLoading(false);
     focusDestination.current = false;
   }, []);
@@ -606,7 +609,7 @@ export default function App() {
       "time-records": "Every hour, with its history.",
       payroll: "Your payroll workspace.",
       staff: "Employees & jobs",
-      schedule: "A clear view of the week.",
+      schedule: "Plan job coverage, match employees, and review scheduled hours.",
       calendar: "Bring your days together.",
       messages: "Keep the conversation close.",
       school: "A connected school day.",
@@ -1231,6 +1234,7 @@ export default function App() {
                         {!person.job_ids.length && <span className="employee-no-jobs">No jobs assigned · cannot clock in yet</span>}
                       </dd></div><div><dt>Communities</dt><dd>{communityNames.join(', ') || 'No community listed'}</dd></div></dl>
                       <div className="employee-card-actions">
+                        {me.permissions.manage && person.active && <button className="button secondary small" onClick={() => { if(go("schedule"))setSchedulePlanningTarget({userId:person.id,mode:"assigned"}); }}>Schedule</button>}
                         {canAssignPerson(person) && <button className="button primary small" onClick={() => setStaffTool({kind:'assignments',person})}>Manage jobs</button>}
                         {canManagePerson(person) && <button className="button secondary small" onClick={() => setDialog({type:'staff',staff:person})}>Edit employee</button>}
                       </div>
@@ -1257,17 +1261,19 @@ export default function App() {
                 )}
               </Panel>
               {me.permissions.manage && <button className="button secondary workforce-import-entry" onClick={() => setStaffTool({kind:"jobs-import"})}><ArrowDownToLine size={17}/>Import jobs</button>}
-              <JobManagement key={me.actor.id} me={me} jobs={jobs} onEdit={(job) => setDialog({ type: "job", job })} isSessionCurrent={isSessionCurrent} />
+              <JobManagement key={me.actor.id} me={me} jobs={jobs} onEdit={(job) => setDialog({ type: "job", job })} isSessionCurrent={isSessionCurrent} onPlanCoverage={job => { if(go("schedule"))setSchedulePlanningTarget({jobId:job.id,unitId:job.unit_id,mode:"coverage"}); }} />
             </>
           )}
-          {page === "schedule" && <>
-            {me.permissions.manage && <button className="button secondary workforce-import-entry" onClick={() => setStaffTool({kind:"schedules-import"})}><ArrowDownToLine size={17}/>Import scheduled shifts</button>}
-            <StaffSchedule me={me} staff={staff} jobs={jobs} rows={schedules} week={scheduleWeek} zone={zone}
+          {page === "schedule" && <SchedulePlanning key={me.actor.id+":"+workspaceEpoch} me={me} staff={staff} jobs={jobs} rows={schedules} week={scheduleWeek} zone={zone}
             onWeek={setScheduleWeek} onChanged={refresh} notify={notify} onDirty={workspaceDirty}
-            onRequests={(scheduleId, requestId) => { setScheduleRequestTarget({ scheduleId, requestId }); go("requests"); }}/></>}
+            isSessionCurrent={isSessionCurrent} onSessionExpired={sessionExpired}
+            initialTarget={schedulePlanningTarget??undefined} onConsumeTarget={consumeSchedulePlanningTarget}
+            onImport={() => { if(isSessionCurrent()&&!clockPendingRef.current)setStaffTool({kind:"schedules-import"}); }}
+            onManageEmployeeJobs={person => { if(isSessionCurrent()&&!clockPendingRef.current)setStaffTool({kind:"assignments",person}); }}
+            onRequests={(scheduleId, requestId) => { if(go("requests"))setScheduleRequestTarget({scheduleId,requestId}); }}/>}
           {page === "requests" && (
             <><ScheduleRequests me={me} zone={zone} target={scheduleRequestTarget} onChanged={refresh} notify={notify} onDirty={workspaceDirty}
-              onSchedule={date => { if (go("schedule") && date) setScheduleWeek(DateTime.fromISO(date).setZone(zone).startOf("week").toISODate()!); }}/>
+              onSchedule={date => { if(go("schedule")){setSchedulePlanningTarget({mode:"assigned"});if(date)setScheduleWeek(DateTime.fromISO(date).setZone(zone).startOf("week").toISODate()!);} }}/>
             <Panel
               title="General requests & decisions"
               detail="Edit or withdraw your own pending requests. Reviewed decisions are retained; submit a new request for further changes. Linked shift requests apply schedule changes; Time records handles clock corrections."
@@ -1528,7 +1534,7 @@ export default function App() {
       {staffTool?.kind === 'assignments' && <EmployeeJobsEditor key={me.actor.id + ':' + staffTool.person.id} person={staffTool.person} onClose={() => { setStaffTool(null); setUnsavedChanges(false); }} onSaved={refreshEmployeeAssignments} onDirty={workspaceDirty} isSessionCurrent={isSessionCurrent} onSessionExpired={sessionExpired} notify={notify}/>}
       {staffTool && staffTool.kind !== 'credentials' && staffTool.kind !== 'assignments' && <Modal title={staffTool.kind === 'jobs-import' ? 'Import jobs' : staffTool.kind === 'schedules-import' ? 'Import scheduled shifts' : staffTool.kind === 'import' ? 'Import employees' : `${staffTool.person.name} · ${staffTool.kind === 'rates' ? 'Pay rates' : 'Clock rules'}`} onClose={closeStaffTool}>
         <div className="staff-tool-content">
-          {(staffTool.kind === 'jobs-import' || staffTool.kind === 'schedules-import') && <WorkforceImport key={me.actor.id+staffTool.kind} kind={staffTool.kind === 'jobs-import' ? 'jobs' : 'schedules'} onChange={refresh} notify={notify} onDirty={workspaceDirty} isSessionCurrent={isSessionCurrent} onSessionExpired={sessionExpired}/>}
+          {(staffTool.kind === 'jobs-import' || staffTool.kind === 'schedules-import') && <WorkforceImport key={me.actor.id+staffTool.kind} kind={staffTool.kind === 'jobs-import' ? 'jobs' : 'schedules'} scheduleContext={staffTool.kind==='schedules-import'?{staff,jobs,units:me.units,timezone:zone}:undefined} onChange={refresh} notify={notify} onDirty={workspaceDirty} isSessionCurrent={isSessionCurrent} onSessionExpired={sessionExpired}/>}
           {staffTool.kind === 'rates' && <Compensation key={staffTool.person.id} initialUserId={staffTool.person.id} notify={notify} onDirty={workspaceDirty}/>}
           {staffTool.kind === 'clock' && <EmployeeClockPolicy key={staffTool.person.id} userId={staffTool.person.id} notify={notify} onDirty={workspaceDirty}/>}
           {staffTool.kind === 'import' && <StaffImport me={me} jobs={jobs} notify={notify} onChange={refresh} onDirty={workspaceDirty}/>}

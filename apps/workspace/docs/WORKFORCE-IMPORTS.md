@@ -39,7 +39,7 @@ Enter timestamps as text with `Z` or an explicit UTC offset. For example, `2026-
 4. Preview and review all proposed records. The table displays ten rows per page. Correct invalid or ambiguous rows in the source and preview again.
 5. Confirm the review and create the records. A saved receipt identifies every created record. If the response is uncertain, retry the same import to recover that receipt without creating duplicates.
 
-Each jobs/schedules file supports 1–100 data rows. CSV limits are 200,000 characters and 800,000 UTF-8 bytes. Excel uses the existing 256 KiB workbook, isolated worker, formula/feature rejection, deadline and spreadsheet admission limits. The organization retains at most 64 MiB of serialized jobs/schedules source evidence; reaching this limit fails before saving another preview. Capacity management does not delete existing evidence.
+Jobs files support 1-100 data rows; schedule files support 1-1000. CSV limits are 200,000 characters and 800,000 UTF-8 bytes. Excel uses the existing 256 KiB workbook, isolated worker, formula/feature rejection, deadline and spreadsheet admission limits. The organization retains at most 64 MiB of serialized jobs/schedules source evidence; reaching this limit fails before saving another preview. Capacity management does not delete existing evidence.
 
 My recent imports shows the current account's latest 20 previews and receipts. Reopen a pending preview to review and apply it, or an applied import to view its receipt. Pending previews expire after 24 hours. Retain the original workbook yourself: the app stores the exact converted CSV bytes and fingerprints, not the XLSX file.
 
@@ -52,3 +52,7 @@ The source CSV is retained as canonical base64 to preserve its exact UTF-8 bytes
 Individual job creation and the versioned staff-scheduling service execute the actual writes. Bulk schedule work locks the complete affected account set in stable order before per-row writes; jobs are locked before communities to preserve the existing editor order. Repeating an applied request returns its stored receipt after current authorization; it never overwrites later edits or creates a second batch.
 
 Automated tests use ordinary synthetic authentication and cover templates, exact byte retention, duplicate/concurrent apply attempts, current-source conflicts, overlapping schedules, scope/session denials, audit rollback and workbook rejection. Local PGlite serializes transactions; it does not establish production PostgreSQL deadlock behavior or physical-device acceptance. Deployment and browser acceptance are recorded separately in STATUS and VALIDATION.
+
+## Schedule documents
+
+Schedule imports also offer editable CSV, XLSX, text PDF and DOCX inspection with a 2 MiB source limit. Map columns and review employee/job identities and times before the existing canonical CSV preview/apply flow. Original documents are not retained. The older strict blank-workbook conversion path remains capped at 100 rows; the document mapping path supports up to 1000 reviewed shifts. See [job coverage and schedule documents](STAFF-PLANNING.md).

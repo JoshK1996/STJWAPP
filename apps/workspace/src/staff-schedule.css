@@ -8,6 +8,9 @@
 .staff-schedule .staff-schedule-grid { grid-template-columns: repeat(7, minmax(150px, 1fr)); }
 .staff-schedule .staff-schedule-grid > section { min-width: 150px; }
 .staff-shift-card { overflow-wrap: anywhere; }
+.staff-schedule .staff-schedule-agenda { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }
+.staff-schedule .staff-schedule-agenda > section { min-width: 0; border: 1px solid var(--border); border-radius: 12px; }
+.staff-schedule .staff-shift-actions .button { min-height: 44px; font-size: 12px; }
 .staff-shift-card.staff-shift-cancelled { border-left-style: dashed; background: var(--surface); }
 .staff-shift-card.staff-shift-cancelled > strong { text-decoration: line-through; text-decoration-thickness: 1px; }
 .staff-schedule .staff-shift-card .badge.warning, .staff-shift-history .badge.warning { background: var(--warning-soft); color: var(--warning); }

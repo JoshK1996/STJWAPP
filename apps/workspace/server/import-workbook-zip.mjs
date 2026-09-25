@@ -23,8 +23,9 @@ function extras(bytes) {
   }
 }
 /** Minimal, bounded ZIP envelope. No extraction, URLs, filesystem or unbounded inflater. */
-export function readImportWorkbookZip(raw) {
-  const L = importWorkbookLimits;
+export function readImportWorkbookZip(raw, uploadBytes = importWorkbookLimits.uploadBytes) {
+  check(Number.isSafeInteger(uploadBytes) && uploadBytes >= 1 && uploadBytes <= 2 * 1024 * 1024, 'limit');
+  const L = { ...importWorkbookLimits, uploadBytes };
   check(raw instanceof Uint8Array && raw.byteLength >= 22); check(raw.byteLength <= L.uploadBytes, 'limit');
   const bytes = Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
   let end = -1;
