@@ -2,7 +2,17 @@
 
 Railway hosts the app and its separate PostgreSQL database independently of the reference applications. The root prototype is not a deployment source for `apps/workspace`.
 
-## Current management editing release
+## Current workforce activation release
+
+Deployment `852705f0-238d-4e02-80cc-e8351f9bd68e` is live, verified September 25, 2026 UTC. Separate maintenance dry-run and commit passed; schema043 is deployed and migrations001-043 are immutable. All 358 staged runtime files match source commit `42e2e3ff2e0bba6a13c884ef908e36982c959c0a`, manifest SHA256 `d5c94c065000158cbc641b3cbad6802e88a6b00886922cbb319367a4f0d60aea`. Hosted public acceptance passed 36 checks, 12 exact asset comparisons and 98 anonymous protected-route denials, with zero unexpected errors. Demonstration mode is off. Actual web-container readback verified runtime/login role `stjw_runtime`, 31 denied-capability/protection checks and no access to the private rollback archive. Temporary maintenance access was revoked.
+
+Build version `9889c0c74be7b1994c467fda7798bbc7cd45453764780200670602177524a86e`; entry SHA256 `a8310bd62e2bef46c529ac71e363a24e25a01da3f1c3a83666d4d88fa1b68e0d`. The executed plan SHA256 is `8917994ad58c3c312ac59bebe459629f8b3e806c6e7bf782c3233a672b30e13d`. The first generated dry-run plan had a SQL delimiter error before any change; the generator was corrected, then the identical reviewed plan passed rollback to39 and committed43. No deployed migration was rewritten. Roll forward with a reviewed schema043-compatible source.
+
+The owner-confirmed demonstration records were cleared before activation, retaining three real accounts and four baseline communities/jobs. A private on-host archive is inaccessible to the web runtime. Later account setup and future live records must be preserved; do not repeat the prelaunch cleanup. Limited owner-requested administrator recovery was verified through the hosted replacement gate without creating management sessions or selecting final credentials. Subsequent readback shows one administrator completed setup. All broader authenticated workflow acceptance used disposable synthetic databases.
+
+Use the guarded update prompt after finishing pending work. See WORKFORCE-DAILY-USE for the simplified workflow and VALIDATION for exact test/browser/Excel evidence.
+
+## Previous management editing release
 
 Deployment `03da1d01-7f87-4425-874a-309c89bfb58f` is live, publicly verified 2026-09-25 UTC. Separate maintenance dry-run and commit passed; schema039 is deployed. All 339 staged runtime files match source commit `fbdeadad55cf93318ddc633926a6ad324a346768`, manifest SHA256 `023390b87288d3e3f02742788a6f8dedc6331c816ea2d28dc728176e74578beb`. Public hosted acceptance passed 34 checks, 12 exact asset comparisons and 81 anonymous protected-route denials, with zero unexpected errors. Temporary maintenance access was revoked. These public checks are separate from the local authenticated synthetic workflows.
 

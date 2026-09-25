@@ -23,6 +23,8 @@ Evidence remains private under `output/playwright/mobile-clock-first/final-resul
 
 These are local synthetic checks. They do not establish physical iPhone/Android behavior, hosted customer-account acceptance, multi-connection PostgreSQL contention, payroll-policy approval or provider connectivity. No deployment outcome is claimed by this section.
 
+Hosted public verification of the workforce release separately passed 36 checks, 12 exact asset comparisons and 98 anonymous protected-route denials. The actual web container verified schema043, runtime/login role `stjw_runtime`, all 31 protection flags and archive-access denial. Owner-requested recovery of the two existing administrators was narrowly verified through the public Password form: each reached required credential replacement without a management session; no final credentials were selected. This does not establish broader customer-account workflow acceptance. DEPLOYMENT records the source and maintenance hashes.
+
 ## Management editing — September 24, 2026
 
 The final application suite passed all 1,106 tests, with zero failures, cancellations or skips. Final production build passed: version `7faeab7148e8df229aa0f0ed88be6adc681a074a9c169fac3b90699524c936dc`, entry SHA256 `5ea710ff678e16c3d8c227452cb5729577e2716c43e6b22d28c3358dcae75d87`. Existing large-entry warnings remain. The production dependency audit reported zero vulnerabilities. Publication hygiene checked 527 files without problems. Source bytes retain the repository's mixed line endings; whitespace checking recognizes CRLF while still rejecting actual trailing blanks.
