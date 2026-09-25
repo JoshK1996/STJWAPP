@@ -2,7 +2,15 @@
 
 Railway hosts the app and its separate PostgreSQL database independently of the reference applications. The root prototype is not a deployment source for `apps/workspace`.
 
-## Current job coverage and schedule document release
+## Current administrator time-card release
+
+Deployment `c71500d7-90b2-444d-9118-6e85db516e2a` is live, verified September 25, 2026 UTC. Separate maintenance dry-run and commit passed with existing credentials, roles, active states and operational-record counts preserved. Schema 047 is deployed; migrations 001–047 are immutable. All 387 staged runtime files match source commit `afd83e97347cce8e842aada18e83f7f0f056a8d4`, manifest SHA256 `8e55e47df8ea0e5813b7024303c45b9f97f7c541bea4aba5339a26cc07369781`. Hosted public acceptance passed 36 checks, 12 exact asset comparisons and 106 anonymous protected-route denials, with zero unexpected errors. Actual web-container readback verified `stjw_runtime`, 32 protection flags, private archive denial, consistent credential policies and active required management roles. Temporary maintenance access was revoked. These hosted checks are separate from local authenticated synthetic workflows.
+
+Build version `5fd98c1a34ca2356ae694ff965ba6e33acc16615abc41301e1df1a52b335c7c2`; entry SHA256 `4a99d600809389c196b62a95b66ea1129484b7ee20eac1f89b49cc383544d413`. Reviewed maintenance file SHA256 `27985cfc5c09734eb7e755b1dfe2387531bc9c2f4eeb83857cb758df98917f2c`; the identical plan rolled back to 46 during its dry run, then committed 47. No deployed migration was changed. Source PR15 was merged after CI passed. Roll forward with schema047-compatible source.
+
+Open Time records, select an employee and choose Edit time card. Administrators, owners and developers save another employee's changes immediately with original punches, reason and editor retained. Missing cards and missed clock-outs share that rule; own-account/scoped-manager corrections keep independent review. Existing clients can finish pending work and use the guarded update prompt or reload. No credential reset or data cleanup was performed. See TIME-CARDS, ADR0013 and VALIDATION.
+
+## Previous job coverage and schedule document release
 
 Deployment `ee207b5a-6d45-4959-a898-391959eca882` is live, verified September 25, 2026 UTC. Separate maintenance dry-run and commit passed with existing credentials, account roles/active states and operational-record counts preserved. Schema 046 is deployed; migrations 001-046 are immutable. All 383 staged runtime files match source commit `f96b9cd8ff87d8c5582f301b693a994b4000a3ad`, manifest SHA256 `62da8ec4153f8a459cd0e7b5e5571f3aeceae9b1cb34d177ba5522d57c8d2fce`.
 
