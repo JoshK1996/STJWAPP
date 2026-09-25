@@ -9,6 +9,7 @@ Describe the concrete problem and resulting behavior. Include relevant screen, r
 - [ ] Changed workflows checked using synthetic records and actual authorization.
 - [ ] Mobile, keyboard, reduced-motion and applicable themes checked.
 - [ ] Documentation and affected architecture decisions reflect the final implementation.
+- [ ] Management records expose editing/archive or a clear correction path; current authority, stale saves, retained history and narrow-screen editors are checked. Any missing amendment workflow is documented.
 
 ## Release
 

@@ -6,6 +6,7 @@ import type { AppRequest } from "./auth";
 import { audit, requireCondition, type Actor } from "./security";
 import { lockAcademics, validateAcademicChange } from "./timetable-engine";
 import { listPeople, createPerson, updatePerson } from "./school-people";
+import {updateSchoolYear,updateSchoolTerm,updateSchoolCourse} from './school-definitions';
 import {
   schoolYearInput,
   termInput,
@@ -91,7 +92,7 @@ async function yearById(
 ) {
   const year = (
     await tx.query(
-      `SELECT *,${dateSql} FROM school_years WHERE id=$1 AND org_id=$2 AND unit_id=$3`,
+      `SELECT *,${dateSql} FROM school_years WHERE id=$1 AND org_id=$2 AND unit_id=$3 FOR SHARE`,
       [yearId, actor.org_id, unitId],
     )
   ).rows[0];
@@ -327,6 +328,7 @@ export async function createSection(
   input: z.infer<typeof sectionInput>,
 ) {
   return db.transaction(async (tx) => {
+    await lockAcademics(tx, actor.org_id);
     await assertOffice(tx, actor, input.unitId);
     await yearById(tx, actor, input.yearId, input.unitId);
     await validateTeachers(tx, actor, input.unitId, input.teacherIds);
@@ -334,7 +336,7 @@ export async function createSection(
       requireCondition(
         (
           await tx.query(
-            "SELECT id FROM courses WHERE id=$1 AND org_id=$2 AND unit_id=$3 AND NOT archived",
+            "SELECT id FROM courses WHERE id=$1 AND org_id=$2 AND unit_id=$3 AND NOT archived FOR SHARE",
             [input.courseId, actor.org_id, input.unitId],
           )
         ).rows.length,
@@ -371,6 +373,7 @@ export async function createSection(
       null,
       { ...row, teacherIds: input.teacherIds },
     );
+    await validateAcademicChange(tx,actor.org_id);
     return row;
   });
 }
@@ -688,6 +691,9 @@ export async function saveHouseholdMemberTransaction(tx: Queryable, actor: Actor
 }
 
 export function installSchool(app: Express, db: Database) {
+  app.patch('/api/school/years/:id',async(req,res)=>res.json(await updateSchoolYear(db,schoolActor(req),(req as unknown as AppRequest).sessionHash,id(req.params.id),req.body)));
+  app.patch('/api/school/terms/:id',async(req,res)=>res.json(await updateSchoolTerm(db,schoolActor(req),(req as unknown as AppRequest).sessionHash,id(req.params.id),req.body)));
+  app.patch('/api/school/courses/:id',async(req,res)=>res.json(await updateSchoolCourse(db,schoolActor(req),(req as unknown as AppRequest).sessionHash,id(req.params.id),req.body)));
   app.get("/api/school/access", async (req, res) => {
     const actor = schoolActor(req),
       offices = await officeUnits(db, actor);
@@ -786,6 +792,7 @@ export function installSchool(app: Express, db: Database) {
     const actor = schoolActor(req),
       input = termInput.parse(req.body);
     const row = await db.transaction(async (tx) => {
+      await lockAcademics(tx,actor.org_id);
       const year = (
         await tx.query(
           `SELECT *,${dateSql} FROM school_years WHERE id=$1 AND org_id=$2`,

@@ -7,7 +7,7 @@ import { audit, digest, requireCondition, Problem, type Actor } from './security
 import { accountingTransaction, lockAccounting, postJournalTx, assertOpenPeriod } from './accounting-ledger';
 import { parseAmount as parseUnsigned, formatAmount } from '../shared/accounting';
 import { accountingContactInput, accountingDocumentInput, accountingIssueInput, accountingVoidInput,
-  accountingPaymentInput, accountingCreditInput, accountingRefundInput, operationsDate,
+  accountingPaymentInput, accountingCreditInput, accountingRefundInput, accountingContactEditInput, accountingDocumentEditInput, accountingDraftDiscardInput, operationsDate,
   type AccountingContact, type AccountingDocument, type AccountingDocumentEvent, type AccountingAging } from '../shared/accounting-operations';
 import { toCsv } from './reports';
 
@@ -62,52 +62,83 @@ export async function documentRecord(tx: Queryable, actor: Actor, id: string, as
   const status = events.some(value => value.type === 'void') ? 'void' : events.some(value => value.type === 'issue') ? 'issued' : 'draft';
   return { id, kind: row.kind, contactId: row.contact_id, contactName: row.contact_name, number: row.number, date: day(row.date), dueDate: day(row.due_date),
     description: row.description, controlAccountId: row.control_account_id ?? undefined, currency: row.currency, precision, basis: row.basis,
-    status, lines: row.lines, total: row.total, credited: formatAmount(credited, precision), paid: formatAmount(paid, precision),
+    revision:row.revision,status, lines: row.lines, total: row.total, credited: formatAmount(credited, precision), paid: formatAmount(paid, precision),
     refunded: formatAmount(refunded, precision), outstanding: formatAmount(status === 'void' ? 0n : parseAmount(row.total, precision) - credited - paid + refunded, precision), events };
 }
 export async function listAccountingContacts(db: Database, actor: Actor, hash: string | undefined) {
   return accountingTransaction(db, actor, hash, async (tx, current) => {
-    const rows = (await tx.query('SELECT id,name,kind,email,note FROM accounting_contacts WHERE org_id=$1 ORDER BY name,id LIMIT 2001', [current.org_id])).rows as AccountingContact[];
+    const rows = (await tx.query('SELECT id,name,kind,email,note,revision,active FROM accounting_contacts WHERE org_id=$1 ORDER BY name,id LIMIT 2001', [current.org_id])).rows as AccountingContact[];
     requireCondition(rows.length <= 2000, 400, 'Contact catalog exceeds 2,000 entries. Narrower paging is required.'); return { rows };
   });
 }
 export async function createAccountingContact(db: Database, actor: Actor, hash: string | undefined, raw: unknown) {
   const input = accountingContactInput.parse(raw);
   return accountingTransaction(db, actor, hash, (tx, current) => operationCommand(tx, current, input.commandId, { action: 'contact', input }, async () => {
-    const result: AccountingContact = { id: randomUUID(), name: input.name, kind: input.kind, email: input.email ?? '', note: input.note };
+    const result: AccountingContact = { id: randomUUID(), name: input.name, kind: input.kind, email: input.email ?? '', note: input.note,revision:1,active:true };
     await tx.query('INSERT INTO accounting_contacts(id,org_id,name,kind,email,note,created_by) VALUES($1,$2,$3,$4,$5,$6,$7)', [result.id, current.org_id, result.name, result.kind, result.email, result.note, current.id]);
     await audit(tx, current, 'accounting.contact_created', result.id, { kind: result.kind }); return result;
   }));
 }
-export async function createAccountingDocument(db: Database, actor: Actor, hash: string | undefined, raw: unknown) {
-  const input = accountingDocumentInput.parse(raw);
-  return accountingTransaction(db, actor, hash, (tx, current) => operationCommand(tx, current, input.commandId, { action: 'document', input }, async () => {
-    const config = await operationsConfig(tx, current, input.kind === 'bill' ? 'payables' : 'receivables');
+async function assertDocumentAccounts(tx:Queryable,current:Actor,input:Pick<AccountingDocument,'kind'|'controlAccountId'|'lines'>,basis:string){
+ if(basis==='accrual')requireCondition(input.controlAccountId,400,'Choose the receivable or payable control account for accrual accounting.');
+ if(input.controlAccountId){const control=await account(tx,current,input.controlAccountId);requireCondition(!control.is_cash&&control.type===(input.kind==='invoice'?'asset':'liability'),400,'The control account must be a non-cash receivable asset or payable liability.');}
+ for(const line of input.lines){const coded=await account(tx,current,line.accountId);requireCondition(!coded.is_cash&&line.accountId!==input.controlAccountId&&(input.kind==='invoice'?coded.type==='revenue':['expense','asset'].includes(coded.type)),400,'Choose revenue coding for invoices and expense or non-cash asset coding for bills.');}
+}
+async function validateDocumentDraft(tx:Queryable,current:Actor,input:z.infer<typeof accountingDocumentInput>,excludeId?:string){
+  const config = await operationsConfig(tx, current, input.kind === 'bill' ? 'payables' : 'receivables');
     const contact = (await tx.query('SELECT * FROM accounting_contacts WHERE org_id=$1 AND id=$2', [current.org_id, input.contactId])).rows[0];
-    requireCondition(contact, 400, 'Choose a contact in this organization.');
+    requireCondition(contact?.active, 400, 'Choose an active contact in this organization.');
     requireCondition(input.kind === 'bill' ? contact.kind === 'vendor' : contact.kind !== 'vendor', 400, 'Bills require a vendor; invoices require a customer, family or donor.');
-    requireCondition(!(await tx.query('SELECT id FROM accounting_documents WHERE org_id=$1 AND kind=$2 AND contact_id=$3 AND number=$4', [current.org_id, input.kind, input.contactId, input.number])).rows.length, 409, 'This document number already exists for this contact.');
-    if (config.basis === 'accrual') requireCondition(input.controlAccountId, 400, 'Choose the receivable or payable control account for accrual accounting.');
-    if (input.controlAccountId) {
-      const control = await account(tx, current, input.controlAccountId);
-      requireCondition(!control.is_cash && control.type === (input.kind === 'invoice' ? 'asset' : 'liability'), 400, 'The control account must be a non-cash receivable asset or payable liability.');
-    }
+    requireCondition(!(await tx.query('SELECT id FROM accounting_documents WHERE org_id=$1 AND kind=$2 AND contact_id=$3 AND number=$4 AND ($5::uuid IS NULL OR id<>$5)', [current.org_id, input.kind, input.contactId, input.number,excludeId??null])).rows.length, 409, 'This document number already exists for this contact.');
+    await assertDocumentAccounts(tx,current,input,config.basis);
     let total = 0n;
     const lines = [];
     for (const line of input.lines) {
-      const coded = await account(tx, current, line.accountId);
-      requireCondition(!coded.is_cash && line.accountId !== input.controlAccountId && (input.kind === 'invoice' ? coded.type === 'revenue' : ['expense','asset'].includes(coded.type)), 400, 'Choose revenue coding for invoices and expense or non-cash asset coding for bills.');
       if (line.unitId) requireCondition((await tx.query('SELECT id FROM units WHERE org_id=$1 AND id=$2', [current.org_id, line.unitId])).rows.length, 400, 'Community belongs to another organization.');
-      if (line.fundId) requireCondition((await tx.query('SELECT id FROM accounting_funds WHERE org_id=$1 AND id=$2 AND active=true', [current.org_id, line.fundId])).rows.length, 400, 'Choose an active fund in this organization.');
+      if (line.fundId) requireCondition((await tx.query("SELECT id FROM accounting_funds WHERE org_id=$1 AND id=$2 AND active=true AND kind='fund'", [current.org_id, line.fundId])).rows.length, 400, 'Choose an active fund in this organization.');
       const value = positive(line.amount, config.precision); total += value;
       lines.push({ ...line, amount: formatAmount(value, config.precision) });
     }
+  return {config,contact,lines,total};
+}
+export async function createAccountingDocument(db: Database, actor: Actor, hash: string | undefined, raw: unknown) {
+  const input = accountingDocumentInput.parse(raw);
+  return accountingTransaction(db, actor, hash, (tx, current) => operationCommand(tx, current, input.commandId, { action: 'document', input }, async () => {
+    const {config,contact,lines,total}=await validateDocumentDraft(tx,current,input);
     const id = randomUUID();
     await tx.query(`INSERT INTO accounting_documents(id,org_id,kind,contact_id,contact_name,number,date,due_date,description,control_account_id,currency,precision,basis,lines,total,created_by)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`, [id, current.org_id, input.kind, input.contactId, contact.name, input.number, input.date, input.dueDate, input.description,
       input.controlAccountId ?? null, config.currency, config.precision, config.basis, JSON.stringify(lines), formatAmount(total, config.precision), current.id]);
     await audit(tx, current, 'accounting.document_drafted', id, { kind: input.kind, total: formatAmount(total, config.precision) }); return documentRecord(tx, current, id);
   }));
+}
+export async function editAccountingContact(db:Database,actor:Actor,hash:string|undefined,id:string,raw:unknown){
+ const input=accountingContactEditInput.parse(raw);
+ return accountingTransaction(db,actor,hash,(tx,current)=>operationCommand(tx,current,input.commandId,{action:'contact_edit',id,input},async()=>{
+  const before=(await tx.query('SELECT id,name,kind,email,note,revision,active FROM accounting_contacts WHERE org_id=$1 AND id=$2 FOR UPDATE',[current.org_id,id])).rows[0];
+  requireCondition(before,404,'Accounting contact not found.');requireCondition(before.revision===input.expectedRevision,409,'This contact changed. Reload it before saving.');
+  if(before.kind!==input.kind)requireCondition(!(await tx.query('SELECT id FROM accounting_documents WHERE org_id=$1 AND contact_id=$2 LIMIT 1',[current.org_id,id])).rows.length,409,'This contact is already used by accounting documents. Keep its type and create a separate contact for a different role.');
+  const after=(await tx.query('UPDATE accounting_contacts SET name=$3,kind=$4,email=$5,note=$6,active=$7,revision=revision+1 WHERE org_id=$1 AND id=$2 RETURNING id,name,kind,email,note,revision,active',[current.org_id,id,input.name,input.kind,input.email??'',input.note,input.active])).rows[0];
+  await audit(tx,current,'accounting.contact_updated',id,{reason:input.reason,before,after});return after as AccountingContact;
+ }));
+}
+export async function editAccountingDocumentDraft(db:Database,actor:Actor,hash:string|undefined,id:string,raw:unknown){
+ const input=accountingDocumentEditInput.parse(raw);
+ return accountingTransaction(db,actor,hash,(tx,current)=>operationCommand(tx,current,input.commandId,{action:'document_edit',id,input},async()=>{
+  const before=await documentRecord(tx,current,id);requireCondition(before.status==='draft'&&before.events.length===0,409,'Only unissued drafts can be edited. Use a credit or void/replacement for an issued document.');
+  requireCondition(before.revision===input.expectedRevision,409,'This draft changed. Reload it before saving.');requireCondition(before.kind===input.kind,400,'Keep the existing document type.');
+  const {config,contact,lines,total}=await validateDocumentDraft(tx,current,input,id);
+  await tx.query('UPDATE accounting_documents SET contact_id=$3,contact_name=$4,number=$5,date=$6,due_date=$7,description=$8,control_account_id=$9,lines=$10,total=$11,revision=revision+1 WHERE org_id=$1 AND id=$2',[current.org_id,id,input.contactId,contact.name,input.number,input.date,input.dueDate,input.description,input.controlAccountId??null,JSON.stringify(lines),formatAmount(total,config.precision)]);
+  const after=await documentRecord(tx,current,id);await audit(tx,current,'accounting.document_draft_edited',id,{reason:input.reason,before,after});return after;
+ }));
+}
+export async function discardAccountingDocumentDraft(db:Database,actor:Actor,hash:string|undefined,id:string,raw:unknown){
+ const input=accountingDraftDiscardInput.parse(raw);
+ return accountingTransaction(db,actor,hash,(tx,current)=>operationCommand(tx,current,input.commandId,{action:'document_discard',id,input},async()=>{
+  const doc=await documentRecord(tx,current,id);requireCondition(doc.status==='draft'&&doc.events.length===0,409,'Only an unissued draft can be discarded.');requireCondition(doc.revision===input.expectedRevision,409,'This draft changed. Reload it before discarding.');
+  await addEvent(tx,current,doc,{id:randomUUID(),type:'void',date:doc.date,amount:formatAmount(0n,doc.precision),reason:input.reason});
+  await audit(tx,current,'accounting.document_draft_discarded',id,{reason:input.reason,revision:doc.revision,snapshot:doc});return documentRecord(tx,current,id);
+ }));
 }
 type Allocation = { lineIndex: number; amount: string };
 async function addEvent(tx: Queryable, actor: Actor, doc: AccountingDocument, input: {
@@ -134,7 +165,8 @@ function offsetLines(doc: AccountingDocument, allocations: Allocation[], account
 export async function issueAccountingDocument(db: Database, actor: Actor, hash: string | undefined, id: string, raw: unknown) {
   const input = accountingIssueInput.parse(raw);
   return accountingTransaction(db, actor, hash, (tx, current) => operationCommand(tx, current, input.commandId, { action: 'issue', id, input }, async () => {
-    const doc = await documentRecord(tx, current, id); requireCondition(doc.status === 'draft', 409, 'Only draft documents can be issued.');
+    const doc = await documentRecord(tx, current, id); requireCondition(doc.status === 'draft', 409, 'Only draft documents can be issued.');requireCondition(input.expectedRevision===undefined?doc.revision===1:input.expectedRevision===doc.revision,409,'This draft changed. Reload and review its current revision before issuing.');requireCondition((await tx.query('SELECT id FROM accounting_contacts WHERE org_id=$1 AND id=$2 AND active=true',[current.org_id,doc.contactId])).rows.length,409,'The contact is archived. Edit the draft to choose an active contact before issuing.');
+    await assertDocumentAccounts(tx,current,doc,doc.basis);
     await operationsOpenDate(tx, current, doc.date);
     let journalId: string | undefined;
     if (doc.basis === 'accrual') {
@@ -186,6 +218,7 @@ function allocationsFor(doc: AccountingDocument, amount: bigint, payment?: Accou
 }
 async function settlementJournal(tx: Queryable, actor: Actor, doc: AccountingDocument, id: string, commandId: string, date: string,
   cashAccountId: string, amount: string, allocations: Allocation[], reverse: boolean, reference: string) {
+  await assertDocumentAccounts(tx,actor,doc,doc.basis);
   const incoming = doc.kind === 'invoice' !== reverse;
   await postJournalTx(tx, actor, { id, commandId, date, description: (reverse ? 'Reverse settlement: ' : 'Recorded settlement: ') + doc.description,
     reference, sourceType: reverse ? 'document_refund' : 'document_payment', sourceId: doc.id,
@@ -274,6 +307,7 @@ export function registerAccountingOperationsRoutes(app: Express, db: Database) {
   const actor = (req: Request) => (req as AppRequest).actor, hash = (req: Request) => (req as AppRequest).sessionHash;
   const id = (req: Request) => z.uuid().parse(req.params.id);
   app.get('/api/accounting/contacts', async (req, res) => res.json(await listAccountingContacts(db, actor(req), hash(req))));
+  app.post('/api/accounting/contacts/:id',async(req,res)=>res.json(await editAccountingContact(db,actor(req),hash(req),id(req),req.body)));
   app.post('/api/accounting/contacts', async (req, res) => res.status(201).json(await createAccountingContact(db, actor(req), hash(req), req.body)));
   app.get('/api/accounting/documents', async (req, res) => res.json(await accountingTransaction(db, actor(req), hash(req), async (tx, current) => {
     const config=await operationsConfig(tx,current);
@@ -282,6 +316,8 @@ export function registerAccountingOperationsRoutes(app: Express, db: Database) {
     requireCondition(values.length <= 500, 400, 'More than 500 documents need a narrower catalog.');
     const rows = []; for (const value of values) rows.push(await documentRecord(tx, current, value.id)); return { rows };
   })));
+  app.post('/api/accounting/documents/:id/draft',async(req,res)=>res.json(await editAccountingDocumentDraft(db,actor(req),hash(req),id(req),req.body)));
+  app.post('/api/accounting/documents/:id/discard',async(req,res)=>res.json(await discardAccountingDocumentDraft(db,actor(req),hash(req),id(req),req.body)));
   app.post('/api/accounting/documents', async (req, res) => res.status(201).json(await createAccountingDocument(db, actor(req), hash(req), req.body)));
   app.get('/api/accounting/documents/:id', async (req, res) => res.json(await accountingTransaction(db, actor(req), hash(req), (tx, current) => documentRecord(tx, current, id(req)))));
   app.post('/api/accounting/documents/:id/issue', async (req, res) => res.json(await issueAccountingDocument(db, actor(req), hash(req), id(req), req.body)));

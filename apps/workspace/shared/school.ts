@@ -12,6 +12,9 @@ export const termInput = z
   .object({ yearId: uuid, name, startsOn: dateOnly, endsOn: dateOnly })
   .strict()
   .refine((x) => x.endsOn >= x.startsOn, "End must follow start.");
+export const schoolYearUpdateInput = z.object({name,startsOn:dateOnly,endsOn:dateOnly,archived:z.boolean(),version,reason:z.string().trim().min(5).max(1000)}).strict().refine(x=>x.endsOn>=x.startsOn,'End must follow start.');
+export const termUpdateInput = z.object({name,startsOn:dateOnly,endsOn:dateOnly,version,reason:z.string().trim().min(5).max(1000)}).strict().refine(x=>x.endsOn>=x.startsOn,'End must follow start.');
+export const courseUpdateInput = z.object({code:z.string().trim().min(1).max(30),title:name,description:note,archived:z.boolean(),version,reason:z.string().trim().min(5).max(1000)}).strict();
 export const householdInput = z
   .object({
     unitId: uuid,

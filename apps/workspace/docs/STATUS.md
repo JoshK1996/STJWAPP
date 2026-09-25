@@ -2,6 +2,14 @@
 
 The app is a live synthetic demonstration workspace. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
 
+## Management editing — September 24, 2026
+
+Prepared for release: People & jobs gains job title/description/community/availability editing, archive/restore, search and readable history. Own pending general requests can be edited or withdrawn. School years, terms, courses and timetable rooms have editors/history. Calendar exposes direct agenda editing and preserves exact unchanged timestamps. Settings supports current-password-confirmed self-service password changes. Accounting adds contact maintenance, bill/invoice draft edit/discard, explicit conflict reloads, budget/payroll replacement preparation and imported-report metadata revisions. See the [cross-page editing inventory](EDITABILITY.md) and [ADR0008](adr/0008-management-editing-and-preserved-evidence.md).
+
+Expected revisions, fresh authorization, transaction/audit rollback and preserved historical references protect these changes. Request approvals reject revoked sessions and changed requests; creating an employee coordinates with job edits; financial issue/settlement revalidates current account coding. Posted/issued financial evidence, captured attendance, released results and completed custody records are not freely overwritten. The inventory explicitly lists remaining historical amendment/migration gaps.
+
+The final application suite passed all 1,106 tests, with zero failures, cancellations or skips. Final local browser acceptance passed 45 management checks/15 layouts, 79 school checks/33 layouts, 90 finance checks/18 layouts and 84 clock checks/14 samples, with zero unexpected errors. The entry SHA256 was `5ea710ff678e16c3d8c227452cb5729577e2716c43e6b22d28c3358dcae75d87`. These are ordinary-authentication synthetic Chromium checks, not physical devices or hosted customer-account acceptance. Deployment evidence follows after maintenance and hosted verification.
+
 ## Accounting workflows — September 24, 2026
 
 Live in the accounting release: exact ledger and configurable starter settings; accounts, funds/programs/grants, periods, balanced posting and linked reversals; ledger-backed financial statements and styled Excel; bills/invoices, credits, refunds and externally recorded payments; bank CSV preview, grouped matching and immutable reconciliation; approved budget comparisons; and reviewed payroll preparation, accounting posting and recorded net payment. The colorful accounting workspace includes mobile layouts, workflow selection and clear settings guidance. See [ACCOUNTING](ACCOUNTING.md) and [ADR0007](adr/0007-accounting-ledger-and-reviewed-workflows.md).

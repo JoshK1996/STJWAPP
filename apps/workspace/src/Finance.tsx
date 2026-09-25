@@ -16,6 +16,7 @@ import {
 import { api, ApiError, download, downloadPost } from "./api";
 import FinanceReportStudio, { FinanceViewTable } from './FinanceReportStudio';
 import { financeBasisLabel, financeDefaultView, financeFilename, financeKindLabels, financeMagnitudePercent, financePeriod, financeRowKindLabels, financeSelectionSummary, financeUnits, financeViewQuery, financeVisibleLines, formatFinanceAmount, type FinanceViewOptions } from '../shared/finance-presentation';
+import { financeRevisionCsv } from '../shared/finance';
 import { createPortal } from 'react-dom';
 import { Panel, Badge, Empty } from "./components";
 import WorkbookImport from './WorkbookImport';
@@ -363,15 +364,15 @@ function FinanceWorkspace({ me, notify, onDirty }: Props) {
     );
     if (generation === accessGeneration.current && requestedLibrary===libraryKeyRef.current) setReports(result.rows);
   }
-  function beginRevision(source?: any) {
+  function beginRevision(source?: any, reuseLines=false) {
     fileGeneration.current++;
     setWorkbookReset(value => value + 1);
     setWorkbookPending(false);
     setReportId(source?.report_id ?? crypto.randomUUID());
     setExpectedVersion(source?.version ?? 0);
     setMetadata(source ? { ...source.metadata } : { ...blankMetadata });
-    setCsv("");
-    setFileName("");
+    setCsv(reuseLines?financeRevisionCsv(source.lines):"");
+    setFileName(reuseLines?"Existing exact line data retained":"");
     setReason("");
     setPreview(null);
     setReviewed(false);
@@ -686,12 +687,12 @@ function FinanceWorkspace({ me, notify, onDirty }: Props) {
           <Panel
             title={
               expectedVersion
-                ? "Import a corrected source"
+                ? "Review report changes"
                 : "Import a financial report"
             }
             detail="Choose the report context explicitly. Amounts support four decimal places; line codes are exact identifiers."
           >
-            <form className="finance-import-form" onSubmit={previewImport}>
+            <form className="finance-import-form" onSubmit={previewImport}>{fileName==="Existing exact line data retained"&&<p className="panel-note">Existing line data is retained. Edit the title, source, dates or other details, then preview and publish a reviewed revision. Earlier versions and original source files remain unchanged.</p>}
               <div className="finance-form-grid">
                 <label>
                   Report title
@@ -1018,12 +1019,13 @@ function FinanceWorkspace({ me, notify, onDirty }: Props) {
             </button>
             {!detail.report.archived &&
               record.version === detail.report.version && (
+                <><button className="button" onClick={()=>beginRevision(record,true)}>Edit report details</button>
                 <button
                   className="button primary"
                   onClick={() => beginRevision(record)}
                 >
                   Import correction
-                </button>
+                </button></>
               )}
           </div>
           <p className="finance-table-hint">Scroll the table sideways to see all columns.</p><div className="finance-table-scroll" tabIndex={0} role="region" aria-label="Financial data table">

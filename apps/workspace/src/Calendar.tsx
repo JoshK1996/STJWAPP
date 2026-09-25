@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { DateTime } from "luxon";
 import {
   CalendarDays,
@@ -7,14 +7,16 @@ import {
   Clock3,
   Download,
   MapPin,
+  Pencil,
   Plus,
   Repeat2,
   Users,
 } from "lucide-react";
 import { api, download } from "./api";
 import { Badge, Empty, Modal, Panel } from "./components";
-type Props = { me: any; notify: (text: string, error?: boolean) => void };
-export default function Calendar({ me, notify }: Props) {
+import { calendarInstant, calendarLocalInput, calendarTimeOptions } from "./calendar-editing";
+type Props = { me: any; notify: (text: string, error?: boolean) => void; onDirty?: (value: boolean) => void };
+export default function Calendar({ me, notify, onDirty }: Props) {
   const zone = me.organization.timezone,
     today = DateTime.now().setZone(zone);
   const [month, setMonth] = useState(today.startOf("month").toISODate()!),
@@ -261,8 +263,8 @@ export default function Calendar({ me, notify }: Props) {
             <p className="community-loading">Loading events…</p>
           ) : agenda.length ? (
             agenda.map((event) => (
+              <div key={event.id} className="agenda-entry">
               <button
-                key={event.id}
                 className="agenda-event"
                 onClick={() => {
                   setDetail(event);
@@ -287,6 +289,8 @@ export default function Calendar({ me, notify }: Props) {
                             ?.name ?? "Unit")}
                 </Badge>
               </button>
+              {event.canEdit && <button className="button secondary agenda-edit" aria-label={`Edit ${event.title}`} onClick={() => setEditor(event)}><Pencil size={15} /> Edit</button>}
+              </div>
             ))
           ) : (
             <Empty
@@ -301,6 +305,7 @@ export default function Calendar({ me, notify }: Props) {
           me={me}
           existing={editor}
           date={selected}
+          onDirty={onDirty}
           onClose={() => setEditor(null)}
           onSaved={async () => {
             setEditor(null);
@@ -345,6 +350,8 @@ export default function Calendar({ me, notify }: Props) {
               {detail.description || "No additional details."}
             </p>
             <p className="muted">Added by {detail.creator_name}</p>
+            {detail.source === "timetable" && <p className="panel-note">This event comes from the class timetable. Authorized staff can change the class meeting in School records → Timetable, where teacher, room, and student conflicts are checked.</p>}
+            {detail.source !== "timetable" && !detail.canEdit && <p className="panel-note">This event is view-only for your account. Its creator or an administrator with access can change it.</p>}
             {detail.source !== "timetable" && (
               <button
                 className="text-link"
@@ -454,45 +461,53 @@ function EventEditor({
   date,
   onClose,
   onSaved,
+  onDirty,
 }: {
   me: any;
   existing: any;
   date: string;
   onClose: () => void;
   onSaved: () => Promise<void>;
+  onDirty?: (value: boolean) => void;
 }) {
   const zone = existing.timezone ?? me.organization.timezone,
     [audience, setAudience] = useState(existing.audience ?? "personal"),
     [repeat, setRepeat] = useState("none"),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  const format = (value: string) =>
-    DateTime.fromISO(value).setZone(zone).toFormat("yyyy-MM-dd'T'HH:mm");
+    [error, setError] = useState(""),
+    [dirty, setDirty] = useState(false),
+    [startValue, setStartValue] = useState(existing.starts_at ? calendarLocalInput(existing.starts_at, zone) : date + "T09:00"),
+    [endValue, setEndValue] = useState(existing.ends_at ? calendarLocalInput(existing.ends_at, zone) : date + "T10:00"),
+    [startOffset, setStartOffset] = useState(existing.starts_at ? String(DateTime.fromISO(existing.starts_at).setZone(zone).offset) : ""),
+    [endOffset, setEndOffset] = useState(existing.ends_at ? String(DateTime.fromISO(existing.ends_at).setZone(zone).offset) : "");
+  const writing = useRef(false);
+  useEffect(() => { onDirty?.(dirty || busy); return () => onDirty?.(false); }, [onDirty, dirty, busy]);
+  useEffect(() => {
+    if (!dirty && !busy) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn); return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty, busy]);
+  const close = () => { if (!writing.current && (!dirty || window.confirm("Discard your unsaved event changes?"))) onClose(); };
+  const startOptions = calendarTimeOptions(startValue, zone), endOptions = calendarTimeOptions(endValue, zone);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (writing.current) return;
+    writing.current = true;
     setBusy(true);
     setError("");
     const form = new FormData(e.currentTarget);
     try {
-      const asUtc = (key: string) => {
-        const raw = String(form.get(key)),
-          value = DateTime.fromISO(raw, { zone });
-        if (!value.isValid || value.toFormat("yyyy-MM-dd'T'HH:mm") !== raw)
-          throw Error(
-            "This local time does not exist. Choose a time outside the daylight-saving change.",
-          );
-        return value.toUTC().toISO();
-      };
       const event = {
         title: form.get("title"),
         description: form.get("description"),
         location: form.get("location"),
-        startsAt: asUtc("start"),
-        endsAt: asUtc("end"),
+        startsAt: calendarInstant(startValue, zone, startOffset, existing.starts_at),
+        endsAt: calendarInstant(endValue, zone, endOffset, existing.ends_at),
         timezone: zone,
         audience,
         unitId: audience === "unit" ? form.get("unit") : null,
       };
+      if (DateTime.fromISO(event.endsAt).toMillis() <= DateTime.fromISO(event.startsAt).toMillis()) throw Error("The end must be after the start.");
       if (existing.id)
         await api(
           "/calendar/events/" + existing.id,
@@ -508,10 +523,12 @@ function EventEditor({
             count: Number(form.get("count") ?? 1),
           },
         });
+      setDirty(false); onDirty?.(false);
       await onSaved();
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      writing.current = false;
       setBusy(false);
     }
   }
@@ -520,9 +537,10 @@ function EventEditor({
       title={
         existing.id ? "Edit this occurrence" : "Make time for what matters"
       }
-      onClose={onClose}
+      onClose={close}
     >
-      <form className="community-form" onSubmit={submit}>
+      <form className="community-form" onSubmit={submit} onChange={() => setDirty(true)}>
+        <fieldset className="calendar-edit-fields" disabled={busy}>
         <label>
           Event name
           <input
@@ -541,24 +559,22 @@ function EventEditor({
             <input
               name="start"
               type="datetime-local"
-              defaultValue={
-                existing.starts_at
-                  ? format(existing.starts_at)
-                  : date + "T09:00"
-              }
+              value={startValue}
+              onChange={event => { setStartValue(event.target.value); setStartOffset(""); }}
               required
             />
+            {startOptions.length > 1 && <><small>This time occurs twice. Choose which occurrence.</small><select aria-label="Start UTC offset" value={startOffset} required onChange={event => setStartOffset(event.target.value)}><option value="">Choose offset</option>{startOptions.map(option => <option key={option.offset} value={option.offset}>{option.label}</option>)}</select></>}
           </label>
           <label>
             Ends · {zone}
             <input
               name="end"
               type="datetime-local"
-              defaultValue={
-                existing.ends_at ? format(existing.ends_at) : date + "T10:00"
-              }
+              value={endValue}
+              onChange={event => { setEndValue(event.target.value); setEndOffset(""); }}
               required
             />
+            {endOptions.length > 1 && <><small>This time occurs twice. Choose which occurrence.</small><select aria-label="End UTC offset" value={endOffset} required onChange={event => setEndOffset(event.target.value)}><option value="">Choose offset</option>{endOptions.map(option => <option key={option.offset} value={option.offset}>{option.label}</option>)}</select></>}
           </label>
         </div>
         <label>
@@ -579,7 +595,6 @@ function EventEditor({
               onChange={(e) => setAudience(e.target.value)}
             >
               <option value="personal">Only me</option>
-              <option value="classes">Classes</option>
               {me.permissions.manage && (
                 <option value="unit">An organizational unit</option>
               )}
@@ -672,13 +687,14 @@ function EventEditor({
           </p>
         )}
         <div className="dialog-actions">
-          <button type="button" className="button secondary" onClick={onClose}>
+          <button type="button" className="button secondary" disabled={busy} onClick={close}>
             Cancel
           </button>
           <button className="button primary" disabled={busy}>
             {busy ? "Saving…" : existing.id ? "Save changes" : "Create event"}
           </button>
         </div>
+        </fieldset>
       </form>
     </Modal>
   );

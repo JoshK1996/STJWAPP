@@ -1,0 +1,39 @@
+# School management editing
+
+This inventory records the implemented school editing paths and the boundaries that preserve recorded evidence. Release and hosted verification are recorded separately in [STATUS](STATUS.md). No edit in this workstream changes captured attendance, released gradebooks, or child handoff evidence.
+
+## Where to make changes
+
+| Page | Available editing controls | Retained history and limits |
+| --- | --- | --- |
+| School records → School setup → School years | **Edit** name, dates, archive/restore; **History** shows changes and reason. | A year must still contain every term, enrollment, class place, meeting, school-day exception, attendance and dismissal date. Once classes or enrollment exist, boundaries can expand but cannot shrink. |
+| School records → School setup → Terms | **Edit** name and dates; **History**. | Year assignment stays fixed. Dates stay inside the year and become fixed when a gradebook uses the term. An unlocked term can still be renamed. Locked terms retain their reviewed definition; restore an archived year before editing its terms. |
+| School records → School setup → Course catalog | **Edit** code, title, description, archive/restore; **History**. | Archiving removes a course from new class choices while existing classes retain the course reference. The original organizational unit is fixed. |
+| School records → Classrooms | Existing **Edit class**, teacher assignments and archive controls; dated student roster membership; curriculum content, title, order and archive editing. | Existing class year, course link and homeroom identity are not moved by a metadata edit. Roster and teacher changes validate timetable conflicts. Prior attendance and gradebook rosters retain captured identities. |
+| School records → Students | Existing student profile editing: name, student number, date of birth and active status; enrollment, grade/program and dated class membership controls; record history. | Deactivation preserves the student and historical evidence. Enrollment dates must respect their school year. Changing a current profile does not rewrite previously captured marks or results. |
+| School records → Families & contacts | Existing household name/address/archive editing; contact name/email/phone; household membership; student relationship, communication, guardian and pickup permission settings. | Contact identity, account access and student permissions are separate. Changing contact details does not silently grant account or pickup access. |
+| School records → Admissions | Existing application grade/program, primary contact and notes editor; checklist template editing, reviewed checklist updates, refresh, stage changes and conversion. | Enrolled conversion remains recorded evidence. Applicant identity is not rewritten by the application details form. Reviewed requirement evidence and prior template versions are retained. |
+| School records → Attendance settings | Existing **Edit rules**, **Edit code**, **Edit date** and activation settings. | Recorded marks keep the code and student identity captured at recording. New policy versions govern later work; missing/draft attendance is never converted into an absence by a setting change. |
+| School records → Attendance | Existing draft mark editing, submission and reasoned correction/review workflow. | Submitted revisions and office closeout evidence remain historical records. Corrections use the existing revision workflow. |
+| School records → Grading policy / Gradebooks | Existing grade scale/category/calculation editors; assignments, score/status changes and gradebook review/reopen workflow. | Existing books retain their policy snapshot. Locked/released results require the existing reviewed correction flow; editing a policy never silently recalculates a released report card. |
+| School records → Timetable | Existing meeting preview/edit/cancel/history; new **Rooms** directory with **Edit room** name/availability and **History**. | Unavailable rooms cannot be newly assigned. Existing meetings retain that room and its conflict reservation. Re-enable availability in the same editor. Every schedule-affecting mutation validates teacher, student, class and room conflicts. |
+
+These are administrative corrections and versioned workflows, not unrestricted historical-record replacement. Reassigning an established class to another year/course, changing a gradebook's term dates after use, or moving a record between organizational units needs a separate reviewed migration design; those operations are not exposed by these editors.
+
+## New API paths and invariants
+
+The four new PATCH paths are `/api/school/years/:id`, `/api/school/terms/:id`, `/api/school/courses/:id`, and `/api/school/timetable/rooms/:id`. They require the record's positive `version` and a 5–1000 character `reason`. The server obtains organization, actor and session proof from the authenticated request; clients cannot select an actor or organizational scope. The generated [API contract](API.md) lists complete bodies.
+
+Each change verifies the current password session, active account and current role. Non-administrators need both explicit unit membership and a current school-office grant. The academic mutex precedes definition row locks; date and conflict checks, version increment, timetable revision, before/after school history and audit write commit together. Stale editors receive HTTP 409 and retain their unsaved values. Save failures never publish a partial edit.
+
+Year reads for enrollment and admission changes now take a shared row lock, serializing those decisions against year corrections. New-class creation takes the academic lock before teacher assignment and validates/advances the timetable. These changes maintain the lock order documented in [TIMETABLE](TIMETABLE.md).
+
+Migration 038 adds room `version` and `active` columns. Existing deployed migrations are unchanged. GET and POST room responses include those fields. New meeting selection hides inactive rooms; an existing meeting may keep its previously assigned inactive room.
+
+## Verification
+
+`tests/school-definition-editing.test.ts` passes eight focused regressions covering normal password setup/sign-in and HTTP editing, expected-version conflicts, explicit office access, fresh authorization, cross-organization rejection, preserved class/gradebook references, locked terms, room availability/reservations, concurrent retries, lock order and audit-failure rollback. Existing school, admissions, grading and timetable suites pass 33 additional tests. The isolated PGlite concurrency test verifies retry semantics; it is not a production load test.
+
+Jev ranked the bounded candidate sets before source review (receipts `ea06cfca46644a3c9d5d6b0e8df88c41`, `49b839d6263b4cd28a0b601fca27b253`). Narrow invariant screening receipt `f853600f29bb433b830b81fbc55cfda3` returned clear hypotheses for fresh authority, lock order and evidence preservation; code and focused tests independently verified those claims. The existing CLI sends typed questions and reviewed state following [TypeSafe's documented primitive composition](https://docs.typesafe.ai/introduction). No new model, confidence threshold or in-app AI behavior was introduced.
+
+Final authenticated synthetic browser acceptance passed 79 checks across 33 desktop, 390-pixel and 320-pixel layout samples, with zero unexpected browser runtime errors. It covered year/term/course/room editors, historical date guards, stale-version recovery and readable history. Representative mobile forms and history screenshots were visually inspected. The production index remained SHA256 `5ea710ff678e16c3d8c227452cb5729577e2716c43e6b22d28c3358dcae75d87` throughout the final run. This is browser emulation with disposable data, not physical-device or hosted customer-account acceptance.

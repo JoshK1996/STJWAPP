@@ -60,7 +60,7 @@ async function activeYear(
 ) {
   const row = (
     await tx.query(
-      "SELECT *,to_char(starts_on,'YYYY-MM-DD') AS starts_on,to_char(ends_on,'YYYY-MM-DD') AS ends_on FROM school_years WHERE id=$1 AND org_id=$2 AND unit_id=$3 AND NOT archived",
+      "SELECT *,to_char(starts_on,'YYYY-MM-DD') AS starts_on,to_char(ends_on,'YYYY-MM-DD') AS ends_on FROM school_years WHERE id=$1 AND org_id=$2 AND unit_id=$3 AND NOT archived FOR SHARE",
       [yearId, actor.org_id, unitId],
     )
   ).rows[0];

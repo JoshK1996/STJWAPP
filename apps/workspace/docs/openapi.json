@@ -6239,7 +6239,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/ManagedJobCatalog"
                 }
               }
             }
@@ -6311,7 +6311,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -6372,23 +6382,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "unitId": {
-                    "type": "string",
-                    "format": "uuid"
-                  },
-                  "title": {
-                    "type": "string",
-                    "minLength": 2,
-                    "maxLength": 100
-                  }
-                },
-                "required": [
-                  "unitId",
-                  "title"
-                ],
-                "additionalProperties": false
+                "$ref": "#/components/schemas/ManagedJobCreateInput"
               }
             }
           }
@@ -6431,7 +6425,20 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EmployeeRequestRecord"
+                      },
+                      "maxItems": 300
+                    }
+                  },
+                  "required": [
+                    "rows"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -6595,7 +6602,7 @@
       "post": {
         "operationId": "post_requests__id__review",
         "summary": "Record approval or decline",
-        "description": "Current active password account with management role, scoped unit access and a different requester. Account and membership locks precede the pending request lock; changed role or assignment is rechecked before recording a decision. Does not change punches, schedule, or PTO balance.",
+        "description": "Current active password account with management role, scoped unit access and a different requester. Account and membership locks precede the pending request lock; changed role or assignment is rechecked before recording a decision. Does not change punches, schedule, or PTO balance. expectedVersion must match the pending request. Omission is accepted only at unchanged version 1 for older clients; revised requests require acknowledgement of their current version. Stale or missing acknowledgement returns 409.",
         "security": [
           {
             "Session": []
@@ -6607,7 +6614,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "approved",
+                        "declined"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "status"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -6668,25 +6693,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "enum": [
-                      "approved",
-                      "declined"
-                    ]
-                  },
-                  "note": {
-                    "type": "string",
-                    "minLength": 3,
-                    "maxLength": 1000
-                  }
-                },
-                "required": [
-                  "status",
-                  "note"
-                ],
-                "additionalProperties": false
+                "$ref": "#/components/schemas/EmployeeRequestReviewInput"
               }
             }
           }
@@ -10940,7 +10947,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EditableSchoolYear"
+                      }
+                    }
+                  },
+                  "required": [
+                    "rows"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -11155,7 +11174,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EditableSchoolTerm"
+                      }
+                    }
+                  },
+                  "required": [
+                    "rows"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -13157,7 +13188,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EditableSchoolCourse"
+                      }
+                    }
+                  },
+                  "required": [
+                    "rows"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -32876,7 +32919,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EditableTimetableRoom"
+                      }
+                    }
+                  },
+                  "required": [
+                    "rows"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -32957,12 +33012,12 @@
           }
         ],
         "responses": {
-          "200": {
+          "201": {
             "description": "Successful operation",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/EditableTimetableRoom"
                 }
               }
             }
@@ -47850,7 +47905,7 @@
       "get": {
         "operationId": "get__accounting_contacts",
         "summary": "List financial contacts",
-        "description": "Current developer, owner, administrator or finance password session only, with completed onboarding and any enrolled MFA proof. Organization and actor come from the verified session. PIN and API/bearer tokens are denied. Current authority and final session proof are rechecked inside the accounting transaction; enabled-workflow gates apply. Common financial contact catalog; family/donor labels do not grant school record access or create a school-family relationship.",
+        "description": "Current developer, owner, administrator or finance password session only, with completed onboarding and any enrolled MFA proof. Organization and actor come from the verified session. PIN and API/bearer tokens are denied. Current authority and final session proof are rechecked inside the accounting transaction; enabled-workflow gates apply. Common financial contact catalog; family/donor labels do not grant school record access or create a school-family relationship. Includes active and revision for contact editing; existing document contact-name snapshots remain unchanged.",
         "security": [
           {
             "Session": []
@@ -47944,7 +47999,7 @@
       },
       "post": {
         "operationId": "post__accounting_contacts",
-        "summary": "Create an immutable financial contact",
+        "summary": "Create a financial contact",
         "description": "Current developer, owner, administrator or finance password session only, with completed onboarding and any enrolled MFA proof. Organization and actor come from the verified session. PIN and API/bearer tokens are denied. Current authority and final session proof are rechecked inside the accounting transaction; enabled-workflow gates apply. Writes require the exact configured Origin, application/json and X-CSRF-Token from /api/me. UUID commands are bound to actor and exact input: retry uncertain responses with the same command; do not invent success. Names and optional contact details are explicitly supplied.",
         "security": [
           {
@@ -48057,7 +48112,7 @@
       "get": {
         "operationId": "get__accounting_documents",
         "summary": "List bills and invoices for enabled workflows",
-        "description": "Current developer, owner, administrator or finance password session only, with completed onboarding and any enrolled MFA proof. Organization and actor come from the verified session. PIN and API/bearer tokens are denied. Current authority and final session proof are rechecked inside the accounting transaction; enabled-workflow gates apply. Payables enables bills, receivables enables invoices; disabled kinds are omitted.",
+        "description": "Current developer, owner, administrator or finance password session only, with completed onboarding and any enrolled MFA proof. Organization and actor come from the verified session. PIN and API/bearer tokens are denied. Current authority and final session proof are rechecked inside the accounting transaction; enabled-workflow gates apply. Payables enables bills, receivables enables invoices; disabled kinds are omitted. Includes revision for reviewed draft edits and issuance.",
         "security": [
           {
             "Session": []
@@ -48359,7 +48414,7 @@
       "post": {
         "operationId": "post__accounting_documents__id__issue",
         "summary": "Issue a reviewed financial document",
-        "description": "Current developer, owner, administrator or finance password session only, with completed onboarding and any enrolled MFA proof. Organization and actor come from the verified session. PIN and API/bearer tokens are denied. Current authority and final session proof are rechecked inside the accounting transaction; enabled-workflow gates apply. Writes require the exact configured Origin, application/json and X-CSRF-Token from /api/me. UUID commands are bound to actor and exact input: retry uncertain responses with the same command; do not invent success. Accrual issuance posts control and coded lines; cash-basis issuance records the obligation without recognizing revenue/expense.",
+        "description": "Current developer, owner, administrator or finance password session only, with completed onboarding and any enrolled MFA proof. Organization and actor come from the verified session. PIN and API/bearer tokens are denied. Current authority and final session proof are rechecked inside the accounting transaction; enabled-workflow gates apply. Writes require the exact configured Origin, application/json and X-CSRF-Token from /api/me. UUID commands are bound to actor and exact input: retry uncertain responses with the same command; do not invent success. Accrual issuance posts control and coded lines; cash-basis issuance records the obligation without recognizing revenue/expense. expectedRevision may be omitted only for a draft at revision 1. Revised drafts require acknowledgement of their current revision; stale/missing acknowledgement returns 409. An active financial contact is required.",
         "security": [
           {
             "Session": []
@@ -51565,6 +51620,1382 @@
             }
           }
         ]
+      }
+    },
+    "/jobs/{id}": {
+      "patch": {
+        "operationId": "patch__jobs__id_",
+        "summary": "Edit or archive a managed job",
+        "description": "Current actual password session in the same organization, completed onboarding and any enrolled MFA proof required. PIN and API bearer tokens cannot use this operation. Writes require the configured Origin, application/json and the X-CSRF-Token from /api/me. Current developer/owner/administrator/manager with access to both current and requested units. Title/description and active status are version checked. The unit may change only before any assignment or retained record references the job. Archiving is blocked while an active segment uses it; assigned staff and historical records remain retained. Refresh current state after conflict or uncertain response; there is no command receipt on this route.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job": {
+                      "$ref": "#/components/schemas/ManagedJob"
+                    }
+                  },
+                  "required": [
+                    "job"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation; password changes also reject incorrect current password or unchanged password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed password session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, scope, password mode, onboarding, enabled module, Origin or CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in the current organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version/revision, duplicate identity, immutable state, retained-record conflict or conflicting command.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction contention or timeout; follow the operation retry guidance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagedJobUpdateInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/{id}/history": {
+      "get": {
+        "operationId": "get__jobs__id__history",
+        "summary": "Read retained job edits and community reassignment availability",
+        "description": "Current actual password session in the same organization, completed onboarding and any enrolled MFA proof required. PIN and API bearer tokens cannot use this operation. Current management role and exact unit scope. At most 100 newest creation/update audit rows, with truncated and communityLocked indicators. No job or audit record is deleted.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedJobHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation; password changes also reject incorrect current password or unchanged password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed password session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, scope, password mode, onboarding, enabled module, Origin or CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in the current organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction contention or timeout; follow the operation retry guidance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/requests/{id}": {
+      "patch": {
+        "operationId": "patch__requests__id_",
+        "summary": "Edit your pending employee request",
+        "description": "Current actual password session in the same organization, completed onboarding and any enrolled MFA proof required. PIN and API bearer tokens cannot use this operation. Writes require the configured Origin, application/json and the X-CSRF-Token from /api/me. Only the current requester can revise kind, assigned unit, dates and note while pending. Current explicit membership is required for the chosen unit. expectedVersion prevents lost edits, with before/after audit evidence. Already reviewed or withdrawn requests require a new request. This does not change punches, schedules or PTO balances. After an uncertain response, read the current request before retrying.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeRequestEditResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation; password changes also reject incorrect current password or unchanged password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed password session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, scope, password mode, onboarding, enabled module, Origin or CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in the current organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version/revision, duplicate identity, immutable state, retained-record conflict or conflicting command.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeRequestEditInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/requests/{id}/withdraw": {
+      "post": {
+        "operationId": "post__requests__id__withdraw",
+        "summary": "Withdraw your pending employee request",
+        "description": "Current actual password session in the same organization, completed onboarding and any enrolled MFA proof required. PIN and API bearer tokens cannot use this operation. Writes require the configured Origin, application/json and the X-CSRF-Token from /api/me. Only the requester; expectedVersion and reason required. Retains the request and audit evidence with cancelled status and an advanced version. Reviewed/withdrawn requests cannot be overwritten. Read current state after a lost response; no command receipt is available.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeRequestEditResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation; password changes also reject incorrect current password or unchanged password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed password session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, scope, password mode, onboarding, enabled module, Origin or CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in the current organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version/revision, duplicate identity, immutable state, retained-record conflict or conflicting command.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeRequestWithdrawInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password": {
+      "post": {
+        "operationId": "post__auth_password",
+        "summary": "Change your own password and rotate the current session",
+        "description": "Current actual password session in the same organization, completed onboarding and any enrolled MFA proof required. PIN and API bearer tokens cannot use this operation. Writes require the configured Origin, application/json and the X-CSRF-Token from /api/me. Confirms the current password and requires a different new password of 8–128 characters. Rotates the HttpOnly session cookie and CSRF without extending expiry; the response returns only ok and the new CSRF. Revokes other sessions, setup links, pending MFA/onboarding challenges and API tokens. Existing PIN and enabled authenticator remain. Credentials never appear in audit details. A bad current password returns 400 without ending the session; stale proof returns 401. Limited to 10 attempts per account per 15-minute bucket. A lost response has no receipt: refresh and verify sign-in with the new password before submitting again.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordChanged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation; password changes also reject incorrect current password or unchanged password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed password session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, scope, password mode, onboarding, enabled module, Origin or CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many confirmation attempts; retry after the stated delay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeOwnPasswordInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/school/years/{id}": {
+      "patch": {
+        "operationId": "patch__school_years__id_",
+        "summary": "Revise or archive a school year",
+        "description": "Current actual password session in the same organization, completed onboarding and any enrolled MFA proof required. PIN and API bearer tokens cannot use this operation. Writes require the configured Origin, application/json and the X-CSRF-Token from /api/me. Current developer/owner/administrator or explicit current unit membership plus school-office grant. The academic mutex precedes definition row locks; resulting timetable validation, revision and reasoned school-history/audit are transactional. Stale versions return 409. Retained records are never silently rewritten. After contention or an uncertain response, refresh and review before retrying. Dates must contain existing terms, enrollment, roster places, meetings, instructional overrides, attendance and dismissal records. Once classes or enrollment exist the year can expand but cannot shrink. Name is unique within the school unit.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditableSchoolYear"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation; password changes also reject incorrect current password or unchanged password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed password session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, scope, password mode, onboarding, enabled module, Origin or CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in the current organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version/revision, duplicate identity, immutable state, retained-record conflict or conflicting command.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction contention or timeout; follow the operation retry guidance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchoolYearUpdateInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/school/terms/{id}": {
+      "patch": {
+        "operationId": "patch__school_terms__id_",
+        "summary": "Revise an unlocked school term",
+        "description": "Current actual password session in the same organization, completed onboarding and any enrolled MFA proof required. PIN and API bearer tokens cannot use this operation. Writes require the configured Origin, application/json and the X-CSRF-Token from /api/me. Current developer/owner/administrator or explicit current unit membership plus school-office grant. The academic mutex precedes definition row locks; resulting timetable validation, revision and reasoned school-history/audit are transactional. Stale versions return 409. Retained records are never silently rewritten. After contention or an uncertain response, refresh and review before retrying. Term dates must fit the parent year; an archived year must be restored first. A locked term rejects every edit. Dates cannot change after a gradebook uses the term; permitted label edits preserve original grade evidence. Name must remain unique within the year.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditableSchoolTerm"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation; password changes also reject incorrect current password or unchanged password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed password session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, scope, password mode, onboarding, enabled module, Origin or CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in the current organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version/revision, duplicate identity, immutable state, retained-record conflict or conflicting command.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction contention or timeout; follow the operation retry guidance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchoolTermUpdateInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/school/courses/{id}": {
+      "patch": {
+        "operationId": "patch__school_courses__id_",
+        "summary": "Edit, archive or restore a course definition",
+        "description": "Current actual password session in the same organization, completed onboarding and any enrolled MFA proof required. PIN and API bearer tokens cannot use this operation. Writes require the configured Origin, application/json and the X-CSRF-Token from /api/me. Current developer/owner/administrator or explicit current unit membership plus school-office grant. The academic mutex precedes definition row locks; resulting timetable validation, revision and reasoned school-history/audit are transactional. Stale versions return 409. Retained records are never silently rewritten. After contention or an uncertain response, refresh and review before retrying. Change code, title, description and archived status. Code is unique within its school unit. Existing class references remain linked to the retained course identity.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditableSchoolCourse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation; password changes also reject incorrect current password or unchanged password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed password session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, scope, password mode, onboarding, enabled module, Origin or CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in the current organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version/revision, duplicate identity, immutable state, retained-record conflict or conflicting command.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction contention or timeout; follow the operation retry guidance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchoolCourseUpdateInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/school/timetable/rooms/{id}": {
+      "patch": {
+        "operationId": "patch__school_timetable_rooms__id_",
+        "summary": "Rename, deactivate or restore a timetable room",
+        "description": "Current actual password session in the same organization, completed onboarding and any enrolled MFA proof required. PIN and API bearer tokens cannot use this operation. Writes require the configured Origin, application/json and the X-CSRF-Token from /api/me. Current developer/owner/administrator or explicit current unit membership plus school-office grant. The academic mutex precedes definition row locks; resulting timetable validation, revision and reasoned school-history/audit are transactional. Stale versions return 409. Retained records are never silently rewritten. After contention or an uncertain response, refresh and review before retrying. An inactive room cannot be newly assigned (400), while an existing meeting can retain its same room. Room edits preserve conflict validation and history. Duplicate names return 409.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditableTimetableRoom"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation; password changes also reject incorrect current password or unchanged password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed password session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, scope, password mode, onboarding, enabled module, Origin or CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in the current organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version/revision, duplicate identity, immutable state, retained-record conflict or conflicting command.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction contention or timeout; follow the operation retry guidance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimetableRoomUpdateInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounting/contacts/{id}": {
+      "post": {
+        "operationId": "post__accounting_contacts__id_",
+        "summary": "Edit or archive a financial contact",
+        "description": "Current actual password session in the same organization, completed onboarding and any enrolled MFA proof required. PIN and API bearer tokens cannot use this operation. Writes require the configured Origin, application/json and the X-CSRF-Token from /api/me. Current developer/owner/administrator/finance role with transactional accounting authority, session proof, and enabled document workflow where applicable. expectedRevision prevents stale edits. Commands are bound to actor, UUID and exact input; repeat an uncertain request using the same commandId/body. Update name, email, note and active status with a reason. Contact type can change only before a document references it; otherwise retain the type and create a separate contact. Historical document contact snapshots are not rewritten. Active contacts are required for draft saving and issuance.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingContact"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation; password changes also reject incorrect current password or unchanged password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed password session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, scope, password mode, onboarding, enabled module, Origin or CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in the current organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version/revision, duplicate identity, immutable state, retained-record conflict or conflicting command.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction contention or timeout; follow the operation retry guidance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountingContactEditInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounting/documents/{id}/draft": {
+      "post": {
+        "operationId": "post__accounting_documents__id__draft",
+        "summary": "Revise an unissued bill or invoice draft",
+        "description": "Current actual password session in the same organization, completed onboarding and any enrolled MFA proof required. PIN and API bearer tokens cannot use this operation. Writes require the configured Origin, application/json and the X-CSRF-Token from /api/me. Current developer/owner/administrator/finance role with transactional accounting authority, session proof, and enabled document workflow where applicable. expectedRevision prevents stale edits. Commands are bound to actor, UUID and exact input; repeat an uncertain request using the same commandId/body. Only a draft without financial events is editable. Keep its bill/invoice kind; recalculate coded lines and exact totals under current accounting settings. Active contact, valid account/fund/unit coding, ordered dates and a unique number for contact/kind are required. Issued/discarded documents return 409 and require their retained credit, void or replacement workflows.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation; password changes also reject incorrect current password or unchanged password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed password session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, scope, password mode, onboarding, enabled module, Origin or CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in the current organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version/revision, duplicate identity, immutable state, retained-record conflict or conflicting command.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction contention or timeout; follow the operation retry guidance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountingDocumentEditInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounting/documents/{id}/discard": {
+      "post": {
+        "operationId": "post__accounting_documents__id__discard",
+        "summary": "Discard an unissued financial document while retaining evidence",
+        "description": "Current actual password session in the same organization, completed onboarding and any enrolled MFA proof required. PIN and API bearer tokens cannot use this operation. Writes require the configured Origin, application/json and the X-CSRF-Token from /api/me. Current developer/owner/administrator/finance role with transactional accounting authority, session proof, and enabled document workflow where applicable. expectedRevision prevents stale edits. Commands are bound to actor, UUID and exact input; repeat an uncertain request using the same commandId/body. Only a draft without financial events can be discarded. Records a zero-amount void event and reasoned audit; the document remains readable with void status. No money is sent and no posted journal is changed.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation; password changes also reject incorrect current password or unchanged password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed password session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, scope, password mode, onboarding, enabled module, Origin or CSRF denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in the current organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version/revision, duplicate identity, immutable state, retained-record conflict or conflicting command.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction contention or timeout; follow the operation retry guidance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountingDraftDiscardInput"
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -100748,6 +102179,13 @@
           },
           "note": {
             "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "active": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -100755,7 +102193,9 @@
           "name",
           "kind",
           "email",
-          "note"
+          "note",
+          "revision",
+          "active"
         ],
         "additionalProperties": false
       },
@@ -100967,6 +102407,10 @@
             "items": {
               "$ref": "#/components/schemas/AccountingDocumentEvent"
             }
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
           }
         },
         "required": [
@@ -100988,7 +102432,8 @@
           "paid",
           "refunded",
           "outstanding",
-          "events"
+          "events",
+          "revision"
         ],
         "additionalProperties": false
       },
@@ -101125,6 +102570,10 @@
                     "Over 90 days",
                     "Credit balance"
                   ]
+                },
+                "revision": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               },
               "required": [
@@ -101148,7 +102597,8 @@
                 "outstanding",
                 "events",
                 "daysOverdue",
-                "bucket"
+                "bucket",
+                "revision"
               ],
               "additionalProperties": false
             },
@@ -103610,6 +105060,11 @@
             "type": "string",
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -104299,6 +105754,1148 @@
           "expectedVersion",
           "reason",
           "reviewed"
+        ],
+        "additionalProperties": false
+      },
+      "ManagedJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "unit_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "unit_id",
+          "active",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "ManagedJobCatalogRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "unit_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "org_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unit_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "unit_id",
+          "active",
+          "version",
+          "org_id",
+          "unit_name"
+        ],
+        "additionalProperties": false
+      },
+      "ManagedJobCatalog": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManagedJobCatalogRecord"
+            }
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "additionalProperties": false
+      },
+      "ManagedJobHistory": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "actor_name": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "action": {
+                      "const": "job.created",
+                      "type": "string"
+                    },
+                    "detail": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "object",
+                      "properties": {
+                        "unitId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "title": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 100
+                        },
+                        "description": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 1000
+                        }
+                      },
+                      "required": [
+                        "unitId",
+                        "title"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "created_at",
+                    "actor_name",
+                    "action",
+                    "detail"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "actor_name": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "action": {
+                      "const": "job.updated",
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "object",
+                      "properties": {
+                        "before": {
+                          "type": "object",
+                          "properties": {
+                            "title": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": "string"
+                            },
+                            "unitId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "active": {
+                              "type": "boolean"
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          },
+                          "required": [
+                            "title",
+                            "description",
+                            "unitId",
+                            "active",
+                            "version"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "after": {
+                          "type": "object",
+                          "properties": {
+                            "title": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": "string"
+                            },
+                            "unitId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "active": {
+                              "type": "boolean"
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          },
+                          "required": [
+                            "title",
+                            "description",
+                            "unitId",
+                            "active",
+                            "version"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "before",
+                        "after",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "created_at",
+                    "actor_name",
+                    "action",
+                    "detail"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 100
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "communityLocked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rows",
+          "truncated",
+          "communityLocked"
+        ],
+        "additionalProperties": false
+      },
+      "ManagedJobCreateInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "description": {
+            "default": "",
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "unitId",
+          "title"
+        ],
+        "additionalProperties": false
+      },
+      "ManagedJobUpdateInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "description": {
+            "default": "",
+            "type": "string",
+            "maxLength": 1000
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "expectedVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "unitId",
+          "title",
+          "active",
+          "expectedVersion",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "EmployeeRequestRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "org_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unit_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "pto",
+              "schedule",
+              "correction",
+              "other"
+            ]
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "note": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "declined",
+              "cancelled"
+            ]
+          },
+          "reviewer_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "employee_name": {
+            "type": "string"
+          },
+          "unit_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "org_id",
+          "user_id",
+          "unit_id",
+          "kind",
+          "starts_on",
+          "ends_on",
+          "note",
+          "status",
+          "reviewer_id",
+          "review_note",
+          "reviewed_at",
+          "created_at",
+          "version",
+          "employee_name",
+          "unit_name"
+        ],
+        "additionalProperties": false
+      },
+      "EmployeeRequestEditResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "EmployeeRequestReviewInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "declined"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          },
+          "expectedVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "status",
+          "note"
+        ],
+        "additionalProperties": false
+      },
+      "EmployeeRequestEditInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "pto",
+              "schedule",
+              "correction",
+              "other"
+            ]
+          },
+          "unitId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "startsOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endsOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 2000
+          },
+          "expectedVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "kind",
+          "unitId",
+          "startsOn",
+          "endsOn",
+          "note",
+          "expectedVersion"
+        ],
+        "additionalProperties": false
+      },
+      "EmployeeRequestWithdrawInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "PasswordChanged": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "csrf": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "csrf"
+        ],
+        "additionalProperties": false
+      },
+      "ChangeOwnPasswordInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ],
+        "additionalProperties": false
+      },
+      "EditableSchoolYear": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "org_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unit_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "org_id",
+          "unit_id",
+          "name",
+          "starts_on",
+          "ends_on",
+          "archived",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "EditableSchoolTerm": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "org_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unit_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "year_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "locked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "org_id",
+          "unit_id",
+          "year_id",
+          "name",
+          "starts_on",
+          "ends_on",
+          "locked_at",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "EditableSchoolCourse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "org_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unit_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "org_id",
+          "unit_id",
+          "code",
+          "title",
+          "description",
+          "archived",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "EditableTimetableRoom": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "active",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "SchoolYearUpdateInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "startsOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endsOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "name",
+          "startsOn",
+          "endsOn",
+          "archived",
+          "version",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "SchoolTermUpdateInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "startsOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endsOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "name",
+          "startsOn",
+          "endsOn",
+          "version",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "SchoolCourseUpdateInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30
+          },
+          "title": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "code",
+          "title",
+          "description",
+          "archived",
+          "version",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "TimetableRoomUpdateInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "name",
+          "active",
+          "version",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "AccountingContactEditInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "vendor",
+              "customer",
+              "family",
+              "donor"
+            ]
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "note": {
+            "default": "",
+            "type": "string",
+            "maxLength": 500
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "commandId",
+          "name",
+          "kind",
+          "expectedRevision",
+          "active",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "AccountingDocumentEditInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "bill",
+              "invoice"
+            ]
+          },
+          "contactId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "number": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "dueDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "controlAccountId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "accountId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "amount": {
+                  "type": "string",
+                  "pattern": "^-?(?:0|[1-9]\\d{0,11})(?:\\.\\d{1,4})?$"
+                },
+                "unitId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "fundId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": [
+                "description",
+                "accountId",
+                "amount"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "commandId",
+          "kind",
+          "contactId",
+          "number",
+          "date",
+          "dueDate",
+          "description",
+          "lines",
+          "expectedRevision",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "AccountingDraftDiscardInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "commandId",
+          "expectedRevision",
+          "reason"
         ],
         "additionalProperties": false
       }

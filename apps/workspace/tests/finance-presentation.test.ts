@@ -9,7 +9,7 @@ import { createApp } from '../server/app';
 import { digest, issueSetup, type Actor } from '../server/security';
 import { financeReadableCsv } from '../server/finance-presentation';
 import { financeDefaultView, financeGroups, financeMagnitudePercent, financePeriod, financeViewQuery, financeViewSchema, financeVisibleLines, formatFinanceAmount, financeUnits } from '../shared/finance-presentation';
-import type { FinanceLine } from '../shared/finance';
+import { financeRevisionCsv, type FinanceLine } from '../shared/finance';
 const rows: FinanceLine[] = [
   { lineCode:'A',lineLabel:'Tuition',group:'School',rowKind:'detail',amount:'100.1234',note:'Review source' },
   { lineCode:'B',lineLabel:'Adjustment',group:'School',rowKind:'detail',amount:'-20.0001',note:'Credit' },
@@ -102,4 +102,15 @@ test('custom exports reject unsupported columns and deny anonymous, PIN, bearer,
   await db.query('INSERT INTO financial_reports(id,org_id,unit_id,created_by) VALUES($1,$2,$3,$4)',[foreignReport,foreign,foreignUnit,foreignOwner]);
   assert.equal((await request(app).get('/api/finance/reports/'+foreignReport+'/versions/1?format=readable_csv').set('Cookie',cookie)).status,404);
   await db.query("UPDATE sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=$1",[hash]);assert.equal((await request(app).get(path).set('Cookie',cookie)).status,401);
+});
+
+test('metadata revision CSV preserves source precision, quoted labels, formula-like text and multiline notes',()=>{
+ const lines:FinanceLine[]=[...rows,{lineCode:'=source',lineLabel:'Giving, "restricted"',group:'Grant',rowKind:'detail',amount:'999999999999.0001',note:'First line\nSecond "quoted" line'}];
+ const encoded=financeRevisionCsv(lines),decoded=parse(encoded,{columns:true});assert.deepEqual(decoded,lines);assert.equal(lines.at(-1)?.amount,'999999999999.0001');
+});
+
+test('metadata canonical CSV adds no quoting or row-ending overhead to a minimally encoded source',()=>{
+ const line:FinanceLine={lineCode:'A',lineLabel:'Source',group:'School',rowKind:'detail',amount:'1.0001',note:'x'.repeat(1000)};
+ const minimal='lineCode,lineLabel,group,rowKind,amount,note\nA,Source,School,detail,1.0001,'+'x'.repeat(1000);
+ assert.equal(financeRevisionCsv([line]),minimal);
 });

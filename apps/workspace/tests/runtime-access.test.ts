@@ -80,7 +80,7 @@ async function runtime(fn: () => Promise<void>) {
 }
 test("the restricted runtime identity can verify the schema without migration privileges", async () => {
   await runtime(async () => {
-    assert.equal(await verifySchema(db), 37);
+    assert.equal(await verifySchema(db), 39);
     const access = await assertRuntimeAccess(db);
     assert.equal(access.role, "stjw_runtime");
     assert.equal(access.login, "stjw_runtime");
@@ -328,4 +328,16 @@ test("runtime protects retained standing decisions, command receipts and deferre
   await db.query("GRANT DELETE ON standing_series TO stjw_runtime");
   try { await runtime(async () => { await assert.rejects(assertRuntimeAccess(db), /restricted runtime-role/); }); }
   finally { await db.query("REVOKE DELETE ON standing_series FROM stjw_runtime"); }
+});
+
+test('runtime verifies accounting catalog edit guards and cannot delete contacts or document drafts',async()=>{
+ for(const [table,trigger] of [['accounting_contacts','protected_accounting_contacts'],['accounting_documents','protected_accounting_document_drafts']]){
+  await db.query(`ALTER TABLE ${table} DISABLE TRIGGER ${trigger}`);
+  try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}finally{await db.query(`ALTER TABLE ${table} ENABLE TRIGGER ${trigger}`);}
+  await db.query(`REVOKE UPDATE ON ${table} FROM stjw_runtime`);
+  try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}finally{await db.query(`GRANT UPDATE ON ${table} TO stjw_runtime`);}
+  await db.query(`GRANT DELETE ON ${table} TO stjw_runtime`);
+  try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}finally{await db.query(`REVOKE DELETE ON ${table} FROM stjw_runtime`);}
+ }
+ await runtime(async()=>{await assertRuntimeAccess(db);});
 });

@@ -1,3 +1,4 @@
+import { JobManagement, JobForm } from "./JobManagement";
 import {
   useEffect,
   useState,
@@ -177,8 +178,10 @@ export default function App() {
     [includeInactiveStaff, setIncludeInactiveStaff] = useState(false),
     [toast, setToast] = useState<{ text: string; error: boolean } | null>(null),
     [dialog, setDialog] = useState<any>(null),
+    [dialogError, setDialogError] = useState(""),
     [busy, setBusy] = useState(false),
     [privateLink, setPrivateLink] = useState("");
+  useEffect(() => { setDialogError(""); }, [dialog]);
   const reportGeneration = useRef(0), currentReportScope = useRef(scope);
   currentReportScope.current = scope;
   const [reportState,setReportState] = useState<{scope:string;status:'loading'|'unavailable'}>({scope:'',status:'loading'});
@@ -390,6 +393,8 @@ export default function App() {
     try {
       await fn();
     } catch (error) {
+      if (sessionEpoch.current !== workspaceEpoch) return;
+      if (dialog) setDialogError((error as Error).message);
       notify((error as Error).message, true);
     } finally {
       if (sessionEpoch.current === workspaceEpoch) setBusy(false);
@@ -446,6 +451,28 @@ export default function App() {
   const visibleStaff = includedStaff.filter((person) =>
     `${person.name} ${person.email} ${person.role}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
+  function closeManagementDialog() {
+    if (busy) return;
+    if (unsavedChanges && !window.confirm("Discard the changes in this editor?")) return;
+    setDialog(null); setDialogError(""); setUnsavedChanges(false);
+  }
+  async function reloadManagementDialog() {
+    if (busy || !dialog) return;
+    if (unsavedChanges && !window.confirm("Replace your unsaved fields with the latest saved values?")) return;
+    await run(async () => {
+      const kind = dialog.job ? "job" : dialog.staff ? "staff" : "request";
+      const collection = kind === "job" ? "jobs" : kind === "staff" ? "staff" : "requests";
+      const result = await api(`/${collection}`);
+      if (sessionEpoch.current !== workspaceEpoch) return;
+      const saved = result.rows.find((row: any) => row.id === dialog[kind].id);
+      if (!saved) throw new Error("This record is no longer available. Close the editor and refresh the workspace.");
+      if (kind === "job") setJobs(result.rows);
+      if (kind === "staff") setStaff(result.rows);
+      if (kind === "request") setRequests(result.rows);
+      if (kind === "request" && saved.status !== "pending") throw new Error("This request has already been reviewed or withdrawn. Close this editor and view its recorded decision.");
+      setDialog({ ...dialog, [kind]: saved, reloadKey: (dialog.reloadKey ?? 0) + 1 }); setUnsavedChanges(false); setDialogError("");
+    });
+  }
   async function submitDialog(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
@@ -480,22 +507,24 @@ export default function App() {
           }
         }
       } else if (dialog.type === "job") {
-        await api("/jobs", {
-          unitId: form.get("unitId"),
-          title: form.get("title"),
-        });
-        notify("Job created. Assign it to staff from their account.");
+        const input = { unitId: form.get("unitId"), title: form.get("title"), description: form.get("description") };
+        if (dialog.job) {
+          await api(`/jobs/${dialog.job.id}`, { ...input, active: form.get("active") === "on", expectedVersion: dialog.job.version, reason: form.get("reason") }, "PATCH");
+          notify("Job updated. Historical time records and change history are retained.");
+        } else {
+          await api("/jobs", input);
+          notify("Job created. Assign it to staff from their account.");
+        }
       } else if (dialog.type === "request") {
-        await api("/requests", {
-          kind: form.get("kind"),
-          unitId: form.get("unitId"),
-          startsOn: form.get("startsOn"),
-          endsOn: form.get("endsOn"),
-          note: form.get("note"),
-        });
-        notify("Your request is ready for review.");
+        const input = { kind: form.get("kind"), unitId: form.get("unitId"), startsOn: form.get("startsOn"), endsOn: form.get("endsOn"), note: form.get("note") };
+        await api(dialog.request ? `/requests/${dialog.request.id}` : "/requests", { ...input, ...(dialog.request ? { expectedVersion: dialog.request.version } : {}) }, dialog.request ? "PATCH" : "POST");
+        notify(dialog.request ? "Your pending request was updated." : "Your request is ready for review.");
+      } else if (dialog.type === "withdraw") {
+        await api(`/requests/${dialog.request.id}/withdraw`, { expectedVersion: dialog.request.version, reason: form.get("reason") });
+        notify("Request withdrawn. Its history is retained.");
       } else if (dialog.type === "review") {
         await api(`/requests/${dialog.request.id}/review`, {
+          expectedVersion: dialog.request.version,
           status: form.get("status"),
           note: form.get("note"),
         });
@@ -505,6 +534,7 @@ export default function App() {
       }
       if (sessionEpoch.current !== workspaceEpoch) return;
       setDialog(null);
+      setUnsavedChanges(false);
       await refresh();
     });
   }
@@ -1128,17 +1158,7 @@ export default function App() {
                 title="Staff directory"
                 className="staff-directory"
                 detail={`Showing ${visibleStaff.length} of ${includedStaff.length} ${includeInactiveStaff ? "accounts, including inactive," : "active accounts"} in your permitted scope`}
-                action={
-                  me.permissions.manage ? (
-                    <button
-                      className="button secondary small"
-                      onClick={() => setDialog({ type: "job" })}
-                    >
-                      <Plus size={15} />
-                      Create job
-                    </button>
-                  ) : undefined
-                }
+
               >
                 <div className="table-toolbar">
                   <label className="search in-panel">
@@ -1260,22 +1280,7 @@ export default function App() {
                   />
                 )}
               </Panel>
-              <Panel
-                title="Jobs & responsibilities"
-                detail="Access roles control permissions. Jobs describe the work recorded on a shift."
-              >
-                <div className="jobs-grid">
-                  {jobs.map((job: any) => (
-                    <div key={job.id}>
-                      <span className="job-icon">
-                        <Users size={18} />
-                      </span>
-                      <strong>{job.title}</strong>
-                      <small>{job.unit_name}</small>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
+              <JobManagement key={me.actor.id} me={me} jobs={jobs} onEdit={(job) => setDialog({ type: "job", job })} isSessionCurrent={isSessionCurrent} />
             </>
           )}
           {page === "schedule" && <StaffSchedule me={me} staff={staff} jobs={jobs} rows={schedules} week={scheduleWeek} zone={zone}
@@ -1286,7 +1291,7 @@ export default function App() {
               onSchedule={date => { if (go("schedule") && date) setScheduleWeek(DateTime.fromISO(date).setZone(zone).startOf("week").toISODate()!); }}/>
             <Panel
               title="General requests & decisions"
-              detail="These approvals record a decision only. Use linked shift requests above to apply a schedule change, or Time records for clock corrections."
+              detail="Edit or withdraw your own pending requests. Reviewed decisions are retained; submit a new request for further changes. Linked shift requests apply schedule changes; Time records handles clock corrections."
               action={
                 <button
                   className="button secondary small"
@@ -1352,7 +1357,7 @@ export default function App() {
                           </Badge>
                         </td>
                         <td>
-                          {me.permissions.manage &&
+                          {r.user_id === me.actor.id && r.status === "pending" ? <div className="row-actions"><button className="button secondary small" onClick={() => setDialog({ type: "request", request: r })}>Edit request</button><button className="button ghost small" onClick={() => setDialog({ type: "withdraw", request: r })}>Withdraw</button></div> : me.permissions.manage &&
                           r.status === "pending" &&
                           r.user_id !== me.actor.id ? (
                             <button
@@ -1387,7 +1392,7 @@ export default function App() {
               <p className="community-loading">Opening your workspace…</p>
             }
           >
-            {page === "calendar" && <Calendar me={me} notify={notify} />}
+            {page === "calendar" && <Calendar me={me} notify={notify} onDirty={workspaceDirty} />}
             {page === "school" && (
               <School me={me} notify={notify} onDirty={workspaceDirty} />
             )}
@@ -1548,48 +1553,35 @@ export default function App() {
                 staff: dialog.staff
                   ? "Edit staff account"
                   : "Welcome someone new",
-                job: "Create a job",
-                request: "Create a request",
+                job: dialog.job ? "Edit job" : "Create a job",
+                request: dialog.request ? "Edit pending request" : "Create a request",
+                withdraw: "Withdraw pending request",
                 review: "Review request",
               } as Record<string, string>
             )[dialog.type] ?? ""
           }
-          onClose={() => { if (!busy) setDialog(null); }}
+          onClose={closeManagementDialog}
         >
-          <form onSubmit={submitDialog}>
+          <form className="management-editor-form" key={dialog.reloadKey ?? 0} onSubmit={submitDialog} inert={busy} aria-busy={busy} onChange={() => { setUnsavedChanges(true); setDialogError(""); }}>
             {dialog.type === "staff" ? (
               <StaffForm me={me} jobs={jobs} person={dialog.staff} busy={busy} />
             ) : dialog.type === "job" ? (
-              <>
-                <label>
-                  Job title
-                  <input name="title" required minLength={2} maxLength={100} />
-                </label>
-                <label>
-                  Community
-                  <select name="unitId">
-                    {me.units.map((u: any) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </>
+              <JobForm me={me} job={dialog.job} />
             ) : dialog.type === "request" ? (
               <>
                 <p className="panel-note">This general request records a decision only. To change a planned shift, open your Schedule and choose Request a change.</p>
                 <label>
                   Request type
-                  <select name="kind" defaultValue={dialog.kind ?? "pto"}>
+                  <select name="kind" defaultValue={dialog.request?.kind ?? dialog.kind ?? "pto"}>
                     <option value="pto">Paid time off</option>
+                    {dialog.request?.kind === "correction" && <option value="correction">Time correction (retained request)</option>}
                     <option value="schedule">Scheduling question (decision only)</option>
                     <option value="other">Other adjustment</option>
                   </select>
                 </label>
                 <label>
                   Community
-                  <select name="unitId">
+                  <select name="unitId" defaultValue={dialog.request?.unit_id}>
                     {me.units
                       .filter((u: any) => me.actor.unit_ids.includes(u.id))
                       .map((u: any) => (
@@ -1605,7 +1597,7 @@ export default function App() {
                     <input
                       name="startsOn"
                       type="date"
-                      defaultValue={day().toISODate()!}
+                      defaultValue={dialog.request?.starts_on?.slice(0,10) ?? day().toISODate()!}
                       required
                     />
                   </label>
@@ -1614,7 +1606,7 @@ export default function App() {
                     <input
                       name="endsOn"
                       type="date"
-                      defaultValue={day().toISODate()!}
+                      defaultValue={dialog.request?.ends_on?.slice(0,10) ?? day().toISODate()!}
                       required
                     />
                   </label>
@@ -1623,6 +1615,7 @@ export default function App() {
                   What do we need to know?
                   <textarea
                     name="note"
+                    defaultValue={dialog.request?.note}
                     minLength={5}
                     maxLength={2000}
                     rows={4}
@@ -1631,6 +1624,8 @@ export default function App() {
                   />
                 </label>
               </>
+            ) : dialog.type === "withdraw" ? (
+              <><p>Withdraw this pending request without removing its history. A reviewed decision cannot be edited here.</p><label>Reason for withdrawal<textarea name="reason" required minLength={3} maxLength={1000} rows={3}/></label></>
             ) : dialog.type === "review" ? (
               <>
                 <div className="review-summary">
@@ -1660,12 +1655,14 @@ export default function App() {
                 </p>
               </>
             ) : null}
+            {dialogError && <p className="error" role="alert">{dialogError}</p>}
             <div className="dialog-actions">
+              {(dialog.job || dialog.staff || dialog.request) && <button type="button" className="button secondary" disabled={busy} onClick={() => void reloadManagementDialog()}>Reload saved values</button>}
               <button
                 type="button"
                 className="button secondary"
                 disabled={busy}
-                onClick={() => setDialog(null)}
+                onClick={closeManagementDialog}
               >
                 Cancel
               </button>
@@ -1920,7 +1917,7 @@ function StaffForm({
       <fieldset>
         <legend>Assigned jobs</legend>
         {jobs
-          .filter((j) => unitIds.includes(j.unit_id))
+          .filter((j) => unitIds.includes(j.unit_id) && (j.active || person?.job_ids.includes(j.id)))
           .map((j) => (
             <label className="check-label" key={j.id}>
               <input
@@ -1929,7 +1926,7 @@ function StaffForm({
                 value={j.id}
                 defaultChecked={person?.job_ids.includes(j.id)}
               />
-              {j.title}
+              {j.title}{!j.active && " (archived — retained assignment)"}
               <small>{j.unit_name}</small>
             </label>
           ))}

@@ -15,3 +15,5 @@ For a new decision, add the next numbered file with date, status, context, decis
 - [0006: Readable report presentations](0006-readable-report-presentations.md)
 
 - [0007: Accounting ledger and reviewed workflows](0007-accounting-ledger-and-reviewed-workflows.md)
+
+- [0008: Management editing and preserved evidence](0008-management-editing-and-preserved-evidence.md)

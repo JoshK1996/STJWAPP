@@ -26,6 +26,12 @@ export const financeLine = z
   })
   .strict();
 export type FinanceLine = z.infer<typeof financeLine>;
+// Internal revision input, not a spreadsheet export: retain exact source strings.
+export function financeRevisionCsv(lines:FinanceLine[]):string {
+  const quote=(value:string)=>/[,"\r\n]/.test(value)?'"'+value.replaceAll('"','""')+'"':value;
+  return [financeColumns.map(quote).join(','),...lines.map(line=>financeColumns.map(column=>quote(line[column])).join(','))].join('\n');
+}
+
 export const financeMetadata = z
   .object({
     title: z.string().trim().min(2).max(160),

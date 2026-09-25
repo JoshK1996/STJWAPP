@@ -57,6 +57,7 @@ export default function Timetable({
   office,
   notify,
   onDirty,
+  showHistory,
 }: {
   unitId: string;
   yearId: string;
@@ -66,6 +67,7 @@ export default function Timetable({
   office: boolean;
   notify: (text: string, error?: boolean) => void;
   onDirty: (value: boolean) => void;
+  showHistory: (id:string)=>Promise<void>;
 }) {
   const year = years.find((x) => x.id === yearId);
   const today = DateTime.now().toISODate()!;
@@ -88,6 +90,9 @@ export default function Timetable({
     [editor, setEditor] = useState<any>(null),
     [preview, setPreview] = useState<any>(null),
     [roomName, setRoomName] = useState<string | null>(null),
+    [roomEdit,setRoomEdit]=useState<any>(null),
+    [roomActive,setRoomActive]=useState(true),
+    [roomReason,setRoomReason]=useState(''),
     [cancel, setCancel] = useState<any>(null),
     [history, setHistory] = useState<any>(null);
   const [loadedCalendar, setLoadedCalendar] = useState<CalendarReview | null>(null),
@@ -399,7 +404,7 @@ export default function Timetable({
               <button
                 className="button secondary"
                 disabled={busy}
-                onClick={() => setRoomName("")}
+                onClick={() => {setRoomEdit(null);setRoomName('');setRoomActive(true);setRoomReason('');}}
               >
                 <Plus size={16} />
                 Add room
@@ -684,6 +689,7 @@ export default function Timetable({
           </Panel>
         </details>
       )}
+      {office&&<Panel title="Rooms" detail="Edit room names or stop new assignments. Existing meetings keep their room and reservation history."><div className="timetable-room-directory">{rooms.map(room=><article key={room.id}><MapPin size={18}/><strong>{room.name}</strong><Badge tone={room.active?'green':'neutral'}>{room.active?'Active':'Inactive'}</Badge><button className="button secondary small" disabled={busy} onClick={()=>{setRoomEdit(room);setRoomName(room.name);setRoomActive(room.active);setRoomReason('');}} aria-label={'Edit room '+room.name}>Edit room</button><button className="button secondary small" disabled={busy} aria-label={'History for room '+room.name} onClick={()=>void showHistory(room.id)}>History</button></article>)}{!rooms.length&&<p className="muted">Use Add room above to create the first room.</p>}</div></Panel>}
       {calendarReview && (
         <Modal title="Download timetable calendar" onClose={() => {
           if (!calendarBusyRef.current) { setCalendarReview(null); setCalendarError(""); }
@@ -758,9 +764,9 @@ export default function Timetable({
                   onChange={(e) => change({ roomId: e.target.value || null })}
                 >
                   <option value="">Unassigned</option>
-                  {rooms.map((r) => (
+                  {rooms.filter(r=>r.active||r.id===editor.roomId).map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.name}
+                      {r.name}{!r.active?' (inactive, existing assignment)':''}
                     </option>
                   ))}
                 </select>
@@ -912,7 +918,7 @@ export default function Timetable({
       )}
       {roomName !== null && (
         <Modal
-          title="Add a timetable room"
+          title={roomEdit?'Edit timetable room':'Add a timetable room'}
           onClose={() => {
             if (!busy) setRoomName(null);
           }}
@@ -923,13 +929,10 @@ export default function Timetable({
               e.preventDefault();
               setBusy(true);
               try {
-                await api("/school/timetable/rooms", {
-                  unitId,
-                  name: roomName,
-                });
+                await api('/school/timetable/rooms'+(roomEdit?'/'+roomEdit.id:''),{name:roomName,...(roomEdit?{version:roomEdit.version,active:roomActive,reason:roomReason}:{unitId})},roomEdit?'PATCH':'POST');
                 setRoomName(null);
                 await load();
-                notify("Room added to this unit.");
+                notify(roomEdit?'Room settings updated. Existing meeting identities were retained.':'Room added to this unit.');
               } catch (error) {
                 notify((error as Error).message, true);
               } finally {
@@ -952,8 +955,9 @@ export default function Timetable({
                 onChange={(e) => setRoomName(e.target.value)}
               />
             </label>
+            {roomEdit&&<><label className="school-toggle"><input type="checkbox" checked={roomActive} disabled={busy} onChange={e=>setRoomActive(e.target.checked)}/><span>Available for new meeting assignments</span></label><label>Reason for this change<textarea required minLength={5} maxLength={1000} value={roomReason} disabled={busy} onChange={e=>setRoomReason(e.target.value)}/></label><p className="muted">An inactive room stays on existing meetings and continues to prevent conflicting reservations. Restore availability here when ready.</p></>}
             <button className="button primary" disabled={busy}>
-              Add room
+              {busy?'Saving…':roomEdit?'Save room':'Add room'}
             </button>
           </form>
         </Modal>
