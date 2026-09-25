@@ -23,3 +23,5 @@ For a new decision, add the next numbered file with date, status, context, decis
 - [0010: Employee job assignments and account authority](0010-employee-job-assignment-management.md)
 
 - [0011: Independent employee sign-in requirements](0011-configurable-employee-sign-in.md)
+
+- [0012: Job coverage and reviewed schedule documents](0012-job-coverage-and-reviewed-schedule-documents.md)

@@ -82,14 +82,15 @@ test('runtime guards scheduled starts, credential receipts, allowance evidence a
  const guards=[['users','advance_clock_authority_version'],['clock_intents','protected_clock_intent'],
   ['clock_intent_events','immutable_clock_intent_events'],['clock_intent_commands','immutable_clock_intent_commands'],
   ['staff_credential_commands','staff_credential_commands_immutable'],['workforce_allowance_reviews','immutable_workforce_allowance_reviews'],
-  ['workforce_import_batches','workforce_import_evidence_immutable']];
+  ['workforce_import_batches','workforce_import_evidence_immutable'],
+  ...['history','previews','applications','commands'].map(kind=>['staff_planning_'+kind,'immutable_staff_planning_'+kind])];
  for(const [table,trigger] of guards){
   await db.query(`ALTER TABLE ${table} DISABLE TRIGGER ${trigger}`);
   try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}
   finally{await db.query(`ALTER TABLE ${table} ENABLE TRIGGER ${trigger}`);}
  }
- const immutable=['clock_intent_events','clock_intent_commands','staff_credential_commands','workforce_allowance_reviews'];
- const transitions=['clock_intents','clock_employee_policies','workforce_import_batches'];
+ const immutable=['clock_intent_events','clock_intent_commands','staff_credential_commands','workforce_allowance_reviews',...['history','previews','applications','commands'].map(kind=>'staff_planning_'+kind)];
+ const transitions=['clock_intents','clock_employee_policies','workforce_import_batches','staff_planning_definitions'];
  await runtime(async()=>{
   for(const table of immutable)await assert.rejects(db.query(`UPDATE ${table} SET org_id=org_id`),/permission denied/i);
   for(const table of [...immutable,...transitions])await assert.rejects(db.query(`DELETE FROM ${table}`),/permission denied/i);
@@ -107,7 +108,7 @@ test('runtime guards scheduled starts, credential receipts, allowance evidence a
 });
 test("the restricted runtime identity can verify the schema without migration privileges", async () => {
   await runtime(async () => {
-    assert.equal(await verifySchema(db), 44);
+    assert.equal(await verifySchema(db), 46);
     const access = await assertRuntimeAccess(db);
     assert.equal(access.role, "stjw_runtime");
     assert.equal(access.login, "stjw_runtime");

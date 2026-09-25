@@ -10,6 +10,8 @@ import { registerAccountingLedgerRoutes } from './accounting-ledger';
 import { registerAccountingOperationsRoutes } from './accounting-operations';
 import { registerAccountingBankingRoutes } from './accounting-banking';
 import { registerAccountingPlanningRoutes } from './accounting-planning';
+import { installStaffPlanning } from './staff-planning';
+import { installScheduleDocuments } from './schedule-documents';
 import { installStaffScheduling } from './staff-scheduling';
 import { installScheduleRequests } from './schedule-requests';
 import { installOrganization } from "./organization";
@@ -82,6 +84,8 @@ export function createApp(db: Database, config: AppConfig) {
     }
     next();
   });
+  const scheduleDocumentJson=express.json({limit:'3mb'});
+  app.use((req,res,next)=>req.method==='POST'&&req.path==='/api/schedule-documents/inspect'?scheduleDocumentJson(req,res,next):next());
   app.use(express.json({limit:'512kb'}));app.use(cookieParser());
   installAuth(app,db,config.production);
   installAccountCredentials(app,db,config.production);
@@ -108,6 +112,7 @@ export function createApp(db: Database, config: AppConfig) {
   }
   installStaffCredentials(app,db);
   installWorkforceImports(app,db);
+  installScheduleDocuments(app,db);
   installScheduledClockRoutes(app,db);
   app.get('/api/staff',async(req,res)=>{requireCondition(canReport(actorOf(req)),403,'Staff access required.');res.json({rows:await listStaff(db,actorOf(req))});});
   app.get('/api/jobs',async(req,res)=>{
@@ -139,6 +144,7 @@ export function createApp(db: Database, config: AppConfig) {
     const input=z.object({status:z.enum(['approved','declined']),note:z.string().trim().min(3).max(1000),expectedVersion:z.number().int().positive().optional()}).strict().parse(req.body);
     res.json(await reviewAuthenticatedRequest(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),input.status,input.note,input.expectedVersion));
   });
+  installStaffPlanning(app,db);
   installStaffScheduling(app,db);
   installScheduleRequests(app,db);
   const reportQuery=z.object({start:dateOnly,end:dateOnly,group:z.enum(['hour','day','week','month','year']).default('day'),unitId:z.uuid().optional(),userId:z.uuid().optional(),columns:z.string().max(500).optional()});

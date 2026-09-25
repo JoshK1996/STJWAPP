@@ -52,7 +52,7 @@ DO $$ DECLARE immutable_table record; BEGIN
   EXECUTE format('REVOKE DELETE ON TABLE %I.%I FROM stjw_runtime',immutable_table.nspname,immutable_table.relname);
  END LOOP;
 END $$;
-REVOKE DELETE ON TABLE public.clock_employee_policies FROM stjw_runtime;
+REVOKE DELETE ON TABLE public.clock_employee_policies,public.staff_planning_definitions FROM stjw_runtime;
 `;
 }
 const accountingProtections = [
@@ -85,6 +85,10 @@ const workforceProtections = [
  ['staff_credential_commands','staff_credential_commands_immutable','reject_staff_credential_command_change',27,false,true],
  ['workforce_allowance_reviews','immutable_workforce_allowance_reviews','protect_audit_events',27,false,true],
  ['workforce_import_batches','workforce_import_evidence_immutable','preserve_workforce_import_evidence',27,true,true],
+ ['staff_planning_history','immutable_staff_planning_history','protect_audit_events',27,false,true],
+ ['staff_planning_previews','immutable_staff_planning_previews','protect_audit_events',27,false,true],
+ ['staff_planning_applications','immutable_staff_planning_applications','protect_audit_events',27,false,true],
+ ['staff_planning_commands','immutable_staff_planning_commands','protect_audit_events',27,false,true],
 ] as const;
 const workforceProtectionValues = workforceProtections.map(([table,trigger,fn,type,allowUpdate,forbidDelete])=>`('${table}','${trigger}','${fn}',${type},${allowUpdate},${forbidDelete})`).join(',');
 export async function inspectRuntimeAccess(db: Queryable) {
@@ -112,6 +116,10 @@ export async function inspectRuntimeAccess(db: Queryable) {
       OR NOT has_table_privilege('public.'||expected.table_name,'INSERT')
       OR has_table_privilege('public.'||expected.table_name,'UPDATE')<>expected.allow_update
       OR (expected.forbid_delete AND has_table_privilege('public.'||expected.table_name,'DELETE'))) AS unprotected_workforce_activation,
+    (NOT has_table_privilege('public.staff_planning_definitions','SELECT')
+      OR NOT has_table_privilege('public.staff_planning_definitions','INSERT')
+      OR NOT has_table_privilege('public.staff_planning_definitions','UPDATE')
+      OR has_table_privilege('public.staff_planning_definitions','DELETE')) AS unprotected_staff_planning,
     (NOT has_table_privilege('public.clock_employee_policies','SELECT')
       OR NOT has_table_privilege('public.clock_employee_policies','INSERT')
       OR NOT has_table_privilege('public.clock_employee_policies','UPDATE')

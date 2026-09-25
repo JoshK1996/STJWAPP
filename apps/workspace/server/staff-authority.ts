@@ -126,6 +126,8 @@ async function jobHasReferences(tx: Queryable, orgId: string, jobId: string) {
     EXISTS(SELECT 1 FROM user_jobs WHERE org_id=$1 AND job_id=$2) OR
     EXISTS(SELECT 1 FROM segments WHERE org_id=$1 AND job_id=$2) OR
     EXISTS(SELECT 1 FROM schedules WHERE org_id=$1 AND job_id=$2) OR
+    EXISTS(SELECT 1 FROM staff_planning_definitions WHERE org_id=$1 AND job_id=$2) OR
+    EXISTS(SELECT 1 FROM staff_planning_history WHERE org_id=$1 AND (before_snapshot->>'jobId'=$2::text OR after_snapshot->>'jobId'=$2::text)) OR
     EXISTS(SELECT 1 FROM compensation_schedules WHERE org_id=$1 AND job_id=$2) OR
     EXISTS(SELECT 1 FROM staff_schedule_requests WHERE org_id=$1 AND (source_job_id=$2 OR target_job_id=$2)) OR
     EXISTS(SELECT 1 FROM time_corrections WHERE org_id=$1 AND (proposed @> jsonb_build_array(jsonb_build_object('jobId',$2::text)) OR original->'segments' @> jsonb_build_array(jsonb_build_object('jobId',$2::text)))) OR

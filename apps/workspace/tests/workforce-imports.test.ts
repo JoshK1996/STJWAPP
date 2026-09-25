@@ -71,6 +71,20 @@ test('schedule import resolves names/emails, preserves explicit offset times, wr
   assert.equal((await db.query('SELECT id FROM shifts WHERE user_id=$1', [person.id])).rows.length, 0);
 });
 
+test('1,000 reviewed scheduled shifts apply atomically with immutable receipt and safe retry; jobs retain 100-row limit', async t => {
+  const duty = await job(), person = await staff('employee', duty.id), start = Date.parse('2027-01-01T12:00:00Z');
+  const lines = Array.from({ length: 1000 }, (_, i) => [person.email, units[0].name, duty.title, new Date(start + i * 7200000).toISOString(), new Date(start + i * 7200000 + 3600000).toISOString(), '']);
+  // Short synthetic labels keep this stress fixture within the unchanged retained-source byte limit.
+  await db.query('UPDATE jobs SET title=$1 WHERE id=$2', ['Bulk duty', duty.id]); lines.forEach(row => { row[2] = 'Bulk duty'; });
+  const began = performance.now(), value = await preview('schedules', csv('schedules', lines)); assert.equal(value.rows.length, 1000);
+  const receipt = await apply('schedules', value); assert.equal(receipt.created, 1000); assert.deepEqual(await apply('schedules', value), receipt);
+  assert.equal(Number((await db.query('SELECT count(*) AS n FROM schedules WHERE user_id=$1', [person.id])).rows[0].n), 1000);
+  assert.equal(Number((await db.query('SELECT count(*) AS n FROM staff_schedule_history WHERE schedule_id=ANY($1::uuid[])', [receipt.records.map(row => row.id)])).rows[0].n), 1000);
+  assert.equal((await db.query('SELECT id FROM shifts WHERE user_id=$1', [person.id])).rows.length, 0);
+  await assert.rejects(preview('jobs', csv('jobs', Array.from({ length: 101 }, (_, i) => [units[0].name, `Job limit ${i}`, '']))), /between 1 and 100 rows/);
+  t.diagnostic(`Synthetic local PGlite: 1,000-row preview, atomic apply and receipt retry completed in ${Math.round(performance.now() - began)} ms; this is not production throughput evidence.`);
+});
+
 test('preview rejects duplicates, ambiguous names, malformed dates, unassigned work and intra-file or existing overlaps', async () => {
   const duty = await job(), person = await staff('employee', duty.id), unassigned = await staff(), title = 'Dup ' + randomUUID();
   await assert.rejects(preview('jobs', csv('jobs', [[units[0].name, title, ''], [units[0].name, title.toUpperCase(), '']])), (error: any) => error.status === 400);

@@ -2,6 +2,14 @@
 
 The live workspace was cleared of owner-confirmed demonstration operational records while retaining three initial real accounts and four basic communities/jobs. New live records must be preserved. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
 
+## Job coverage and schedule documents - September 25, 2026
+
+Implemented and verified locally; deployment is pending. Schedule planning adds recurring job staffing windows/counts, independent day/week/month/year hours targets, visual coverage and reviewed employee assignment. Direct entry from jobs and employees preserves individual shift editing and history. CSV/XLSX/text-PDF/DOCX uploads gain editable mappings/rows before the existing atomic schedule import. Planning rules do not change saved shifts, worked time or employee allowances; saved shifts retain their existing allowance/preclock behavior. See STAFF-PLANNING and ADR0012.
+
+The final complete suite passed 1,225 tests. Normal-authentication synthetic browser acceptance passed 318 planning/document checks across 61 layouts and 80 mobile-clock checks across 14 samples, with zero unexpected errors. Production/staged builds, repeatable API generation, MCP bridge tests/build and the production dependency audit passed. See VALIDATION for exact scope and limitations.
+
+Additive migrations 045–046 store protected planning definitions/history/previews/receipts and permit 1,000 schedule import rows while jobs remain capped at 100. Uploaded documents remain local to the parser; original bytes are not retained or sent to AI. Scans/legacy DOC, unlimited recurrence expansion and automatic staffing optimization remain unsupported. Current customer accounts and operational records must be preserved through release.
+
 ## Employee and job administration - September 25, 2026
 
 Live in this release: the workspace is named **Employees & jobs**. Employee cards show full names, communities and assigned jobs; direct **Manage jobs** supports administrator self/peer assignments while preserving the separate account-role hierarchy. Grouped creation/editing forms keep every permitted active job visible. Account creation and reset add independently configurable password/PIN replacement requirements alongside private setup links, pay-rate and clock-rule controls. Assignment-only writes support safe additions during an open shift, preserve sessions and guard current clock assignments. Full employee edits now reject stale source revisions instead of overwriting a newer account or job change. Existing customer credentials and operational data are preserved. Migration044 retains existing onboarding requirements while storing the two choices independently. See ADR0010, ADR0011 and WORKFORCE-DAILY-USE.

@@ -11,7 +11,7 @@ import { currentReportActor, recheckReportSession } from './report-source-access
 import { createManagedJob } from './staff-authority';
 import { prepareStaffScheduleChange } from './staff-scheduling';
 import { toCsv } from './reports';
-import { workforceImportKind, workforceImportColumns, workforceImportLimits as limits, workforceImportPreviewInput, workforceImportApplyInput,
+import { workforceImportKind, workforceImportColumns, workforceImportLimits as limits, workforceImportRowLimit, workforceImportPreviewInput, workforceImportApplyInput,
   workforceJobImportRow, workforceScheduleImportRow, workforceImportDetail, workforceImportReceipt, workforceImportList, type WorkforceImportKind, type WorkforceImportDetail } from '../shared/workforce-imports';
 
 type JobRow = z.infer<typeof workforceJobImportRow>;
@@ -26,7 +26,7 @@ function parseSource(kind: WorkforceImportKind, csv: string): InputRow[] {
   let rows: string[][];
   try { rows = parse(csv, { bom: true, skip_empty_lines: true, max_record_size: 4096, relax_column_count: false }); }
   catch { throw new Problem(400, 'Invalid CSV. Use the blank template and plain text cells.'); }
-  requireCondition(rows.length > 1 && rows.length <= limits.rows + 1, 400, 'Import between 1 and 100 rows.');
+  requireCondition(rows.length > 1 && rows.length <= workforceImportRowLimit(kind) + 1, 400, `Import between 1 and ${workforceImportRowLimit(kind)} rows.`);
   const columns = workforceImportColumns[kind];
   requireCondition(isDeepStrictEqual(rows[0], [...columns]), 400, 'Keep the exact template headers in their original order.');
   const seen = new Set<string>();
@@ -67,6 +67,7 @@ async function context(tx: Queryable, actor: Actor, kind: WorkforceImportKind, r
     AND ($3::boolean OR id=ANY($4::uuid[])) ORDER BY id`, [actor.org_id, unitNames, actor.role !== 'manager', actor.unit_ids])).rows;
   requireCondition(units.length === unitNames.length && unitNames.every(name => units.filter(unit => key(unit.name) === name).length === 1), 400, 'A community is unavailable or its name is ambiguous. Use a distinct community name within your access.');
   const unitIds = units.map(unit => unit.id);
+  requireCondition(unitIds.length <= 100, 400, 'Use at most 100 communities in one import.');
   const jobs = (await tx.query('SELECT id,unit_id,title,description,active,version FROM jobs WHERE org_id=$1 AND unit_id=ANY($2::uuid[]) ORDER BY id LIMIT 2001 FOR SHARE', [actor.org_id, unitIds])).rows;
   requireCondition(jobs.length <= 2000, 400, 'Too many jobs match these communities. Import a smaller community group.');
   // Existing job editors lock jobs before units. The stronger unit lock on job

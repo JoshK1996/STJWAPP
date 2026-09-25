@@ -4,7 +4,7 @@ The current application lives in `apps/workspace` in the existing `JoshK1996/STJ
 
 ## Local verification
 
-Use Node 22.12 or newer and the checked-in npm lockfile. Install with `npm ci`, then run `npm test` and `npm run build`. Tests use synthetic records. `scripts/test-env.mjs` supplies a random test-only PIN lookup key when none is configured; never run tests with production configuration. Install and verify the optional local MCP bridge separately with `npm ci --prefix integrations/mcp`, `npm test --prefix integrations/mcp` and `npm run build --prefix integrations/mcp`.
+Use Node 22.13 or newer and the checked-in npm lockfile. Install with `npm ci`, then run `npm test` and `npm run build`. Tests use synthetic records. `scripts/test-env.mjs` supplies a random test-only PIN lookup key when none is configured; never run tests with production configuration. Install and verify the optional local MCP bridge separately with `npm ci --prefix integrations/mcp`, `npm test --prefix integrations/mcp` and `npm run build --prefix integrations/mcp`.
 
 Use `npm run dev` for the application server and `npm run dev:web` for Vite development. Configuration requirements and production startup checks are documented in [deployment](DEPLOYMENT.md) and [database operations](DATABASE-OPERATIONS.md). Keep local credentials in ignored environment configuration; never commit a configured environment file, a database, exported school records, downloaded reports, browser storage or Railway connection artifacts.
 
@@ -20,7 +20,7 @@ The application's `.gitattributes` preserves source bytes across operating syste
 
 ## Branches and review
 
-Use `codex/<short-change>` branches and focused pull requests into `main`. Describe the user-visible result, validation, migration implications and known limitations. Update `docs/STATUS.md`, the affected feature document and the relevant architecture decision when behavior or an architectural constraint changes. Do not rewrite immutable deployed migrations 001–039.
+Use `codex/<short-change>` branches and focused pull requests into `main`. Describe the user-visible result, validation, migration implications and known limitations. Update `docs/STATUS.md`, the affected feature document and the relevant architecture decision when behavior or an architectural constraint changes. Do not rewrite immutable deployed migrations 001–044.
 
 The `Workspace CI / verify` job runs repository hygiene, application tests/build, production dependency audit and the MCP bridge tests/build. It uses a sparse checkout of the current application, read-only repository permission, no deployment credentials, and immutable action SHAs. All pull requests run the job so a required check is not left pending by a path filter. The workflow never deploys to Railway. These choices follow [GitHub's secure use guidance](https://docs.github.com/en/actions/reference/security/secure-use).
 
