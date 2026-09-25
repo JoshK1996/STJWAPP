@@ -14,7 +14,7 @@ PowerShell/OpenSSH scripts are operator tooling, not request handlers or CI. Ide
 
 ## Invariants
 
-- Deployed migrations 001-043 are immutable. Add new numbered migrations instead of rewriting history.
+- Deployed migrations 001-044 are immutable. Add new numbered migrations instead of rewriting history.
 - The web role never receives superuser, create-database/create-role or bypass-row-security privileges for migrations, tests or rollback.
 - Time transitions and audits commit together. Historical revisions, finalized evidence and audits persist.
 - Academic scheduling acquires `lockAcademics` before domain locks, validates the resulting timetable and advances its revision in the same transaction.
