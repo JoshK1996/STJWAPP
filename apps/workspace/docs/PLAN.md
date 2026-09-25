@@ -10,6 +10,8 @@ Focus the first screen on who is clocked in, their organization/job, elapsed tim
 
 ## Sequence
 
+Administrator time-card review and editing is implemented and undergoing release verification. The owner selected immediate saving with audit history for another employee's time. Preserve self/scoped-manager independent review, original punches, exact retries and current source/session checks. Add whole-range search/totals, work/break separation and direct employee/Payroll/Overview entry. See TIME-CARDS and ADR0013; actual implementation and rollout must be recorded in STATUS/VALIDATION.
+
 1. Improve mobile readability and workforce interactions, retaining exact data/export semantics and clear failure states.
 2. Confirm accountant requirements for periods, rates, breaks, overtime, approvals, rounding and exports. Do not infer policies from another organization.
 3. Confirm school rules and test classroom, attendance, admissions, care and dismissal with synthetic fixtures. Receiving care staff confirm their own handoffs; conflicting teacher/student/room schedules are blocked.

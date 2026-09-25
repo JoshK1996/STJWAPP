@@ -16285,8 +16285,8 @@
     "/time-records": {
       "get": {
         "operationId": "get_time_records",
-        "summary": "List scoped recorded shifts and pending correction counts",
-        "description": "Current password session and current MFA proof required, with final expiry check on reads, writes and successful retries. PIN and agent tokens are denied. Employees read their own shifts; reporting roles need access to every captured and current unit in a whole shift. Correction histories with broader original/proposed job-unit scope are separately filtered. Creator identity alone grants no retained access. 100 rows per page, at most 367 days.",
+        "summary": "Find employee time cards with work and break summaries",
+        "description": "Current password session and current MFA proof required, with final expiry check on reads, writes and successful retries. PIN and agent tokens are denied. Employees read their own shifts; reporting roles need access to every captured and current unit in a whole shift. Correction histories with broader original/proposed job-unit scope are separately filtered. Creator identity alone grants no retained access. Server-side search, employee, status, job and community filters span all matching records. 100 cards per page; at most367 dates,10000 source cards and20000 source segments. Each card includes its full current-revision job/community work and break durations, current administrative eligibility and historical employee availability. Top summary includes exact period-clipped work/break totals across all matching pages and only selected jobs/communities; cards remain whole. Open durations are observed through observedAt and may change. Filter options include historical inactive employees. Source uses a repeatable-read transaction with final current authorization recheck.",
         "security": [
           {
             "Session": []
@@ -16380,6 +16380,64 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "jobId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "unitId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "open",
+                "completed",
+                "pending",
+                "revised"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "newest",
+                "oldest",
+                "name",
+                "pending"
+              ],
+              "default": "newest"
             }
           },
           {
@@ -16477,6 +16535,189 @@
               "type": "string",
               "format": "uuid"
             }
+          }
+        ]
+      }
+    },
+    "/time-records/{id}/adjust": {
+      "post": {
+        "operationId": "post_time_records__id__adjust",
+        "summary": "Save another employee time-card correction immediately",
+        "description": "Current password session and current MFA proof required, with final expiry check on reads, writes and successful retries. PIN and agent tokens are denied. Employees read their own shifts; reporting roles need access to every captured and current unit in a whole shift. Correction histories with broader original/proposed job-unit scope are separately filtered. Creator identity alone grants no retained access. Current administrator, owner or developer only; self, manager, finance, employee and PIN direct saves denied. shiftId must match the route id. Requires current sourceRevision, commandId, reason and complete ordered contiguous segments. Revalidates recorded/assigned jobs, precise unchanged source instants, no future completed times and overlap. Publishes a new selected shift revision, original administrative-adjustment evidence and audit atomically. Retains original segments. Exact identical retries return the original correction and resultRevision, including after later edits; changed payloads cannot reuse the command. This direct action does not imply independent approval. Existing proposal/review routes keep their prior policy.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, CSRF, scope, or role denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state or duplicate record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "shiftId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "sourceRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "commandId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 2000
+                  },
+                  "segments": {
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "jobId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "work",
+                            "break"
+                          ]
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "endedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "jobId",
+                        "kind",
+                        "startedAt",
+                        "endedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "shiftId",
+                  "sourceRevision",
+                  "commandId",
+                  "reason",
+                  "segments"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured APP_ORIGIN"
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session token from GET /me; API bearer tokens cannot write."
           }
         ]
       }
@@ -42666,7 +42907,7 @@
       "get": {
         "operationId": "get__time_adjustments_options",
         "summary": "Read current employee and job choices",
-        "description": "Current active password-session identity and full captured/current unit scope are checked under account locks, including final session expiry/MFA checks. PIN and bearer tokens are denied. Employees read their own evidence; reporting roles require all units for other employees. Manager membership is explicit per subgroup. Private, no-store responses. Requires an explicit employeeId. Current assigned active jobs are offered for a missing shift. Employees/finance propose for themselves; managers may propose for permitted employees, including inactive employees with valid current assignments. No job or time is inferred.",
+        "description": "Current active password-session identity and full captured/current unit scope are checked under account locks, including final session expiry/MFA checks. PIN and bearer tokens are denied. Employees read their own evidence; reporting roles require all units for other employees. Manager membership is explicit per subgroup. Private, no-store responses. Requires an explicit employeeId. Current assigned active jobs are offered for a missing shift. Employees/finance propose for themselves; managers may propose for permitted employees, including inactive employees with valid current assignments. No job or time is inferred. allowedActions.applyDirect identifies current administrator/owner/developer authority to save another employee immediately.",
         "security": [
           {
             "Session": []
@@ -42790,7 +43031,7 @@
       "get": {
         "operationId": "get__time_adjustments_closure_source",
         "summary": "Read the exact active source for a proposed closure",
-        "description": "Current active password-session identity and full captured/current unit scope are checked under account locks, including final session expiry/MFA checks. PIN and bearer tokens are denied. Employees read their own evidence; reporting roles require all units for other employees. Manager membership is explicit per subgroup. Private, no-store responses. Requires shiftId. Returns the complete active revision, immutable source hash, exact UTC source instants and current observation time. The recorded null end stays null and completed totals stay unknown. No clock action occurs.",
+        "description": "Current active password-session identity and full captured/current unit scope are checked under account locks, including final session expiry/MFA checks. PIN and bearer tokens are denied. Employees read their own evidence; reporting roles require all units for other employees. Manager membership is explicit per subgroup. Private, no-store responses. Requires shiftId. Returns the complete active revision, immutable source hash, exact UTC source instants and current observation time. The recorded null end stays null and completed totals stay unknown. No clock action occurs. allowedActions.applyDirect separately identifies immediate administrator authority for another employee.",
         "security": [
           {
             "Session": []
@@ -43049,7 +43290,7 @@
       "get": {
         "operationId": "get__time_adjustments",
         "summary": "List missing-shift and closure review requests",
-        "description": "Current active password-session identity and full captured/current unit scope are checked under account locks, including final session expiry/MFA checks. PIN and bearer tokens are denied. Employees read their own evidence; reporting roles require all units for other employees. Manager membership is explicit per subgroup. Private, no-store responses. Supply both inclusive organization-calendar start/end dates (at most367 days), or an exact sourceShiftId. Date filters mean proposed work overlaps the range, not submission date. Optional employee/kind/status filters. Fifty rows per page. A changed scoped revision returns409 and requires discarding accumulated pages.",
+        "description": "Current active password-session identity and full captured/current unit scope are checked under account locks, including final session expiry/MFA checks. PIN and bearer tokens are denied. Employees read their own evidence; reporting roles require all units for other employees. Manager membership is explicit per subgroup. Private, no-store responses. Supply both inclusive organization-calendar start/end dates (at most367 days), or an exact sourceShiftId matching either the original source or resulting saved card. Date filters mean proposed work overlaps the range, not submission date. Optional employee/kind/status filters. Fifty rows per page. A changed scoped revision returns409 and requires discarding accumulated pages.",
         "security": [
           {
             "Session": []
@@ -43116,7 +43357,8 @@
                 "pending",
                 "approved",
                 "declined",
-                "cancelled"
+                "cancelled",
+                "applied"
               ]
             }
           },
@@ -43265,6 +43507,281 @@
         "responses": {
           "200": {
             "description": "Exact successful command replay under current authority",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "private, no-store",
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeAdjustmentReceipt"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful operation",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "private, no-store",
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeAdjustmentReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session missing, expired or changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Scoped record unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Source, version, cursor, overlap or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unsupported or inconsistent source evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporary transaction conflict; retry the identical command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "missing_shift"
+                      },
+                      "employeeId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "segments": {
+                        "minItems": 1,
+                        "maxItems": 200,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "jobId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "work",
+                                "break"
+                              ]
+                            },
+                            "startedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "endedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "jobId",
+                            "kind",
+                            "startedAt",
+                            "endedAt"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 10,
+                        "maxLength": 2000
+                      },
+                      "commandId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "employeeId",
+                      "segments",
+                      "reason",
+                      "commandId"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "close_open_shift"
+                      },
+                      "shiftId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "sourceHash": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "endedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 10,
+                        "maxLength": 2000
+                      },
+                      "commandId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "shiftId",
+                      "sourceHash",
+                      "endedAt",
+                      "reason",
+                      "commandId"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/time-adjustments/direct": {
+      "post": {
+        "operationId": "post__time_adjustments_direct",
+        "summary": "Save another employee missing shift or missed clock-out immediately",
+        "description": "Current active password-session identity and full captured/current unit scope are checked under account locks, including final session expiry/MFA checks. PIN and bearer tokens are denied. Employees read their own evidence; reporting roles require all units for other employees. Manager membership is explicit per subgroup. Private, no-store responses. Current administrator, owner or developer for another employee only. Uses the same explicit segments or locked closure sourceHash, reason and command UUID validation as proposals. Direct application publishes a terminal applied version1 with original/proposed/result evidence, history, audit and command receipt in one transaction. Self and scoped-manager writes retain independent review. Revalidate current session, exact source, assigned jobs and overlaps. An identical command retry returns the captured result even after later time changes; a changed body cannot reuse it. This is direct administrative application, not independent approval.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured APP_ORIGIN"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Current password-session CSRF token from GET /me"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exact successful direct command replay",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -98518,7 +99035,8 @@
                   "pending",
                   "approved",
                   "declined",
-                  "cancelled"
+                  "cancelled",
+                  "applied"
                 ]
               },
               "version": {
@@ -99404,7 +99922,8 @@
                   "pending",
                   "approved",
                   "declined",
-                  "cancelled"
+                  "cancelled",
+                  "applied"
                 ]
               },
               "version": {
@@ -99850,7 +100369,8 @@
               "pending",
               "approved",
               "declined",
-              "cancelled"
+              "cancelled",
+              "applied"
             ]
           },
           "resultShiftId": {
@@ -100118,10 +100638,14 @@
             "properties": {
               "propose": {
                 "type": "boolean"
+              },
+              "applyDirect": {
+                "type": "boolean"
               }
             },
             "required": [
-              "propose"
+              "propose",
+              "applyDirect"
             ],
             "additionalProperties": false
           }
@@ -100209,10 +100733,14 @@
             "properties": {
               "proposeMissing": {
                 "type": "boolean"
+              },
+              "applyDirect": {
+                "type": "boolean"
               }
             },
             "required": [
-              "proposeMissing"
+              "proposeMissing",
+              "applyDirect"
             ],
             "additionalProperties": false
           }
@@ -100254,7 +100782,8 @@
                     "proposed",
                     "approved",
                     "declined",
-                    "cancelled"
+                    "cancelled",
+                    "applied"
                   ]
                 },
                 "actor": {
@@ -100824,7 +101353,8 @@
                             "pending",
                             "approved",
                             "declined",
-                            "cancelled"
+                            "cancelled",
+                            "applied"
                           ]
                         },
                         "version": {
@@ -101217,7 +101747,8 @@
               "proposed",
               "approved",
               "declined",
-              "cancelled"
+              "cancelled",
+              "applied"
             ]
           },
           "actor": {
@@ -101787,7 +102318,8 @@
                       "pending",
                       "approved",
                       "declined",
-                      "cancelled"
+                      "cancelled",
+                      "applied"
                     ]
                   },
                   "version": {
@@ -102246,7 +102778,8 @@
                     "pending",
                     "approved",
                     "declined",
-                    "cancelled"
+                    "cancelled",
+                    "applied"
                   ]
                 },
                 "requestHash": {

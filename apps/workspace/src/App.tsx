@@ -82,6 +82,7 @@ const School = lazy(() => import("./School"));
 const Care = lazy(() => import("./Care"));
 const Dismissal = lazy(() => import("./Dismissal"));
 const TimeRecords = lazy(() => import("./TimeRecords"));
+import type { TimeRecordsTarget } from "./TimeRecords";
 import SchedulePlanning, { type SchedulePlanningTarget } from "./SchedulePlanning";
 import ScheduleRequests from "./ScheduleRequests";
 import { normalizePreferences } from "../shared/preferences";
@@ -156,16 +157,18 @@ export default function App() {
   const [boardState,setBoardState]=useState<TeamBoardState>({receivedAt:null,unavailable:false});
   const [clockPending, setClockPending] = useState(false);
   const clockPendingRef = useRef(false);
+  const [timeCardPending,setTimeCardPending]=useState(false);
+  const timeCardPendingRef=useRef(false);
   useEffect(() => {
     const prevent = (event: BeforeUnloadEvent) => {
-      if (unsavedChanges || clockPending) {
+      if (unsavedChanges || clockPending || timeCardPending) {
         event.preventDefault();
         event.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", prevent);
     return () => window.removeEventListener("beforeunload", prevent);
-  }, [unsavedChanges, clockPending]);
+  }, [unsavedChanges, clockPending, timeCardPending]);
   const [me, setMe] = useState<any>(null),
     [loading, setLoading] = useState(true),
     [page, setPage] = useState<Page>("overview"),
@@ -200,6 +203,8 @@ export default function App() {
   );
   const [schedulePlanningTarget,setSchedulePlanningTarget]=useState<SchedulePlanningTarget|null>(null);
   const consumeSchedulePlanningTarget=useCallback(()=>setSchedulePlanningTarget(null),[]);
+  const [timeRecordsTarget,setTimeRecordsTarget]=useState<TimeRecordsTarget|null>(null);
+  const consumeTimeRecordsTarget=useCallback(()=>setTimeRecordsTarget(null),[]);
   const [scheduleRequestTarget, setScheduleRequestTarget] = useState<{ scheduleId?: string; requestId?: string } | null>(null);
   useEffect(() => { if (page !== "requests") setScheduleRequestTarget(null); }, [page]);
   useEffect(() => {
@@ -258,9 +263,10 @@ export default function App() {
     setDialog(null); setStaffTool(null); setMoreTools(false); setPrivateLink(""); setScheduleRequestTarget(null);
     setUnsavedChanges(false); setBusy(false); setToast(null); setMobile(false);
     clockPendingRef.current = false; setClockPending(false);
+    timeCardPendingRef.current=false;setTimeCardPending(false);
     setScope(""); setSearch(""); setIncludeInactiveStaff(false);
     setScheduleWeek(day().startOf("week").toISODate()!);
-    setSchedulePlanningTarget(null);setScheduleRequestTarget(null);
+    setSchedulePlanningTarget(null);setScheduleRequestTarget(null);setTimeRecordsTarget(null);
     setPage("overview"); setSetupToken(""); setLoading(false);
     focusDestination.current = false;
   }, []);
@@ -294,6 +300,10 @@ export default function App() {
     if (sessionEpoch.current !== workspaceEpoch) return;
     clockPendingRef.current = pending; setClockPending(pending);
   }, [workspaceEpoch]);
+  const timeCardPendingChanged=useCallback((pending:boolean)=>{
+    if(sessionEpoch.current!==workspaceEpoch)return;
+    timeCardPendingRef.current=pending;setTimeCardPending(pending);
+  },[workspaceEpoch]);
   const notify = useCallback(
     (text: string, error = false) => {
       if (sessionEpoch.current === workspaceEpoch) setToast({ text, error });
@@ -426,15 +436,19 @@ export default function App() {
       return JSON.stringify(Array.from(control.selectedOptions).map(option => option.value)) !== JSON.stringify(expected);
     });
     const workflowOpen = Array.from(document.querySelectorAll('dialog[open],[aria-modal="true"]')).some(dialog => !dialog.querySelector('.install-guide'));
-    const reason = updateBlockReason({ pendingWrites: getPendingWriteCount(), clockPending: clockPendingRef.current, unsavedChanges, busy, workflowOpen, formHasChanges, accountSetup: Boolean(document.querySelector('.auth-layout[data-account-workflow="true"]')) });
+    const reason = updateBlockReason({ pendingWrites: getPendingWriteCount()+Number(timeCardPendingRef.current), clockPending: clockPendingRef.current, unsavedChanges, busy, workflowOpen, formHasChanges, accountSetup: Boolean(document.querySelector('.auth-layout[data-account-workflow="true"]')) });
     if (reason) return reason;
     if (!navigator.onLine) return 'Reconnect to the internet before updating.';
     if (!appUpdate.available) return 'Check for updates again before reloading.';
     window.location.reload();
   }
-  const updateNotice = <InstallExperience compact={Boolean(me && compactClock && page === "clock")} experience={installExperience} update={appUpdate} onReload={reloadForUpdate} onCheckForUpdate={() => { void updateMonitor.current?.check(); }} reloadBlockedReason={updateBlockReason({ pendingWrites, clockPending, unsavedChanges, busy, workflowOpen: false, formHasChanges: false, accountSetup: false })} />;
+  const updateNotice = <InstallExperience compact={Boolean(me && compactClock && page === "clock")} experience={installExperience} update={appUpdate} onReload={reloadForUpdate} onCheckForUpdate={() => { void updateMonitor.current?.check(); }} reloadBlockedReason={updateBlockReason({ pendingWrites:pendingWrites+Number(timeCardPending), clockPending, unsavedChanges, busy, workflowOpen: false, formHasChanges: false, accountSetup: false })} />;
   function go(next: Page) {
     if (next === page) { if (mobile) setMobile(false); return true; }
+    if (timeCardPendingRef.current) {
+      notify("Resolve the time-card save using its retry control before leaving this screen.",true);
+      return false;
+    }
     if (clockPendingRef.current) {
       notify("Resolve the clock request using Retry or Refresh before leaving this screen.", true);
       return false;
@@ -451,6 +465,9 @@ export default function App() {
     setSearch("");
     window.scrollTo({ top: 0, behavior: "instant" });
     return true;
+  }
+  function openTimeRecords(target:TimeRecordsTarget = {}) {
+    if (sessionEpoch.current === workspaceEpoch && go("time-records")) setTimeRecordsTarget({...target});
   }
   const scopedBoard = board.filter((x) => !scope || x.unit_id === scope);
   const pending = requests.filter((x) => x.status === "pending");
@@ -631,7 +648,7 @@ export default function App() {
     overview: "Here’s what’s happening across your community today.",
     clock: "Clock in, take a break, or move seamlessly between your jobs.",
     "time-records":
-      "Review recorded shifts and resolve corrections with a clear approval trail.",
+      "Review recorded shifts, correct times, and follow every change in the audit history.",
     payroll: "Understand the hours, review the details, and prepare your accountant’s exports.",
     staff:
       "Add employees, choose their clock-in jobs, and manage account details.",
@@ -778,6 +795,7 @@ export default function App() {
               void run(async () => {
                 const warning = clockPendingRef.current
                   ? `Your clock request may already be recorded. ${unsavedChanges ? "Other unsaved changes will be discarded. " : ""}Sign out and check your clock after signing in again?`
+                  : timeCardPendingRef.current ? "Your time-card change may already be saved. Sign out and check its history after signing in again?"
                   : unsavedChanges ? "Discard unsaved changes and sign out?" : "";
                 if (warning && !window.confirm(warning)) return;
                 try { await api("/auth/logout", {}); }
@@ -923,7 +941,7 @@ export default function App() {
             />
           )}
           {page === "overview" && me.permissions.report && <>
-            <WorkforceDashboard key={me.actor.id} me={me} board={board} boardState={boardState} onNavigate={go} onRefresh={refresh}/>
+            <WorkforceDashboard key={me.actor.id} me={me} board={board} boardState={boardState} onNavigate={go} onRefresh={refresh} onNavigateRecords={openTimeRecords}/>
             <button className="workforce-personal-toggle" onClick={() => setShowPersonalCards(value => !value)} aria-expanded={showPersonalCards}><SlidersHorizontal size={17}/>{showPersonalCards ? "Hide personal workspace cards" : "Show personal workspace cards"}<ChevronDown size={17}/></button>
           </>}
           {page === "overview" && (!me.permissions.report || showPersonalCards) && (
@@ -1234,6 +1252,7 @@ export default function App() {
                         {!person.job_ids.length && <span className="employee-no-jobs">No jobs assigned · cannot clock in yet</span>}
                       </dd></div><div><dt>Communities</dt><dd>{communityNames.join(', ') || 'No community listed'}</dd></div></dl>
                       <div className="employee-card-actions">
+                        {me.permissions.report && <button className="button secondary small" onClick={() => openTimeRecords({userId:person.id})}>Time cards</button>}
                         {me.permissions.manage && person.active && <button className="button secondary small" onClick={() => { if(go("schedule"))setSchedulePlanningTarget({userId:person.id,mode:"assigned"}); }}>Schedule</button>}
                         {canAssignPerson(person) && <button className="button primary small" onClick={() => setStaffTool({kind:'assignments',person})}>Manage jobs</button>}
                         {canManagePerson(person) && <button className="button secondary small" onClick={() => setDialog({type:'staff',staff:person})}>Edit employee</button>}
@@ -1391,9 +1410,9 @@ export default function App() {
             <Reports me={me} jobs={jobs} notify={notify} onChange={refresh} onDirty={workspaceDirty} />
           )}
           {page === "time-records" && (
-            <TimeRecords me={me} notify={notify} onChanged={refresh} onDirty={workspaceDirty} onNavigatePayroll={me.permissions.report ? () => go("payroll") : undefined}/>
+            <TimeRecords key={me.actor.id+":"+workspaceEpoch} me={me} notify={notify} onChanged={refresh} onDirty={workspaceDirty} target={timeRecordsTarget} onTargetConsumed={consumeTimeRecordsTarget} onPendingChange={timeCardPendingChanged} onNavigatePayroll={me.permissions.report ? () => go("payroll") : undefined}/>
           )}
-          {page === "payroll" && me.actor.mode !== "pin" && me.permissions.report && <Payroll me={me} staff={staff} notify={notify} onDirty={workspaceDirty} onNavigateRecords={() => go("time-records")}/>} 
+          {page === "payroll" && me.actor.mode !== "pin" && me.permissions.report && <Payroll me={me} staff={staff} notify={notify} onDirty={workspaceDirty} onNavigateRecords={openTimeRecords}/>}
           {page === "audit" && (
             <Panel
               title="Activity log"

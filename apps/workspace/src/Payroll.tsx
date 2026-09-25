@@ -11,6 +11,7 @@ import { payrollHoursReportSchema, type PayrollHoursReport } from '../shared/pay
 import { createPayrollViewSchema, payrollViewListSchema, resolvedPayrollViewSchema, savedPayrollViewSchema, updatePayrollViewSchema, type PayrollViewFilters, type SavedPayrollView } from '../shared/payroll-views';
 import { payrollReviewSchema, type PayrollReview } from '../shared/payroll-review';
 import { formatWorkforceDuration, workforceBarPercent } from '../shared/workforce-display';
+import type { TimeRecordsTarget } from './TimeRecords';
 import './payroll.css';
 import './payroll-preparation.css';
 
@@ -18,7 +19,7 @@ const displayHours = (value: string) => {
   const hundredths = (BigInt(value) * 100n + 1_800_000_000n) / 3_600_000_000n;
   return `${(hundredths / 100n).toLocaleString()}.${String(hundredths % 100n).padStart(2,'0')}`;
 };
-type Props = { me:any; staff:any[]; notify:(message:string,error?:boolean)=>void; onDirty:(value:boolean)=>void; onNavigateRecords:()=>void };
+type Props = { me:any; staff:any[]; notify:(message:string,error?:boolean)=>void; onDirty:(value:boolean)=>void; onNavigateRecords:(target?:TimeRecordsTarget)=>void };
 type ViewEditor = { owner:string; id:string; revision?:number; name:string; filters:PayrollViewFilters; baseline:string };
 const periodNames:Record<PayrollViewFilters['period'],string> = {this_week:'This week',last_week:'Last week',last_14_days:'Last 14 days',this_month:'This month',custom:'Custom dates'};
 const viewSummary=(filters:PayrollViewFilters)=>`${filters.period==='custom'?`${filters.start} through ${filters.end}`:periodNames[filters.period]} · ${filters.group} groups${filters.unitId?' · selected community':''}${filters.userId?' · selected employee':''}${filters.comparePrevious?' · previous-period comparison':''}`;
@@ -162,7 +163,7 @@ export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords 
   return <section className="payroll-workspace" aria-label="Payroll workspace">
     <div className="payroll-hero">
       <div><span className="eyebrow"><Wallet size={16}/> HOURS TO HANDOFF</span><h2>Payroll starts with<br/><em>a clear picture.</em></h2><p>See the people, jobs and hours behind every total. Give your accountant a workbook they can use.</p>
-        <div className="payroll-hero-links"><button onClick={onNavigateRecords}><Clock3 size={17}/>Review time records<ArrowRight size={16}/></button>{canPay&&<button onClick={()=>changeView('rates')}><Wallet size={17}/>Manage pay rates<ArrowRight size={16}/></button>}</div>
+        <div className="payroll-hero-links"><button onClick={()=>onNavigateRecords({start,end,...(person?{userId:person}:{}),...(unit?{unitId:unit}:{})})}><Clock3 size={17}/>Review time records<ArrowRight size={16}/></button>{canPay&&<button onClick={()=>changeView('rates')}><Wallet size={17}/>Manage pay rates<ArrowRight size={16}/></button>}</div>
       </div>
       <div className="payroll-sculpture" aria-hidden="true"><div className="payroll-orbit"/><div className="payroll-paper paper-back"/><div className="payroll-paper"><FileSpreadsheet size={39}/><i/><i/><i/><div className="payroll-paper-bars"><b/><b/><b/><b/></div></div><span className="payroll-coin"><CheckCircle2 size={38}/></span><span className="payroll-cube"><Layers3 size={29}/></span></div>
     </div>
@@ -202,8 +203,8 @@ export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords 
             <p className="payroll-preparation-caption"><span><ShieldCheck size={15}/>Review required</span>{review&&<>Evidence captured {DateTime.fromISO(review.asOf).setZone(zone).toFormat('LLL d, h:mm:ss a')}</>}</p>
             {reviewLoading&&<p className="payroll-capture" role="status">Loading preparation evidence…</p>}
             {reviewError&&<div className="payroll-view-error" role="alert"><strong>Preparation evidence is unavailable.</strong><p>{reviewError}</p><button type="button" onClick={()=>setVersion(value=>value+1)}>Retry preparation review</button></div>}
-            {review&&<><div className="payroll-check-row"><span className={review.preparation.openSegmentCount?'needs-review':'checked'}><Clock3 size={19}/></span><div><strong>{review.preparation.openSegmentCount?`${review.preparation.openSegmentCount} open time ${review.preparation.openSegmentCount===1?'segment':'segments'}`:'No open segments in this selection'}</strong><p>{review.preparation.openSegmentCount?`${review.preparation.employeesWithOpenSegments} employees have segments without a recorded end in this range. Their hours can change.`:'This source has no segments without a recorded end. It does not establish payroll approval.'}</p></div><button onClick={onNavigateRecords}>Review<ArrowRight size={15}/></button></div>
-            <div className="payroll-check-row"><span className="policy"><Info size={19}/></span><div><strong>Corrections need a separate review</strong><p>{review.preparation.pendingCorrections.notice}</p></div><button onClick={onNavigateRecords}>Time records<ArrowRight size={15}/></button></div>
+            {review&&<><div className="payroll-check-row"><span className={review.preparation.openSegmentCount?'needs-review':'checked'}><Clock3 size={19}/></span><div><strong>{review.preparation.openSegmentCount?`${review.preparation.openSegmentCount} open time ${review.preparation.openSegmentCount===1?'segment':'segments'}`:'No open segments in this selection'}</strong><p>{review.preparation.openSegmentCount?`${review.preparation.employeesWithOpenSegments} employees have segments without a recorded end in this range. Their hours can change.`:'This source has no segments without a recorded end. It does not establish payroll approval.'}</p></div><button onClick={()=>onNavigateRecords({start,end,...(person?{userId:person}:{}),...(unit?{unitId:unit}:{})})}>Review<ArrowRight size={15}/></button></div>
+            <div className="payroll-check-row"><span className="policy"><Info size={19}/></span><div><strong>Review time-card changes</strong><p>{review.preparation.pendingCorrections.notice}</p></div><button onClick={()=>onNavigateRecords({start,end,...(person?{userId:person}:{}),...(unit?{unitId:unit}:{})})}>Time records<ArrowRight size={15}/></button></div>
             <div className="payroll-check-row"><span className="checked"><Fingerprint size={19}/></span><div><strong>{review.evidence.currentSourceRows} source segments captured</strong><p>Recorded identities, time evidence and exact microseconds support this snapshot. Exports capture current permitted records again.</p></div></div></>}
             <div className="payroll-check-row"><span className="policy"><Wallet size={19}/></span><div><strong>Hours and pay rates in one workspace</strong><p>Gross/net pay, overtime, paid breaks, leave, taxes and deductions are not calculated. Confirm the organization’s rules before processing payroll.</p></div>{canPay&&<button onClick={()=>changeView('rates')}>Pay rates<ArrowRight size={15}/></button>}</div>
           </section>

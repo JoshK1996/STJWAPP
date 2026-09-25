@@ -32,6 +32,11 @@ export const timeRecordsQuery = z
     start: dateOnly,
     end: dateOnly,
     userId: z.uuid().optional(),
+    jobId: z.uuid().optional(),
+    unitId: z.uuid().optional(),
+    search: z.string().trim().max(100).optional(),
+    status: z.enum(["all", "open", "completed", "pending", "revised"]).default("all"),
+    sort: z.enum(["newest", "oldest", "name", "pending"]).default("newest"),
     offset: z.coerce.number().int().min(0).max(100000).default(0),
   })
   .strict();
