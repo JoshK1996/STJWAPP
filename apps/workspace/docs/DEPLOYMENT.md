@@ -2,7 +2,15 @@
 
 Railway hosts the app and its separate PostgreSQL database independently of the reference applications. The root prototype is not a deployment source for `apps/workspace`.
 
-## Current workforce activation release
+## Current employee administration release
+
+Deployment `d1f9cb55-d1e8-4641-a55e-42db50652fe3` is live, verified September 25, 2026 UTC. Separate maintenance dry-run and commit passed with existing credentials, account roles/active states and operational-record counts preserved. Schema 044 is deployed; migrations 001-044 are immutable. All 367 staged runtime files match source commit `ce0460a269ace7d07ee7296e41dbb1bcb8a77d6d`, manifest SHA256 `db23abdf2662674175311be8c7d61396c10ba8cb2b7459767e2ca07d2684bce6`. Hosted public acceptance passed 36 checks, 12 exact asset comparisons and 99 anonymous protected-route denials, with zero unexpected errors. Actual web-container readback verified `stjw_runtime` as runtime/login identity, 31 protection flags, no private archive access, consistent credential policy flags and active required management roles. Temporary maintenance access was revoked.
+
+Build version `a0c373af5e553495f51ce672c7c8af6746da5add9c058851696674275a2a1893`; entry SHA256 `a2dda044f4cc62c5c08790cee25a5933015343f741d3b35b38e7947fec31ce79`. The executed plan SHA256 is `32c11005d95d1a13403142a035e37e80b66e6015762dab4d0416c7e5a0bdd63d`. The identical reviewed plan rolled back to43 during its dry run and committed44; no previous migration was edited. Roll forward with schema044-compatible source.
+
+Account setup and existing operational records were preserved; no cleanup or credential reset was performed. Existing clients must finish pending work and accept the update or reload to handle the new policy metadata. See WORKFORCE-DAILY-USE for job assignment and all four account-setup choices.
+
+## Previous workforce activation release
 
 Deployment `852705f0-238d-4e02-80cc-e8351f9bd68e` is live, verified September 25, 2026 UTC. Separate maintenance dry-run and commit passed; schema043 is deployed and migrations001-043 are immutable. All 358 staged runtime files match source commit `42e2e3ff2e0bba6a13c884ef908e36982c959c0a`, manifest SHA256 `d5c94c065000158cbc641b3cbad6802e88a6b00886922cbb319367a4f0d60aea`. Hosted public acceptance passed 36 checks, 12 exact asset comparisons and 98 anonymous protected-route denials, with zero unexpected errors. Demonstration mode is off. Actual web-container readback verified runtime/login role `stjw_runtime`, 31 denied-capability/protection checks and no access to the private rollback archive. Temporary maintenance access was revoked.
 

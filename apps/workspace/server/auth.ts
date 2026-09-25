@@ -37,7 +37,7 @@ export function installAuth(app: Express, db: Database, secure: boolean) {
     mfaVerified = false,
   ) {
     const current = (await tx.query("SELECT active,requires_credential_change FROM users WHERE id=$1 AND org_id=$2", [user.id, user.org_id])).rows[0];
-    requireCondition(current?.active && !current.requires_credential_change, 403, "Replace both temporary credentials before signing in.");
+    requireCondition(current?.active && !current.requires_credential_change, 403, "Complete the required credential changes before signing in.");
     const token = opaqueToken(),
       csrf = opaqueToken(),
       maxAge = (mode === "pin" ? 5 : 480) * 60 * 1000;
@@ -181,7 +181,7 @@ export function installAuth(app: Express, db: Database, secure: boolean) {
         )
       ).rows[0];
       requireCondition(person?.active, 403, "This account is inactive.");
-      requireCondition(!person.requires_credential_change, 403, "Sign in with a temporary credential and replace both credentials before using a setup link.");
+      requireCondition(!person.requires_credential_change, 403, "Sign in and complete the required credential changes before using a setup link.");
       const token = (
         await tx.query(
           "SELECT token_hash FROM setup_tokens WHERE token_hash=$1 AND user_id=$2 AND org_id=$3 AND consumed_at IS NULL AND expires_at>clock_timestamp() FOR UPDATE",

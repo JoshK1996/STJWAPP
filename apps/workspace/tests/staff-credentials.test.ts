@@ -46,14 +46,14 @@ test('administrator resets an existing account transactionally, preserving MFA a
   await db.query("INSERT INTO api_tokens(id,org_id,user_id,name,token_hash,scopes,expires_at) VALUES($1,$2,$3,'Synthetic retained token',$4,'[\"staff:read\"]',now()+interval '1 day')", [randomUUID(), owner.actor.org_id, target.id, digest(token)]);
   const factorId = randomUUID(); await db.query("INSERT INTO mfa_factors(user_id,org_id,id,secret_cipher,credential_digest,pending_expires_at,enabled_at) VALUES($1,$2,$3,'Synthetic cipher','Synthetic digest',now(),now())", [target.id, owner.actor.org_id, factorId]);
   const response = await post(`/staff/${target.id}/temporary-credentials`, value, owner); assert.equal(response.status, 200, response.body.error);
-  assert.deepEqual(response.body, { id: target.id, requiresCredentialChange: true, replayed: false });
+  assert.deepEqual(response.body, { id: target.id, requiresCredentialChange: true, requirePasswordChange: true, requirePinChange: true, replayed: false });
   const state = await snapshot(target.id); assert.equal(state.user.requires_credential_change, true); assert.equal(state.user.pin_lookup, null);
   assert.ok(await verifyPassword(value.password, state.user.password_hash)); assert.ok(await verifyPassword(value.pin, state.user.pin_hash)); assert.equal(state.sessions.length, 0);
   assert.equal((await db.query('SELECT id FROM mfa_factors WHERE user_id=$1 AND enabled_at IS NOT NULL', [target.id])).rows[0].id, factorId);
   assert.ok((await db.query('SELECT consumed_at FROM setup_tokens WHERE token_hash=$1', [digest(setup)])).rows[0].consumed_at);
   assert.ok((await db.query('SELECT revoked_at FROM api_tokens WHERE token_hash=$1', [digest(token)])).rows[0].revoked_at);
   const events = (await db.query("SELECT detail FROM audit_events WHERE target_id=$1 AND action='staff.temporary_credentials_reset'", [target.id])).rows;
-  assert.deepEqual(events.map(event => event.detail), [{ commandId: value.commandId, reason: value.reason, requiresCredentialChange: true }]);
+  assert.deepEqual(events.map(event => event.detail), [{ commandId: value.commandId, reason: value.reason, requiresCredentialChange: true, requirePasswordChange: true, requirePinChange: true }]);
   const receipt = JSON.stringify((await db.query('SELECT * FROM staff_credential_commands WHERE command_id=$1', [value.commandId])).rows);
   for (const secret of [value.password, value.pin, state.user.password_hash, state.user.pin_hash]) assert.ok(!receipt.includes(secret));
   await assert.rejects(db.query("UPDATE staff_credential_commands SET fingerprint=repeat('0',64) WHERE command_id=$1", [value.commandId]), /immutable/);
@@ -77,7 +77,7 @@ test('shared temporary PIN recovery uses email/password and forces both replacem
   const clock = await post('/auth/login', { mode: 'pin', credential: '704193' }); assert.equal(clock.status, 200);
   const cookie = clock.headers['set-cookie'][0].split(';')[0]; assert.equal((await request(application()).get('/api/staff').set('Cookie', cookie)).status, 403);
   const completed = await snapshot(a.id), retry = await post(`/staff/${a.id}/temporary-credentials`, value, owner);
-  assert.deepEqual(retry.body, { id: a.id, requiresCredentialChange: false, replayed: true }); assert.deepEqual(await snapshot(a.id), completed);
+  assert.deepEqual(retry.body, { id: a.id, requiresCredentialChange: false, requirePasswordChange: false, requirePinChange: false, replayed: true }); assert.deepEqual(await snapshot(a.id), completed);
   assert.equal((await post('/auth/login', { email: a.email, credential: 'Private!88', mode: 'password' })).status, 200);
 });
 

@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before,after,test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -49,7 +50,7 @@ test('an unused job can move; any retained assignment or recorded time preserves
  const unused=await job();assert.equal((await ok(owner,'/jobs/'+unused.id,edit(unused,{unitId:otherUnit}),'patch')).job.unit_id,otherUnit);
  const used=await job(),worker=await person('employee',[unit],[used.id]);assert.equal((await send(owner,'/jobs/'+used.id,edit(used,{unitId:otherUnit}),'patch')).status,409);
  await ok(worker.auth,'/clock',{action:'clock_in',jobId:used.id,commandId:randomUUID()});await ok(worker.auth,'/clock',{action:'clock_out',commandId:randomUUID()});
- await ok(owner,'/staff/'+worker.id,{name:'Synthetic unassigned employee',email:worker.email,role:'employee',unitIds:[unit],jobIds:[],active:true},'patch');
+ await ok(owner,'/staff/'+worker.id,{expectedRevision:await testStaffRevision(db,worker.id),name:'Synthetic unassigned employee',email:worker.email,role:'employee',unitIds:[unit],jobIds:[],active:true},'patch');
  assert.equal((await send(owner,'/jobs/'+used.id,edit(used,{unitId:otherUnit}),'patch')).status,409);
 });
 test('archive waits for current clock use, preserves times and assignments, permits restoration',async()=>{
@@ -60,8 +61,8 @@ test('archive waits for current clock use, preserves times and assignments, perm
  const archived=await ok(owner,'/jobs/'+j.id,edit({...j,...renamed.job},{active:false}),'patch');
  assert.equal((await send(worker.auth,'/clock')).body.jobs.some((x:any)=>x.id===j.id),false);
  assert.equal((await send(worker.auth,'/clock',{action:'clock_in',jobId:j.id,commandId:randomUUID()})).status,403);
- await ok(owner,'/staff/'+worker.id,{name:'Synthetic renamed employee',email:worker.email,role:'employee',unitIds:[unit],jobIds:[j.id],active:true},'patch');
- const replacement=await person();assert.equal((await send(owner,'/staff/'+replacement.id,{name:'Synthetic new assignment',email:replacement.email,role:'employee',unitIds:[unit],jobIds:[j.id],active:true},'patch')).status,400);
+ await ok(owner,'/staff/'+worker.id,{expectedRevision:await testStaffRevision(db,worker.id),name:'Synthetic renamed employee',email:worker.email,role:'employee',unitIds:[unit],jobIds:[j.id],active:true},'patch');
+ const replacement=await person();assert.equal((await send(owner,'/staff/'+replacement.id,{expectedRevision:await testStaffRevision(db,replacement.id),name:'Synthetic new assignment',email:replacement.email,role:'employee',unitIds:[unit],jobIds:[j.id],active:true},'patch')).status,400);
  assert.deepEqual((await db.query('SELECT * FROM segments WHERE org_id=$1 AND job_id=$2 ORDER BY id',[owner.actor.org_id,j.id])).rows,evidence);
  await ok(owner,'/jobs/'+j.id,edit({...j,...archived.job},{active:true}),'patch');const auth=await signIn(worker.email,worker.password);await ok(auth,'/clock',{action:'clock_in',jobId:j.id,commandId:randomUUID()});await ok(auth,'/clock',{action:'clock_out',commandId:randomUUID()});
 });

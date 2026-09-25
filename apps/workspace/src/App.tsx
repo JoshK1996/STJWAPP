@@ -1,5 +1,7 @@
 import WorkforceImport from "./WorkforceImport";
-import StaffCredentials, { TemporaryCredentialFields } from "./StaffCredentials";
+import StaffCredentials from "./StaffCredentials";
+import { EmployeeForm } from "./EmployeeForm";
+import EmployeeJobsEditor from "./EmployeeJobsEditor";
 import { EmployeeClockPolicy } from "./ScheduledClock";
 import StaffImport from "./StaffImport";
 import Compensation from "./Compensation";
@@ -86,7 +88,6 @@ import { normalizePreferences } from "../shared/preferences";
 import { applyAppearance } from "./appearance";
 import { WorkspaceArt, WorkspaceHero } from "./WorkspaceArt";
 import "./accessibility.css";
-import { MIN_PASSWORD_LENGTH, isOwnerRole } from "../shared/contracts";
 import { staffCreateResultSchema } from "../shared/temporary-credentials";
 import { organizationBrandingCurrentSchema, unconfiguredBrandingSettings } from '../shared/organization-branding';
 import type { BrandingState } from './OrganizationBranding';
@@ -114,7 +115,7 @@ const nav = [
   ["clock", "My time clock", Clock3],
   ["time-records", "Time records", History],
   ["payroll", "Payroll", Wallet],
-  ["staff", "People & jobs", Users],
+  ["staff", "Employees & jobs", Users],
   ["schedule", "Schedule", CalendarDays],
   ["calendar", "Calendar", CalendarDays],
   ["messages", "Messages", Mail],
@@ -151,7 +152,7 @@ export default function App() {
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [showPersonalCards, setShowPersonalCards] = useState(false);
   const [moreTools, setMoreTools] = useState(false);
-  const [staffTool, setStaffTool] = useState<{kind: "rates"|"credentials"|"clock"|"import"|"jobs-import"|"schedules-import"; person?: any}|null>(null);
+  const [staffTool, setStaffTool] = useState<{kind: "rates"|"credentials"|"clock"|"import"|"jobs-import"|"schedules-import"|"assignments"; person?: any}|null>(null);
   const [boardState,setBoardState]=useState<TeamBoardState>({receivedAt:null,unavailable:false});
   const [clockPending, setClockPending] = useState(false);
   const clockPendingRef = useRef(false);
@@ -456,12 +457,30 @@ export default function App() {
   );
   const includedStaff = staff.filter((person) => includeInactiveStaff || person.active);
   const visibleStaff = includedStaff.filter((person) =>
-    `${person.name} ${person.email} ${person.role}`.toLowerCase().includes(search.trim().toLowerCase()),
+    `${person.name} ${person.email} ${person.role} ${jobs.filter(job => person.job_ids.includes(job.id)).map(job => job.title).join(" ")} ${me?.units.filter((unit: any) => person.unit_ids.includes(unit.id)).map((unit: any) => unit.name).join(" ")}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
   const canManagePerson = (person: any) => me?.permissions.manage && person.id !== me.actor.id &&
     (me.actor.role === 'developer' || (me.actor.role === 'owner' && !['developer','owner'].includes(person.role)) ||
      (me.actor.role === 'admin' && !['developer','owner','admin'].includes(person.role)) ||
      (me.actor.role === 'manager' && person.role === 'employee' && person.unit_ids.every((id: string) => me.actor.unit_ids.includes(id))));
+  const canAssignPerson = (person: any) => me?.permissions.manage &&
+    (me.actor.role === 'developer' ||
+      (me.actor.role === 'owner' && person.role !== 'developer' && (person.role !== 'owner' || person.id === me.actor.id)) ||
+      (me.actor.role === 'admin' && !['developer', 'owner'].includes(person.role)) ||
+      (me.actor.role === 'manager' && person.id !== me.actor.id && person.role === 'employee' && person.unit_ids.every((id: string) => me.actor.unit_ids.includes(id))));
+  async function refreshEmployeeAssignments() {
+    try {
+      const result = await api('/me');
+      if (!isSessionCurrent()) return;
+      if (result.actor.id !== me.actor.id || result.actor.mode !== me.actor.mode) { sessionExpired(); return; }
+      setMe(result); setCsrf(result.actor.csrf);
+      await refresh();
+    } catch (error) {
+      if (!isSessionCurrent()) return;
+      if (error instanceof ApiError && error.status === 401) { sessionExpired(); return; }
+      throw error;
+    }
+  }
   function closeStaffTool() {
     if (pendingWrites > 0) return;
     if (unsavedChanges && !window.confirm('Discard unsaved changes in this editor?')) return;
@@ -501,18 +520,19 @@ export default function App() {
           unitIds: form.getAll("unitIds"),
           jobIds: form.getAll("jobIds"),
         };
+        if (!input.unitIds.length) throw new Error("Select at least one community for this employee.");
         if (dialog.staff) {
           await api(
             `/staff/${dialog.staff.id}`,
-            { ...input, active: form.get("active") === "on" },
+            { ...input, active: form.get("active") === "on", expectedRevision: dialog.staff.revision },
             "PATCH",
           );
-          notify("Staff account updated. Existing sessions were signed out.");
+          notify("Employee updated. Their existing sessions were signed out.");
         } else {
           const temporary = form.get("onboarding") === "temporary";
           if (temporary && (form.get('temporaryPassword') !== form.get('temporaryPasswordConfirmation') || form.get('temporaryPin') !== form.get('temporaryPinConfirmation'))) throw new Error('The confirmation fields must match.');
           const result = staffCreateResultSchema.parse(await api("/staff", {
-            ...input, ...(temporary ? { initialCredentials: { password: form.get("temporaryPassword"), pin: form.get("temporaryPin") } } : {}),
+            ...input, ...(temporary ? { initialCredentials: { password: form.get("temporaryPassword"), pin: form.get("temporaryPin"), requirePasswordChange: form.get("requirePasswordChange") === "on", requirePinChange: form.get("requirePinChange") === "on" } } : {}),
           }));
           if (sessionEpoch.current !== workspaceEpoch) return;
           if ("setupUrl" in result) {
@@ -520,7 +540,8 @@ export default function App() {
             notify("Account created. Share the private setup link with the employee.");
           } else {
             setPrivateLink("");
-            notify("Account created. The employee must replace the temporary password and PIN at first sign-in.");
+            const required = result.requirePasswordChange && result.requirePinChange ? "password and PIN" : result.requirePasswordChange ? "password" : "PIN";
+            notify(result.requiresCredentialChange ? `Employee created. They must sign in with email and password, then replace their ${required}.` : "Employee created. Their password and unique PIN are ready to use; no first-sign-in changes are required.");
           }
         }
       } else if (dialog.type === "job") {
@@ -530,7 +551,7 @@ export default function App() {
           notify("Job updated. Historical time records and change history are retained.");
         } else {
           await api("/jobs", input);
-          notify("Job created. Assign it to staff from their account.");
+          notify("Job created. Choose Manage jobs beside an employee to assign it.");
         }
       } else if (dialog.type === "request") {
         const input = { kind: form.get("kind"), unitId: form.get("unitId"), startsOn: form.get("startsOn"), endsOn: form.get("endsOn"), note: form.get("note") };
@@ -584,7 +605,7 @@ export default function App() {
       clock: "Your time. All in one place.",
       "time-records": "Every hour, with its history.",
       payroll: "Your payroll workspace.",
-      staff: "The people behind our community.",
+      staff: "Employees & jobs",
       schedule: "A clear view of the week.",
       calendar: "Bring your days together.",
       messages: "Keep the conversation close.",
@@ -610,7 +631,7 @@ export default function App() {
       "Review recorded shifts and resolve corrections with a clear approval trail.",
     payroll: "Understand the hours, review the details, and prepare your accountant’s exports.",
     staff:
-      "Manage accounts, responsibilities, and the work each person can access.",
+      "Add employees, choose their clock-in jobs, and manage account details.",
     schedule:
       "Coordinate people and jobs across your school, early childhood program, and parish.",
     requests:
@@ -878,7 +899,7 @@ export default function App() {
                 }
               >
                 <Plus size={17} />
-                {page === "staff" ? "Add person" : "New general request"}
+                {page === "staff" ? "Add employee" : "New general request"}
               </button>
             ) : null}
             {page === "overview" && (
@@ -1163,7 +1184,7 @@ export default function App() {
           {page === "staff" && (
             <>
               <Panel
-                title="Staff directory"
+                title="Employees"
                 className="staff-directory"
                 detail={`Showing ${visibleStaff.length} of ${includedStaff.length} ${includeInactiveStaff ? "accounts, including inactive," : "active accounts"} in your permitted scope`}
 
@@ -1174,7 +1195,7 @@ export default function App() {
                     <Search size={16} />
                     <input
                       aria-label="Search directory"
-                      placeholder="Search by name, email, or role"
+                      placeholder="Search employees, jobs, or communities"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                     />
@@ -1191,80 +1212,47 @@ export default function App() {
                     {jobs.filter((x) => x.active).length} available jobs
                   </Badge>
                 </div>
-                <p className="staff-scroll-hint">Swipe or scroll the table to see roles, status and account actions.</p>
-                <div className="table-scroll" tabIndex={0} role="region" aria-label="Staff directory details">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Person</th>
-                        <th>Community</th>
-                        <th>Access role</th>
-                        <th>Status</th>
-                        <th>
-                          <span className="sr-only">Actions</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visibleStaff.map((person: any, i: number) => (
-                          <tr key={person.id}>
-                            <td>
-                              <div className="person-cell">
-                                <Avatar name={person.name} index={i} />
-                                <span>
-                                  <strong>{shortName(person.name)}</strong>
-                                  <small>{person.email}</small>
-                                </span>
-                              </div>
-                            </td>
-                            <td>
-                              {me.units
-                                .filter((u: any) =>
-                                  person.unit_ids.includes(u.id),
-                                )
-                                .map((u: any) => u.name)
-                                .join(", ")}
-                            </td>
-                            <td>
-                              <Badge>{person.role}</Badge>
-                            </td>
-                            <td>
-                              <span
-                                className={`status-text ${person.active && !person.requires_credential_change ? "green" : "muted"}`}
-                              >
-                                <i />
-                                {!person.active
-                                  ? "Inactive"
-                                  : person.requires_credential_change
-                                    ? "Needs credential update"
-                                  : person.setup_complete
-                                    ? "Active"
-                                    : "Awaiting setup"}
-                              </span>
-                            </td>
-                            <td>
-                              <div className="row-actions staff-account-actions">
-                                {canManagePerson(person) && <>
-                                  <button className="text-link" onClick={() => setDialog({type:'staff',staff:person})}>Edit account</button>
-                                  <button className="text-link" onClick={() => setStaffTool({kind:'clock',person})}>Clock rules</button>
-                                  {['developer','owner','admin'].includes(me.actor.role) && <button className="text-link" onClick={() => setStaffTool({kind:'credentials',person})}>Reset sign-in</button>}
-                                  {!person.requires_credential_change && <button className="text-link" onClick={() => void run(async () => {
-                                    const result = await api(`/staff/${person.id}/setup-link`, {});
-                                    if (sessionEpoch.current === workspaceEpoch) setPrivateLink(result.setupUrl);
-                                  })}>Setup link</button>}
-                                </>}
-                                {['developer','owner','admin','finance'].includes(me.actor.role) && <button className="text-link" onClick={() => setStaffTool({kind:'rates',person})}>Pay rates</button>}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
+                <div className="employee-directory-grid">
+                  {visibleStaff.map((person: any, index: number) => {
+                    const assignedJobs = jobs.filter(job => person.job_ids.includes(job.id));
+                    const unavailableJobs = person.job_ids.filter((id: string) => !jobs.some(job => job.id === id)).length;
+                    const communityNames = me.units.filter((unit: any) => person.unit_ids.includes(unit.id)).map((unit: any) => unit.name);
+                    return <article className="employee-card" key={person.id} aria-labelledby={`employee-${person.id}`}>
+                      <div className="employee-card-header"><Avatar name={person.name} index={index}/><div>
+                        <h3 id={`employee-${person.id}`}>{person.name}{person.id === me.actor.id && <span className="employee-self-label"> · You</span>}</h3>
+                        <span className="employee-card-email">{person.email}</span>
+                        <div className="employee-card-badges"><Badge>{{admin:'Administrator',developer:'Developer',owner:'Owner',manager:'Manager',finance:'Finance',employee:'Employee'}[person.role as string] ?? person.role}</Badge>
+                          <span className={`status-text ${person.active && !person.requires_credential_change ? 'green' : 'muted'}`}><i/>{!person.active ? 'Inactive' : person.requires_credential_change ? person.require_password_change && person.require_pin_change ? 'Needs password & PIN update' : person.require_password_change ? 'Needs password update' : person.require_pin_change ? 'Needs PIN update' : 'Needs credential update' : person.setup_complete ? 'Active' : 'Awaiting setup'}</span>
+                        </div>
+                      </div></div>
+                      <dl className="employee-card-details"><div><dt>Clock-in jobs</dt><dd>
+                        {assignedJobs.map(job => <span key={job.id} className="employee-job-tag">{job.title}{!job.active && ' · Archived'}</span>)}
+                        {unavailableJobs > 0 && <span className="employee-job-tag">{unavailableJobs} retained {unavailableJobs === 1 ? 'assignment' : 'assignments'}</span>}
+                        {!person.job_ids.length && <span className="employee-no-jobs">No jobs assigned · cannot clock in yet</span>}
+                      </dd></div><div><dt>Communities</dt><dd>{communityNames.join(', ') || 'No community listed'}</dd></div></dl>
+                      <div className="employee-card-actions">
+                        {canAssignPerson(person) && <button className="button primary small" onClick={() => setStaffTool({kind:'assignments',person})}>Manage jobs</button>}
+                        {canManagePerson(person) && <button className="button secondary small" onClick={() => setDialog({type:'staff',staff:person})}>Edit employee</button>}
+                      </div>
+                      {canAssignPerson(person) && !canManagePerson(person) && <p className="employee-peer-note">{person.id === me.actor.id ? 'Manage your jobs here. Your password and preferences are in Settings.' : 'Job assignments can be changed here; higher-level account controls remain restricted.'}</p>}
+                      {(canManagePerson(person) || ['developer','owner','admin','finance'].includes(me.actor.role)) && <div className="employee-secondary-actions">
+                        {canManagePerson(person) && <>
+                          <button className="text-link" onClick={() => setStaffTool({kind:'clock',person})}>Clock rules</button>
+                          {['developer','owner','admin'].includes(me.actor.role) && <button className="text-link" onClick={() => setStaffTool({kind:'credentials',person})}>Reset sign-in</button>}
+                          {!person.requires_credential_change && <button className="text-link" onClick={() => void run(async () => {
+                            const result = await api(`/staff/${person.id}/setup-link`, {});
+                            if (sessionEpoch.current === workspaceEpoch) setPrivateLink(result.setupUrl);
+                          })}>Setup link</button>}
+                        </>}
+                        {['developer','owner','admin','finance'].includes(me.actor.role) && <button className="text-link" onClick={() => setStaffTool({kind:'rates',person})}>Pay rates</button>}
+                      </div>}
+                    </article>;
+                  })}
                 </div>
                 {!visibleStaff.length && (
                   <Empty
                     title="No accounts match these filters"
-                    detail={includeInactiveStaff ? "Try another name, email, or role." : "Try another search or include inactive accounts."}
+                    detail={includeInactiveStaff ? "Try another employee, job, community, email, or role." : "Try another search or include inactive accounts."}
                   />
                 )}
               </Panel>
@@ -1537,7 +1525,8 @@ export default function App() {
       {updateNotice}
       {!(compactClock && page === "clock") && toastNotice}
       {staffTool?.kind === 'credentials' && <StaffCredentials key={staffTool.person.id} person={staffTool.person} onClose={() => { setStaffTool(null); setUnsavedChanges(false); }} onSaved={refresh} notify={notify} isSessionCurrent={isSessionCurrent} onSessionExpired={sessionExpired} onDirty={workspaceDirty}/>}
-      {staffTool && staffTool.kind !== 'credentials' && <Modal title={staffTool.kind === 'jobs-import' ? 'Import jobs' : staffTool.kind === 'schedules-import' ? 'Import scheduled shifts' : staffTool.kind === 'import' ? 'Import employees' : `${staffTool.person.name} · ${staffTool.kind === 'rates' ? 'Pay rates' : 'Clock rules'}`} onClose={closeStaffTool}>
+      {staffTool?.kind === 'assignments' && <EmployeeJobsEditor key={me.actor.id + ':' + staffTool.person.id} person={staffTool.person} onClose={() => { setStaffTool(null); setUnsavedChanges(false); }} onSaved={refreshEmployeeAssignments} onDirty={workspaceDirty} isSessionCurrent={isSessionCurrent} onSessionExpired={sessionExpired} notify={notify}/>}
+      {staffTool && staffTool.kind !== 'credentials' && staffTool.kind !== 'assignments' && <Modal title={staffTool.kind === 'jobs-import' ? 'Import jobs' : staffTool.kind === 'schedules-import' ? 'Import scheduled shifts' : staffTool.kind === 'import' ? 'Import employees' : `${staffTool.person.name} · ${staffTool.kind === 'rates' ? 'Pay rates' : 'Clock rules'}`} onClose={closeStaffTool}>
         <div className="staff-tool-content">
           {(staffTool.kind === 'jobs-import' || staffTool.kind === 'schedules-import') && <WorkforceImport key={me.actor.id+staffTool.kind} kind={staffTool.kind === 'jobs-import' ? 'jobs' : 'schedules'} onChange={refresh} notify={notify} onDirty={workspaceDirty} isSessionCurrent={isSessionCurrent} onSessionExpired={sessionExpired}/>}
           {staffTool.kind === 'rates' && <Compensation key={staffTool.person.id} initialUserId={staffTool.person.id} notify={notify} onDirty={workspaceDirty}/>}
@@ -1551,8 +1540,8 @@ export default function App() {
             (
               {
                 staff: dialog.staff
-                  ? "Edit staff account"
-                  : "Welcome someone new",
+                  ? "Edit employee"
+                  : "Add employee",
                 job: dialog.job ? "Edit job" : "Create a job",
                 request: dialog.request ? "Edit pending request" : "Create a request",
                 withdraw: "Withdraw pending request",
@@ -1564,7 +1553,7 @@ export default function App() {
         >
           <form className="management-editor-form" key={dialog.reloadKey ?? 0} onSubmit={submitDialog} inert={busy} aria-busy={busy} onChange={() => { setUnsavedChanges(true); setDialogError(""); }}>
             {dialog.type === "staff" ? (
-              <StaffForm me={me} jobs={jobs} person={dialog.staff} busy={busy} />
+              <EmployeeForm me={me} jobs={jobs} person={dialog.staff} busy={busy} />
             ) : dialog.type === "job" ? (
               <JobForm me={me} job={dialog.job} />
             ) : dialog.type === "request" ? (
@@ -1667,7 +1656,7 @@ export default function App() {
                 Cancel
               </button>
               <button className="button primary" disabled={busy}>
-                {busy ? "Saving…" : "Save"}
+                {busy ? "Saving…" : dialog.type === "staff" ? dialog.staff ? "Save employee" : "Add employee" : "Save"}
                 <Check size={16} />
               </button>
             </div>
@@ -1825,117 +1814,5 @@ export function MiniChart({ buckets }: { buckets: WorkforceBucketV2[] }) {
         </div>
       </div></div>
     </div>
-  );
-}
-function StaffForm({
-  me,
-  jobs,
-  person,
-  busy,
-}: {
-  me: any;
-  jobs: any[];
-  person?: any;
-  busy: boolean;
-}) {
-  const [unitIds, setUnitIds] = useState<string[]>(
-    person?.unit_ids ?? [me.units[0]?.id].filter(Boolean),
-  );
-  const [onboarding, setOnboarding] = useState("temporary");
-  return (
-    <>
-      <div className="form-row">
-        <label>
-          Full name
-          <input
-            name="name"
-            defaultValue={person?.name}
-            required
-            minLength={2}
-            maxLength={100}
-          />
-        </label>
-        <label>
-          Work email
-          <input
-            name="email"
-            type="email"
-            defaultValue={person?.email}
-            placeholder="you@stjw.org"
-            required
-          />
-        </label>
-      </div>
-      <label>
-        Access role
-        <select name="role" defaultValue={person?.role ?? "employee"}>
-          {(isOwnerRole(me.actor.role)
-            ? ["employee", "manager", "finance", "admin", ...(me.actor.role === "developer" && person?.role === "owner" ? ["owner"] : []), ...(me.actor.role === "developer" && person?.role === "developer" ? ["developer"] : [])]
-            : me.actor.role === "admin"
-              ? ["employee", "manager", "finance"]
-              : ["employee"]
-          ).map((r) => (
-            <option key={r}>{r}</option>
-          ))}
-        </select>
-        <small>
-          Employee access focuses on personal time, schedule, and requests.
-        </small>
-      </label>
-      {!person && ["developer", "owner", "admin"].includes(me.actor.role) && <fieldset className="temporary-staff-onboarding" disabled={busy}>
-        <legend>First sign-in</legend>
-        <label>Account setup method<select name="onboarding" aria-label="Account setup method" value={onboarding} onChange={event => setOnboarding(event.target.value)}>
-          <option value="private">Private setup link</option><option value="temporary">Temporary password and PIN</option>
-        </select></label>
-        {onboarding === "private" ? <p>The employee chooses a private password using a one-time setup link.</p> : <>
-          <p>Share these details privately. For first sign-in, choose Password and enter the work email and temporary password. The employee must then choose their own password and unique PIN. A shared temporary PIN cannot identify an account.</p>
-          <TemporaryCredentialFields busy={busy}/>
-        </>}
-      </fieldset>}
-      <fieldset>
-        <legend>Communities</legend>
-        {me.units.map((u: any) => (
-          <label className="check-label" key={u.id}>
-            <input
-              type="checkbox"
-              name="unitIds"
-              value={u.id}
-              checked={unitIds.includes(u.id)}
-              onChange={(e) =>
-                setUnitIds(
-                  e.target.checked
-                    ? [...unitIds, u.id]
-                    : unitIds.filter((x) => x !== u.id),
-                )
-              }
-            />
-            {u.name}
-          </label>
-        ))}
-      </fieldset>
-      <fieldset>
-        <legend>Assigned jobs</legend>
-        {jobs
-          .filter((j) => unitIds.includes(j.unit_id) && (j.active || person?.job_ids.includes(j.id)))
-          .map((j) => (
-            <label className="check-label" key={j.id}>
-              <input
-                type="checkbox"
-                name="jobIds"
-                value={j.id}
-                defaultChecked={person?.job_ids.includes(j.id)}
-              />
-              {j.title}{!j.active && " (archived — retained assignment)"}
-              <small>{j.unit_name}</small>
-            </label>
-          ))}
-      </fieldset>
-      {person && (
-        <label className="check-label">
-          <input name="active" type="checkbox" defaultChecked={person.active} />
-          Account active
-        </label>
-      )}
-    </>
   );
 }

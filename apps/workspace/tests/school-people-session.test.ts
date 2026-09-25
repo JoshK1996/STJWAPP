@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -41,7 +42,7 @@ async function staff(role = 'employee', units = [unitId], office = true): Promis
 }
 const asActor = (s: Staff): Actor => ({ ...owner, id: s.id, email: s.email, role: s.role, unit_ids: [...s.units] });
 async function staffChange(s: Staff, change: Record<string, unknown>) {
-  return ok('/staff/' + s.id, { name: 'Synthetic person office', email: s.email, role: s.role, active: true, unitIds: s.units, jobIds: [], ...change }, ownerAuth, 'patch');
+  return ok('/staff/' + s.id, { expectedRevision: await testStaffRevision(db, s.id), name: 'Synthetic person office', email: s.email, role: s.role, active: true, unitIds: s.units, jobIds: [], ...change }, ownerAuth, 'patch');
 }
 async function newUnit(parentId: string | null = null) {
   const input = { id: randomUUID(), expectedVersion: 0, name: 'Synthetic person unit ' + randomUUID(), kind: 'school', parentId, description: 'Isolated local fixture', reason: 'Synthetic person access fixture' };

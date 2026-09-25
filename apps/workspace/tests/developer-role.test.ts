@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -96,7 +97,7 @@ test('developer may create administrators, but no ordinary account/import path p
 test('owner administrator and manager cannot edit deactivate reset or demote a developer',async()=>{
   const before=(await db.query('SELECT role,active,password_hash,pin_hash FROM users WHERE id=$1',[developer.actor.id])).rows[0];
   for(const caller of [owner,admin,manager]){
-    assert.equal((await send(caller,'/staff/'+developer.actor.id,body(developer,{active:false,role:'employee'}),'patch')).status,403);
+    assert.equal((await send(caller,'/staff/'+developer.actor.id,body(developer,{active:false,role:'employee',expectedRevision:await testStaffRevision(db,developer.actor.id)}),'patch')).status,403);
     assert.equal((await send(caller,'/staff/'+developer.actor.id+'/setup-link',{})).status,403);
   }
   assert.deepEqual((await db.query('SELECT role,active,password_hash,pin_hash FROM users WHERE id=$1',[developer.actor.id])).rows[0],before);
@@ -112,9 +113,9 @@ test('a supplied developer label cannot elevate an actual employee through curre
 
 test('developer can manage an existing external-email owner while preserving that account credentials and self-edit denial',async()=>{
   const before=(await db.query('SELECT password_hash,pin_hash FROM users WHERE id=$1',[owner.actor.id])).rows[0];
-  const saved=await send(developer,'/staff/'+owner.actor.id,body(owner,{name:'Synthetic reviewed owner'}),'patch');assert.equal(saved.status,200,saved.body.error);
+  const saved=await send(developer,'/staff/'+owner.actor.id,body(owner,{name:'Synthetic reviewed owner',expectedRevision:await testStaffRevision(db,owner.actor.id)}),'patch');assert.equal(saved.status,200,saved.body.error);
   assert.deepEqual((await db.query('SELECT password_hash,pin_hash FROM users WHERE id=$1',[owner.actor.id])).rows[0],before);
-  assert.equal((await send(developer,'/staff/'+developer.actor.id,body(developer,{active:false}),'patch')).status,403);
+  assert.equal((await send(developer,'/staff/'+developer.actor.id,body(developer,{active:false,expectedRevision:await testStaffRevision(db,developer.actor.id)}),'patch')).status,403);
   owner=await login(owner.actor.email,owner.password);
   assert.equal(owner.actor.role,'owner');assert.equal(owner.actor.email,'synthetic.role.owner@example.test');
 });

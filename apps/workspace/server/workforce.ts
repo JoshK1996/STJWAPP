@@ -5,6 +5,7 @@ import { clockInput, requestInput, staffInput } from '../shared/contracts';
 import type { z } from 'zod';
 import { noTimeOverlap,timeMicroseconds } from './time-record-access';
 import { currentReportActor, recheckReportSession } from './report-source-access';
+import { staffRecordRevision } from './staff-revision';
 
 export async function clockState(db: Queryable, actor: Actor) {
   const jobs = (await db.query(`SELECT j.*,u.name AS unit_name FROM user_jobs uj JOIN jobs j ON j.id=uj.job_id
@@ -74,8 +75,8 @@ export async function listStaff(db: Queryable, actor: Actor) {
   return (await db.query(`SELECT u.id,u.name,u.email,u.role,u.active,u.created_at,
     coalesce((SELECT jsonb_agg(uu.unit_id) FROM user_units uu WHERE uu.user_id=u.id),'[]') AS unit_ids,
     coalesce((SELECT jsonb_agg(uj.job_id) FROM user_jobs uj WHERE uj.user_id=u.id),'[]') AS job_ids,
-    (u.password_hash IS NOT NULL AND NOT u.requires_credential_change) AS setup_complete,u.requires_credential_change FROM users u WHERE u.org_id=$1
-    AND ($2::boolean OR EXISTS(SELECT 1 FROM user_units uu WHERE uu.user_id=u.id AND uu.unit_id=ANY($3::uuid[]))) ORDER BY u.name`,[actor.org_id,orgWide(actor),actor.unit_ids])).rows;
+    (u.password_hash IS NOT NULL AND NOT u.requires_credential_change) AS setup_complete,u.requires_credential_change,u.require_password_change,u.require_pin_change FROM users u WHERE u.org_id=$1
+    AND ($2::boolean OR EXISTS(SELECT 1 FROM user_units uu WHERE uu.user_id=u.id AND uu.unit_id=ANY($3::uuid[]))) ORDER BY u.name`,[actor.org_id,orgWide(actor),actor.unit_ids])).rows.map(row => ({ ...row, revision: staffRecordRevision(actor.org_id, { id: row.id, name: row.name, email: row.email, role: row.role, active: row.active, unit_ids: row.unit_ids, job_ids: row.job_ids }) }));
 }
 export async function validateStaff(tx: Queryable, actor: Actor, input: z.infer<typeof staffInput>, staffDomain: string,
   existing?: { role: string; email: string; retainedJobIds?: string[] }) {

@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
@@ -85,7 +86,7 @@ test('logout and demotion committed after worker preparation prevent result publ
   for(const change of ['logout','role'] as const){
     const person=await provision('manager'),before=await count('import.workbook_converted');
     const gated=wrapped(async()=>{
-      const result=change==='logout'?await send(person.auth,'/api/auth/logout',{}):await send(owner,`/api/staff/${person.auth.actor.id}`,{...person.input,role:'employee',active:true},'patch');
+      const result=change==='logout'?await send(person.auth,'/api/auth/logout',{}):await send(owner,`/api/staff/${person.auth.actor.id}`,{...person.input,expectedRevision:await testStaffRevision(db,person.auth.actor.id),role:'employee',active:true},'patch');
       assert.ok(result.status<300,JSON.stringify(result.body));
     });
     // Staff role changes revoke existing sessions as well as changing authority.

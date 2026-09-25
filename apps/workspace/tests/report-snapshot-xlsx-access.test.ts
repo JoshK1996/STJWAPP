@@ -165,8 +165,8 @@ test("other private account organization and changed onboarding state cannot exp
   const value = frozen.get("finance")!;
   await assert.rejects(exportReportSnapshotXlsx(db, teacher, teacherAuth.hash, value.report.id, value.id), (e: any) => e.status === 404);
   await assert.rejects(exportReportSnapshotXlsx(db, { ...owner, org_id: randomUUID() }, auth.hash, value.report.id, value.id), (e: any) => e.status === 403);
-  try { await assert.rejects(exportReportSnapshotXlsx(wrapped(async () => { await db.query("UPDATE users SET requires_credential_change=true WHERE id=$1", [owner.id]); }), owner, auth.hash, value.report.id, value.id), (e: any) => e.status === 403); }
-  finally { await db.query("UPDATE users SET requires_credential_change=false WHERE id=$1", [owner.id]); }
+  try { await assert.rejects(exportReportSnapshotXlsx(wrapped(async () => { await db.query("UPDATE users SET requires_credential_change=true,require_password_change=true,require_pin_change=true WHERE id=$1", [owner.id]); }), owner, auth.hash, value.report.id, value.id), (e: any) => e.status === 403); }
+  finally { await db.query("UPDATE users SET requires_credential_change=false,require_password_change=false,require_pin_change=false WHERE id=$1", [owner.id]); }
 });
 test("HTTP XLSX download has independent byte/source hashes and private MIME response", async () => {
   const value = frozen.get("finance")!, path = `/api/report-library/${value.report.id}/snapshots/${value.id}/export?format=xlsx`;

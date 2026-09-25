@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
@@ -123,13 +124,13 @@ test("normal logout while worker phase is outside transactions denies result and
 });
 test("normal account role change between worker and publication rechecks current authority", async () => {
   const before = await auditCount();
-  const source = wrapped(async () => { assert.equal((await write(owner, `/api/staff/${finance.actor.id}`, { ...financeInput, role: "employee", active: true }, "patch")).status, 200); });
+  const source = wrapped(async () => { assert.equal((await write(owner, `/api/staff/${finance.actor.id}`, { ...financeInput, expectedRevision: await testStaffRevision(db,finance.actor.id), role: "employee", active: true }, "patch")).status, 200); });
   try {
     await assert.rejects(inspectImportWorkbook(source, finance.actor, finance.hash, input()), (e: any) => [401, 403].includes(e.status));
     assert.equal(await auditCount(), before); const downgraded = await login(financeInput.email);
     await assert.rejects(inspectImportWorkbook(db, downgraded.actor, downgraded.hash, input()), (e: any) => e.status === 403);
   } finally {
-    assert.equal((await write(owner, `/api/staff/${finance.actor.id}`, { ...financeInput, active: true }, "patch")).status, 200);
+    assert.equal((await write(owner, `/api/staff/${finance.actor.id}`, { ...financeInput, expectedRevision: await testStaffRevision(db,finance.actor.id), active: true }, "patch")).status, 200);
     finance = await login(financeInput.email);
   }
 });

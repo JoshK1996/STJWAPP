@@ -1,6 +1,14 @@
 # Implementation status
 
-The live workspace has been cleared of owner-confirmed demonstration operational records; three real accounts and four basic communities/jobs remain. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
+The live workspace was cleared of owner-confirmed demonstration operational records while retaining three initial real accounts and four basic communities/jobs. New live records must be preserved. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
+
+## Employee and job administration - September 25, 2026
+
+Live in this release: the workspace is named **Employees & jobs**. Employee cards show full names, communities and assigned jobs; direct **Manage jobs** supports administrator self/peer assignments while preserving the separate account-role hierarchy. Grouped creation/editing forms keep every permitted active job visible. Account creation and reset add independently configurable password/PIN replacement requirements alongside private setup links, pay-rate and clock-rule controls. Assignment-only writes support safe additions during an open shift, preserve sessions and guard current clock assignments. Full employee edits now reject stale source revisions instead of overwriting a newer account or job change. Existing customer credentials and operational data are preserved. Migration044 retains existing onboarding requirements while storing the two choices independently. See ADR0010, ADR0011 and WORKFORCE-DAILY-USE.
+
+The final complete application suite passed 1,189 tests. Normal synthetic browser acceptance passed 171 employee checks/27 layouts and 80 mobile-clock checks/14 samples, with zero unexpected errors. Eight additional focused mobile option frames were reviewed. Existing open clients must accept the guarded update prompt or reload before using the new strict response contracts.
+
+Deployment `d1f9cb55-d1e8-4641-a55e-42db50652fe3` is live, verified September 25, 2026 UTC. Separate maintenance dry-run and commit passed with existing credentials, account roles/active states and operational-record counts preserved. Schema 044 is deployed; migrations 001-044 are immutable. All 367 staged runtime files match source commit `ce0460a269ace7d07ee7296e41dbb1bcb8a77d6d`, manifest SHA256 `db23abdf2662674175311be8c7d61396c10ba8cb2b7459767e2ca07d2684bce6`. Hosted public acceptance passed 36 checks, 12 exact asset comparisons and 99 anonymous protected-route denials, with zero unexpected errors. Actual web-container readback verified `stjw_runtime` as runtime/login identity, 31 protection flags, no private archive access, consistent credential policy flags and active required management roles. Temporary maintenance access was revoked.
 
 ## Workforce simplification and live preparation — September 25, 2026
 

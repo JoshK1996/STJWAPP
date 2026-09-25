@@ -2,13 +2,15 @@
 
 Management pages should let an authorized person maintain the records they create. This release adds missing editors and makes existing correction paths explicit. Deployment and actual acceptance are recorded in [STATUS](STATUS.md) and [VALIDATION](VALIDATION.md).
 
-## People and jobs
+## Employees and jobs
 
-Open **People & jobs → Jobs** and choose **Edit job**. Change the title, description or availability, enter a reason and save. Clear availability to archive; select it to restore. **History** shows who changed the job, when, why and the before/after values. Search and status filters include archived jobs.
+Open **Employees & jobs → Jobs** and choose **Edit job**. Change the title, description or availability, enter a reason and save. Clear availability to archive; select it to restore. **History** shows who changed the job, when, why and the before/after values. Search and status filters include archived jobs.
 
 An unused job can move to another community. Once assigned, scheduled or used in time/pay/correction evidence, its community stays fixed; create the replacement in the correct community instead. A job cannot be archived while someone is currently working or on break in it. Archiving preserves past segments and existing employee assignments, but prevents new assignments and new clock-in/job-switch use. Current report labels follow a renamed job; retained timestamps and captured historical snapshots are not rewritten.
 
-**Edit person** maintains an authorized account's profile, role, community assignments and jobs. An existing archived job can remain assigned while other account details change. Archived jobs cannot be newly assigned. Role and community controls remain restricted by current server-verified authority. Own-password changes belong in **Settings → Change your password**.
+**Manage jobs** opens the dedicated assignment editor, including an administrator's own account and peer administrators. It changes only jobs and communities. Current clock assignments are protected; other available jobs can be added during a shift without changing credentials or ending sessions. Archived assignments may be retained. Both this editor and the full employee form require the currently observed source revision.
+
+**Edit employee** maintains an authorized account's profile, role, community assignments and jobs. An existing archived job can remain assigned while other account details change. Archived jobs cannot be newly assigned. Role and community controls remain restricted by current server-verified authority. Own-password changes belong in **Settings → Change your password**.
 
 If another person saved first, the editor preserves your unsaved values and shows the conflict. **Reload saved values** asks before replacing that draft with the current record. Discarding an unsaved edit also requires confirmation.
 
@@ -18,7 +20,7 @@ If another person saved first, the editor preserves your unsaved values and show
 | --- | --- |
 | Overview and workforce charts | Adjust filters/views; edit the underlying people, jobs or time records. Aggregated chart values are calculated. |
 | My time clock | Clock in/out, change job and start/end a break. Submit a time adjustment for a past punch. |
-| People & jobs | Edit person; create/edit/archive/restore jobs; inspect job history. |
+| Employees & jobs | Create/edit employees; manage own and permitted employee jobs; create/edit/archive/restore jobs; inspect job history. |
 | Time records | Open a shift and use the reasoned correction/review workflow. Original evidence remains. |
 | Requests | Edit or withdraw your own pending general request. Reviewed requests stay recorded. A reviewer must acknowledge its current revision. |
 | Staff schedule | Open a planned shift to edit or cancel with a reason. Submitted schedule-change proposals can be withdrawn and replaced. |

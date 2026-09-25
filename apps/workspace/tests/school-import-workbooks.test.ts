@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -149,12 +150,12 @@ test("normal office grant revocation between parsing and publication denies both
 
 test("normal membership removal and administrator downgrade revoke cached authority after the worker", async () => {
   const before = await auditCount();
-  const membership = wrapped(async () => { assert.equal((await write(owner, `/api/staff/${office.actor.id}`, { ...officeInput, unitIds: [otherUnit], active: true }, "patch")).status, 200); });
+  const membership = wrapped(async () => { assert.equal((await write(owner, `/api/staff/${office.actor.id}`, { ...officeInput, expectedRevision: await testStaffRevision(db,office.actor.id), unitIds: [otherUnit], active: true }, "patch")).status, 200); });
   try { await assert.rejects(inspectImportWorkbook(membership, office.actor, office.hash, input()), (e: any) => [401, 403].includes(e.status)); }
-  finally { assert.equal((await write(owner, `/api/staff/${office.actor.id}`, { ...officeInput, active: true }, "patch")).status, 200); office = await login(officeInput.email); await grant(true); }
-  const downgraded = wrapped(async () => { assert.equal((await write(owner, `/api/staff/${admin.actor.id}`, { ...adminInput, role: "employee", active: true }, "patch")).status, 200); });
+  finally { assert.equal((await write(owner, `/api/staff/${office.actor.id}`, { ...officeInput, expectedRevision: await testStaffRevision(db,office.actor.id), active: true }, "patch")).status, 200); office = await login(officeInput.email); await grant(true); }
+  const downgraded = wrapped(async () => { assert.equal((await write(owner, `/api/staff/${admin.actor.id}`, { ...adminInput, expectedRevision: await testStaffRevision(db,admin.actor.id), role: "employee", active: true }, "patch")).status, 200); });
   try { await assert.rejects(inspectImportWorkbook(downgraded, admin.actor, admin.hash, input()), (e: any) => [401, 403].includes(e.status)); }
-  finally { assert.equal((await write(owner, `/api/staff/${admin.actor.id}`, { ...adminInput, active: true }, "patch")).status, 200); admin = await login(adminInput.email); }
+  finally { assert.equal((await write(owner, `/api/staff/${admin.actor.id}`, { ...adminInput, expectedRevision: await testStaffRevision(db,admin.actor.id), active: true }, "patch")).status, 200); admin = await login(adminInput.email); }
   assert.equal(await auditCount(), before);
 });
 
@@ -177,7 +178,7 @@ test("final proof and cancellation roll back audit after controlled expiry, MFA 
       // Controlled in-transaction mutations of an ordinary synthetic account
       // prove the final predicate and rollback, not natural elapsed-time waits.
       if (mode === "expiry") await tx.query("UPDATE sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=$1", [office.hash]);
-      if (mode === "onboarding") await tx.query("UPDATE users SET requires_credential_change=true WHERE id=$1", [office.actor.id]);
+      if (mode === "onboarding") await tx.query("UPDATE users SET requires_credential_change=true,require_password_change=true,require_pin_change=true WHERE id=$1", [office.actor.id]);
       if (mode === "mfa") await tx.query("INSERT INTO mfa_factors(user_id,org_id,id,secret_cipher,credential_digest,pending_expires_at,enabled_at) VALUES($1,$2,$3,'synthetic-test-only','synthetic-test-only',clock_timestamp(),clock_timestamp())", [office.actor.id, office.actor.org_id, randomUUID()]);
       if (mode === "abort") controller.abort();
       if (mode === "audit") throw new Error("Synthetic workbook audit rollback");

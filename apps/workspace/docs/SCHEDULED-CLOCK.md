@@ -1,6 +1,6 @@
 # Scheduled clock starts
 
-An authorized manager can open an employee's **Clock setting** in People & jobs and enable **No early clock-in**. It defaults to off. The setting has its own Save and Reload controls, protects unsaved changes, and reports conflicting revisions. Changing it cancels that employee's pending start without changing recorded hours. Managers still need explicit access to the employee's communities.
+An authorized manager can open an employee's **Clock setting** in Employees & jobs and enable **No early clock-in**. It defaults to off. The setting has its own Save and Reload controls, protects unsaved changes, and reports conflicting revisions. Changing it cancels that employee's pending start without changing recorded hours. Managers still need explicit access to the employee's communities.
 
 With this setting enabled, the employee selects an assigned job on the clock screen. For an upcoming shift on the organization's current local date, the primary button shows **Start at [time]**. Tapping it saves a pending start. The screen says **Your time starts at [time]. Start work then.** and offers **Cancel start**. A pending start creates no worked hours. For a matching shift already in progress, **Clock in** records the current time. Without a matching available shift, the screen directs the employee to a manager; it does not create an unscheduled future start. A shift that began on the previous local date but is still in progress can be clocked into.
 

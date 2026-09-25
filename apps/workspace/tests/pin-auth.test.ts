@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, beforeEach, after, test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -37,7 +38,7 @@ async function person(temporaryPin?: string) {
 }
 async function active(user: Person, value: boolean) {
   return request(app()).patch("/api/staff/" + user.id).set("Origin",origin).set("Cookie",owner.cookie).set("X-CSRF-Token",owner.csrf)
-    .send({name:user.name,email:user.email,role:user.role,unitIds:[unitId],jobIds:[],active:value});
+    .send({expectedRevision:await testStaffRevision(db,user.id),name:user.name,email:user.email,role:user.role,unitIds:[unitId],jobIds:[],active:value});
 }
 const setPin = (user: Person, pin: string, database = db) => post("/auth/pin", {password,pin}, user.auth, database);
 const pinLogin = (pin: string, database = db) => post("/auth/login", {mode:"pin",credential:pin}, undefined, database);

@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
@@ -236,11 +237,11 @@ test("current role, active state, actual proof identity/mode and onboarding gate
   await assert.rejects(db.transaction(tx => currentFinanceActor(tx, supplied, ownerAuth.hash)), (e: any) => e.status === 401);
   for (const [role, active] of [["employee", true], ["finance", false]] as const) {
     const changed = await request(application()).patch("/api/staff/" + user.id).set("Cookie", ownerAuth.cookie).set("Origin", origin).set("X-CSRF-Token", ownerAuth.csrf)
-      .send({ name: "Synthetic finance session user", email: user.email, role, active, unitIds: [unitId], jobIds: [] }); assert.equal(changed.status, 200);
+      .send({ expectedRevision: await testStaffRevision(db,user.id), name: "Synthetic finance session user", email: user.email, role, active, unitIds: [unitId], jobIds: [] }); assert.equal(changed.status, 200);
     await assert.rejects(db.transaction(tx => currentFinanceActor(tx, supplied, auth.hash)), (e: any) => [401,403].includes(e.status));
   }
   const temp = await send(db, ownerAuth, "/staff", { name: "Synthetic unfinished credentials", email: randomUUID() + "@stjw.org", role: "finance", unitIds: [unitId], jobIds: [], initialCredentials: { password: "Synthetic-" + randomUUID(), pin: "783915" } }); assert.equal(temp.status, 201);
-  await assert.rejects(db.transaction(tx => currentFinanceActor(tx, { ...supplied, id: temp.body.id }, ownerAuth.hash)), (e: any) => e.status === 403 && /temporary credentials/.test(e.message));
+  await assert.rejects(db.transaction(tx => currentFinanceActor(tx, { ...supplied, id: temp.body.id }, ownerAuth.hash)), (e: any) => e.status === 403 && /required credential changes/.test(e.message));
   const pinUser = await staff(), password = await signIn(pinUser.email, pinUser.password);
   assert.equal((await send(db, password, "/auth/pin", { password: pinUser.password, pin: "731958" })).status, 200);
   const login = await request(application()).post("/api/auth/login").set("Origin", origin).send({ email: pinUser.email, credential: "731958", mode: "pin" }); assert.equal(login.status, 200);
@@ -271,7 +272,7 @@ test("finance account mutation committed after middleware denies waiting work wi
   const user = await staff(), auth = await signIn(user.email, user.password), fixture = await prepared(auth);
   const gate = beforeTransaction(async () => {
     const changed = await request(application()).patch("/api/staff/" + user.id).set("Cookie", ownerAuth.cookie).set("Origin", origin).set("X-CSRF-Token", ownerAuth.csrf)
-      .send({ name: "Synthetic finance session user", email: user.email, role: "employee", active: true, unitIds: [unitId], jobIds: [] }); assert.equal(changed.status, 200);
+      .send({ expectedRevision: await testStaffRevision(db,user.id), name: "Synthetic finance session user", email: user.email, role: "employee", active: true, unitIds: [unitId], jobIds: [] }); assert.equal(changed.status, 200);
   });
   assert.equal((await send(gate.database, auth, "/finance/previews/" + fixture.preview.id + "/publish", fixture.body)).status, 401); assert.ok(gate.observed());
   assert.equal(await count("SELECT count(*)::int n FROM financial_reports WHERE id=$1", [fixture.raw.reportId]), 0);

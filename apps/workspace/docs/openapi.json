@@ -4631,7 +4631,7 @@
       "post": {
         "operationId": "post_auth_login",
         "summary": "Sign in with email and password, or only a PIN",
-        "description": "No public signup. PIN mode does not require email. An ambiguous shared PIN cannot select an account; use password sign-in to replace temporary credentials. Temporary credentials return a private ten-minute credential-change challenge without an app session. Both credentials must be replaced first. PIN sessions last 5 minutes and only access /me, /clock, and logout, including for developers and owners. Password sign-in opens permitted management features and can require the optional authenticator challenge.",
+        "description": "No public signup. PIN mode does not require email. An ambiguous shared PIN cannot select an account; use password sign-in to replace temporary credentials. Temporary credentials return a private ten-minute credential-change challenge without an app session. The challenge includes independent requirePasswordChange/requirePinChange flags; only the selected replacements are required before workspace access. PIN sessions last 5 minutes and only access /me, /clock, and logout, including for developers and owners. Password sign-in opens permitted management features and can require the optional authenticator challenge.",
         "security": [],
         "responses": {
           "200": {
@@ -4758,7 +4758,7 @@
       "post": {
         "operationId": "post_auth_setup",
         "summary": "Consume private account setup link",
-        "description": "Single-use link expires after 24 hours. Invalidates other sessions and API tokens. Denied while both temporary credentials require replacement; setup links cannot bypass onboarding.",
+        "description": "Single-use link expires after 24 hours. Invalidates other sessions and API tokens. Denied while either selected credential replacement is pending; setup links cannot bypass onboarding.",
         "security": [],
         "responses": {
           "200": {
@@ -4866,8 +4866,8 @@
     "/auth/credentials/complete": {
       "post": {
         "operationId": "post_auth_credentials_complete",
-        "summary": "Replace both temporary credentials",
-        "description": "Requires the private challenge returned by either temporary login mode. New password (8–128 characters) and PIN (6–8 digits) must each differ from their temporary value. Account-before-challenge locking rechecks current proof and expiry, revokes previous credential proofs/sessions/tokens, and commits both replacements with the audit. No app session is issued: sign in again with the new password. If the response is lost, try the new credentials; an already-used challenge cannot run again. Exact Origin, JSON and attempt limits apply; no ordinary-session CSRF header is required.",
+        "summary": "Complete required credential replacements",
+        "description": "Requires the private challenge returned by either temporary login mode. Provide exactly the replacement fields required by the challenge: password (8–128 characters), PIN (6–8 digits), or both. Each replacement must differ from its assigned value. Unrequested fields are rejected and the corresponding stored credential is preserved. Account-before-challenge locking rechecks current proof and expiry, revokes previous credential proofs/sessions/tokens, and commits the selected replacements with the audit. No app session is issued: sign in again with the current password. If the response is lost, try the new credentials; an already-used challenge cannot run again. Exact Origin, JSON and attempt limits apply; no ordinary-session CSRF header is required.",
         "security": [],
         "responses": {
           "200": {
@@ -5882,7 +5882,7 @@
       "post": {
         "operationId": "post_staff",
         "summary": "Create staff account with private setup or temporary credentials",
-        "description": "Current verified password session, management role and explicit unit/role restrictions. Only the owner can create administrators. Staff domain must match configured domain. Omit initialCredentials for the default private setup link. Owner/admin may supply both temporary values: they are hashed and force both replacements at first sign-in; the response contains neither credential nor a setup link. Account, assignments and audits are atomic; current authority and final session are rechecked.",
+        "description": "Current verified password session, management role and explicit unit/role restrictions. Only developers and owners can create administrators; administrators can create lower roles. Staff domain must match configured domain. Omit initialCredentials for the default private setup link. Developer/owner/admin may supply password and PIN with independent requirePasswordChange and requirePinChange booleans, both defaulting to true. All four policies are supported. Values are hashed, only the selected replacements are required, and a retained PIN must be unique. The response contains policy metadata but neither credential nor a setup link. Account, assignments and audits are atomic; current authority and final session are rechecked.",
         "security": [
           {
             "Session": []
@@ -6059,63 +6059,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "minLength": 2,
-                    "maxLength": 100
-                  },
-                  "email": {
-                    "type": "string",
-                    "maxLength": 254,
-                    "format": "email",
-                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
-                  },
-                  "role": {
-                    "type": "string",
-                    "enum": [
-                      "developer",
-                      "owner",
-                      "admin",
-                      "manager",
-                      "finance",
-                      "employee"
-                    ]
-                  },
-                  "unitIds": {
-                    "minItems": 1,
-                    "maxItems": 30,
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    }
-                  },
-                  "jobIds": {
-                    "maxItems": 40,
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    }
-                  },
-                  "active": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "name",
-                  "email",
-                  "role",
-                  "unitIds",
-                  "jobIds",
-                  "active"
-                ],
-                "additionalProperties": false
+                "$ref": "#/components/schemas/StaffUpdate"
               }
             }
           }
@@ -53168,11 +53112,285 @@
         }
       }
     },
+    "/staff/{id}/assignments": {
+      "get": {
+        "operationId": "get__staff__id__assignments",
+        "summary": "Read an employee job/community editor",
+        "description": "Actual current browser session in the same organization, completed onboarding and any required password MFA proof. API bearer tokens cannot use this operation. Assignment-only access: developer may manage any same-organization account; owner may manage self or lower roles; administrator may manage self, peer administrators and lower roles; scoped manager may manage another ordinary employee only with explicit access to every existing/requested community. Owner/developer targets remain protected from administrators. No role, credential, identity or active-state writes. Returns the current revision, permitted choices, retained archived jobs and current clock assignment locks.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffAssignments"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, exact scope, mode, MFA, Origin or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in this account or organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state, source revision, preview expiry or changed command payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Source or result size exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Retained source evidence inconsistent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt/admission limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction/worker temporarily unavailable; follow the documented retry guidance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "put__staff__id__assignments",
+        "summary": "Save employee job and community assignments",
+        "description": "Actual current browser session in the same organization, completed onboarding and any required password MFA proof. API bearer tokens cannot use this operation. Writes require exact configured Origin, application/json and X-CSRF-Token from /me. Assignment-only access: developer may manage any same-organization account; owner may manage self or lower roles; administrator may manage self, peer administrators and lower roles; scoped manager may manage another ordinary employee only with explicit access to every existing/requested community. Owner/developer targets remain protected from administrators. No role, credential, identity or active-state writes. Supply expectedRevision from GET. A changed source returns409, except an already-applied identical state returns changed:false without another audit. Jobs must belong to selected communities; new assignments require active jobs. Safe additions during an open shift are supported, but its current job/community cannot be removed. Current account/session locks, final proof checks and audit are transactional. Preserves credentials and sessions; subsequent requests use current assignments.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffAssignments"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, exact scope, mode, MFA, Origin or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in this account or organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state, source revision, preview expiry or changed command payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Source or result size exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Retained source evidence inconsistent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt/admission limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction/worker temporarily unavailable; follow the documented retry guidance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffAssignmentsInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/staff/{id}/temporary-credentials": {
       "post": {
         "operationId": "post__staff__id__temporary_credentials",
         "summary": "Reset a managed account to temporary first-sign-in credentials",
-        "description": "Actual current browser session in the same organization, completed onboarding and any required password MFA proof. API bearer tokens cannot use this operation. Writes require exact configured Origin, application/json and X-CSRF-Token from /me. Password developer/owner/administrator only, with the existing target hierarchy; no self reset or inactive target. Supply both temporary values, commandId and a reason. Both credentials must be replaced at next sign-in. Email plus temporary password identifies the account; a shared temporary PIN cannot select a unique employee. Revokes target sessions, setup links, onboarding/MFA challenges and API tokens; preserves enabled MFA and all recorded hours. Credential values never appear in the response or audit. The command is actor/target/payload bound using a domain-separated HMAC. Retry the exact command after an uncertain response: a replay returns current requiresCredentialChange without overwriting later employee credentials. Limited to20 reset attempts per actor per15-minute bucket.",
+        "description": "Actual current browser session in the same organization, completed onboarding and any required password MFA proof. API bearer tokens cannot use this operation. Writes require exact configured Origin, application/json and X-CSRF-Token from /me. Password developer/owner/administrator only, with the existing target hierarchy; no self reset or inactive target. Supply password, PIN, commandId, reason and optional independent requirePasswordChange/requirePinChange booleans (both default true). All four policies are supported; only selected credentials require replacement. A retained PIN must be unique. Email plus temporary password identifies the account; a shared temporary PIN cannot select a unique employee. Revokes target sessions, setup links, onboarding/MFA challenges and API tokens; preserves enabled MFA and all recorded hours. Credential values never appear in the response or audit. The command is actor/target/payload bound using a domain-separated HMAC. Retry the exact command after an uncertain response: a replay returns current requiresCredentialChange without overwriting later employee credentials. Limited to20 reset attempts per actor per15-minute bucket.",
         "security": [
           {
             "Session": []
@@ -55896,6 +56114,14 @@
               "pin": {
                 "type": "string",
                 "pattern": "^\\d{6,8}$"
+              },
+              "requirePasswordChange": {
+                "default": true,
+                "type": "boolean"
+              },
+              "requirePinChange": {
+                "default": true,
+                "type": "boolean"
               }
             },
             "required": [
@@ -55945,17 +56171,90 @@
                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
               },
               "requiresCredentialChange": {
-                "type": "boolean",
-                "const": true
+                "type": "boolean"
+              },
+              "requirePasswordChange": {
+                "default": true,
+                "type": "boolean"
+              },
+              "requirePinChange": {
+                "default": true,
+                "type": "boolean"
               }
             },
             "required": [
               "id",
-              "requiresCredentialChange"
+              "requiresCredentialChange",
+              "requirePasswordChange",
+              "requirePinChange"
             ],
             "additionalProperties": false
           }
         ]
+      },
+      "StaffUpdate": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "developer",
+              "owner",
+              "admin",
+              "manager",
+              "finance",
+              "employee"
+            ]
+          },
+          "unitIds": {
+            "minItems": 1,
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "jobIds": {
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "expectedRevision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "role",
+          "unitIds",
+          "jobIds",
+          "active",
+          "expectedRevision"
+        ],
+        "additionalProperties": false
       },
       "CredentialChangeChallenge": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -55974,12 +56273,22 @@
             "type": "string",
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "requirePasswordChange": {
+            "default": true,
+            "type": "boolean"
+          },
+          "requirePinChange": {
+            "default": true,
+            "type": "boolean"
           }
         },
         "required": [
           "requiresCredentialChange",
           "challenge",
-          "expiresAt"
+          "expiresAt",
+          "requirePasswordChange",
+          "requirePinChange"
         ],
         "additionalProperties": false
       },
@@ -55987,6 +56296,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "challenge": {
+            "type": "string",
+            "minLength": 32,
+            "maxLength": 100
+          },
           "password": {
             "type": "string",
             "minLength": 8,
@@ -55995,16 +56309,9 @@
           "pin": {
             "type": "string",
             "pattern": "^\\d{6,8}$"
-          },
-          "challenge": {
-            "type": "string",
-            "minLength": 32,
-            "maxLength": 100
           }
         },
         "required": [
-          "password",
-          "pin",
           "challenge"
         ],
         "additionalProperties": false
@@ -56094,6 +56401,16 @@
           },
           "requires_credential_change": {
             "type": "boolean"
+          },
+          "require_password_change": {
+            "type": "boolean"
+          },
+          "require_pin_change": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         },
         "required": [
@@ -56106,7 +56423,10 @@
           "unit_ids",
           "job_ids",
           "setup_complete",
-          "requires_credential_change"
+          "requires_credential_change",
+          "require_password_change",
+          "require_pin_change",
+          "revision"
         ],
         "additionalProperties": false
       },
@@ -109882,6 +110202,162 @@
         ],
         "additionalProperties": false
       },
+      "StaffAssignments": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "unitIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "jobIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "lockedJobIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "lockedUnitIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "units": {
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "jobs": {
+            "maxItems": 5000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "unitId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "active": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "unitId",
+                "active"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "changed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "userId",
+          "employeeName",
+          "unitIds",
+          "jobIds",
+          "revision",
+          "lockedJobIds",
+          "lockedUnitIds",
+          "units",
+          "jobs",
+          "changed"
+        ],
+        "additionalProperties": false
+      },
+      "StaffAssignmentsInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "unitIds": {
+            "minItems": 1,
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "jobIds": {
+            "minItems": 0,
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "expectedRevision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "unitIds",
+          "jobIds",
+          "expectedRevision"
+        ],
+        "additionalProperties": false
+      },
       "StaffTemporaryCredentialsResult": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -109896,12 +110372,22 @@
           },
           "replayed": {
             "type": "boolean"
+          },
+          "requirePasswordChange": {
+            "default": true,
+            "type": "boolean"
+          },
+          "requirePinChange": {
+            "default": true,
+            "type": "boolean"
           }
         },
         "required": [
           "id",
           "requiresCredentialChange",
-          "replayed"
+          "replayed",
+          "requirePasswordChange",
+          "requirePinChange"
         ],
         "additionalProperties": false
       },
@@ -109917,6 +110403,14 @@
           "pin": {
             "type": "string",
             "pattern": "^\\d{6,8}$"
+          },
+          "requirePasswordChange": {
+            "default": true,
+            "type": "boolean"
+          },
+          "requirePinChange": {
+            "default": true,
+            "type": "boolean"
           },
           "commandId": {
             "type": "string",

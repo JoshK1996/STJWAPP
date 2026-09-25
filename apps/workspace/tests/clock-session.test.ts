@@ -52,7 +52,7 @@ test('route-facing service cannot omit proof, cross users/organizations/modes, o
 });
 
 test('current account deactivation and pending credential gate deny stale supplied actors after middleware',async()=>{
- for(const pending of [false,true]){const p=await person(),wrapped=afterMiddleware(p,async()=>{if(pending)await db.query("UPDATE users SET password_hash='synthetic-not-a-real-hash',pin_hash='synthetic-not-a-real-hash',requires_credential_change=true WHERE id=$1",[p.actor.id]);else await db.query('UPDATE users SET active=false WHERE id=$1',[p.actor.id]);});const result=await post(wrapped.app,input(),p.auth);assert.equal(result.status,403,result.text);assert.equal((await counts(p)).shifts,0);await assert.rejects(getAuthenticatedClock(db,p.actor,p.auth.hash),(e:any)=>e.status===403);}
+ for(const pending of [false,true]){const p=await person(),wrapped=afterMiddleware(p,async()=>{if(pending)await db.query("UPDATE users SET password_hash='synthetic-not-a-real-hash',pin_hash='synthetic-not-a-real-hash',requires_credential_change=true,require_password_change=true,require_pin_change=true WHERE id=$1",[p.actor.id]);else await db.query('UPDATE users SET active=false WHERE id=$1',[p.actor.id]);});const result=await post(wrapped.app,input(),p.auth);assert.equal(result.status,403,result.text);assert.equal((await counts(p)).shifts,0);await assert.rejects(getAuthenticatedClock(db,p.actor,p.auth.hash),(e:any)=>e.status===403);}
 });
 
 test('password requires current MFA proof while a current PIN retains its restricted exemption',async()=>{

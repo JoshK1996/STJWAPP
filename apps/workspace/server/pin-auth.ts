@@ -72,8 +72,8 @@ async function candidates(tx: Queryable, key: {lookup:string;keyId:string}, exce
     "PIN sign-in requires account enrollment before this workspace can use it. Use your email and password.");
   const indexed = (await tx.query(`SELECT id,org_id,pin_hash,pin_lookup,pin_lookup_key_id,requires_credential_change FROM users
     WHERE active AND pin_lookup=$1 AND ($2::uuid IS NULL OR id<>$2) ORDER BY id LIMIT 2`, [key.lookup, exceptId ?? null])).rows;
-  // A malformed temporary indexed row must fail closed, even though ordinary
-  // temporary creation always leaves pin_lookup NULL.
+  // A PIN awaiting replacement remains unindexed. A permanent PIN may already
+  // be indexed while the account still requires its password to be changed.
   requireCondition(indexed.length <= 1, 401, incorrect);
   return [...indexed, ...legacy];
 }

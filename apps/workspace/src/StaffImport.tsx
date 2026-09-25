@@ -103,7 +103,7 @@ export default function StaffImport({ me, jobs, notify, onChange, onDirty }: {
       if (!current(key)) return;
       attempt.current = null; setUncertain(false); setReviewed(false); setCsv(''); setFileName(''); clearWorkbook();
       setDetail(previous => previous && previous.id === receipt.batchId ? { ...previous, appliedAt: receipt.appliedAt, receiptState: 'retained', receipt } : previous);
-      notify(`${receipt.created} accounts created. Issue individual private setup links from People & jobs.`);
+      notify(`${receipt.created} accounts created. Issue individual private setup links from Employees & jobs.`);
       try { await onChange(); }
       catch (e) { if (current(key) && !denied(e)) setError('Accounts were created, but the staff directory could not refresh. ' + connectionMessage(e)); }
       if (current(key)) await loadHistory();
@@ -127,7 +127,7 @@ export default function StaffImport({ me, jobs, notify, onChange, onDirty }: {
   return <Panel title="Bring your staff together" detail="New accounts only. Review each role, community and job assignment before creating accounts.">
     <div className="staff-import" aria-label="Staff account imports">
       {accessError ? <div className="error" role="alert">{accessError}</div> : <>
-        <p>Accounts are created without passwords or PINs. Issue each person an individual private setup link from People &amp; jobs afterward.</p>
+        <p>Accounts are created without passwords or PINs. Issue each person an individual private setup link from Employees &amp; jobs afterward.</p>
         {error && <div className="error" role="alert">{error}</div>}
         {busy && <p role="status">{busy}</p>}
         {uncertain && <div className="staff-import-uncertain" role="status"><strong>Creation needs confirmation</strong><p>Keep this workspace open and use the same-import retry. Changing files would not undo any accounts already created.</p>
@@ -167,7 +167,7 @@ export default function StaffImport({ me, jobs, notify, onChange, onDirty }: {
           <details><summary>Retained source evidence</summary><p>Preview <code>{detail.id}</code></p><p>CSV SHA-256 <code>{detail.sourceHash}</code></p><p>Created <code>{detail.createdAt}</code></p>{detail.appliedAt && <p>Applied <code>{detail.appliedAt}</code></p>}
             {detail.sourceAvailable ? <button type="button" className="button secondary" disabled={!!busy} onClick={() => void run('Downloading retained source…', async () => download(`/imports/staff/${detail.id}/source`, `staff-import-${detail.id}.txt`))}>Download retained CSV source</button> : <p>The original CSV was not retained for this older import.</p>}
           </details>
-          {detail.receiptState === 'legacy_unavailable' ? <p role="status">This older import was already applied, but its account receipt was not retained. Do not import it again to recover evidence. Review the existing accounts in People &amp; jobs.</p> : detail.receipt ? <p role="status">{detail.receipt.created} accounts created. No credentials were imported. Issue individual private setup links from People &amp; jobs.</p> : <>
+          {detail.receiptState === 'legacy_unavailable' ? <p role="status">This older import was already applied, but its account receipt was not retained. Do not import it again to recover evidence. Review the existing accounts in Employees &amp; jobs.</p> : detail.receipt ? <p role="status">{detail.receipt.created} accounts created. No credentials were imported. Issue individual private setup links from Employees &amp; jobs.</p> : <>
             {expired && <p className="error">{uncertain ? 'The preview period ended, but the original creation may already be saved. Retry the same reviewed import to recover its receipt.' : 'This preview expired. Prepare a fresh preview before creating accounts.'}</p>}
             <label className="staff-import-check"><input type="checkbox" checked={reviewed} disabled={sourceLocked || !!expired} onChange={e => setReviewed(e.target.checked)} />I reviewed every name, email, role, community and job assignment.</label>
             {!uncertain && <button type="button" className="button primary" disabled={!!busy || !reviewed || !!expired} onClick={() => void run('Creating reviewed accounts…', apply)}><Check size={16} />Create {detail.count} reviewed accounts</button>}

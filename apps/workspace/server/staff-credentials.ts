@@ -7,15 +7,17 @@ import { staffTemporaryCredentialsInput, staffTemporaryCredentialsResult } from 
 import { audit, hashPassword, limitAuth, requireCondition, type Actor } from './security';
 import { assertManagePerson } from './workforce';
 import { currentReportActor, recheckReportSession } from './report-source-access';
-import { acquirePinNamespace } from './pin-auth';
+import { acquirePinNamespace, uniquePermanentPin } from './pin-auth';
 
 function fingerprint(actor: Actor, targetId: string, input: z.infer<typeof staffTemporaryCredentialsInput>) {
   const key = process.env.STJW_PIN_LOOKUP_SECRET;
   requireCondition(typeof key === 'string' && /^[a-f0-9]{64}$/i.test(key), 503, 'Credential setup is temporarily unavailable. Ask the developer to check the sign-in configuration.');
-  return createHmac('sha256', Buffer.from(key, 'hex')).update('stjw-staff-credential-command-v1\0').update(JSON.stringify({ orgId: actor.org_id, actorId: actor.id, targetId, commandId: input.commandId, password: input.password, pin: input.pin, reason: input.reason })).digest('hex');
+  const base = { orgId: actor.org_id, actorId: actor.id, targetId, commandId: input.commandId, password: input.password, pin: input.pin, reason: input.reason };
+  const legacy = input.requirePasswordChange && input.requirePinChange;
+  return createHmac('sha256', Buffer.from(key, 'hex')).update(legacy ? 'stjw-staff-credential-command-v1\0' : 'stjw-staff-credential-command-v2\0').update(JSON.stringify(legacy ? base : { ...base, requirePasswordChange: input.requirePasswordChange, requirePinChange: input.requirePinChange })).digest('hex');
 }
 
-/** Administrator-assisted recovery preserves MFA and requires both credentials to be replaced at next sign-in. */
+/** Administrator-assisted recovery preserves MFA and records each selected change requirement. */
 export async function resetStaffTemporaryCredentials(db: Database, supplied: Actor, sessionHash: string | undefined, target: string, raw: unknown) {
   const input = staffTemporaryCredentialsInput.parse(raw), id = z.uuid().parse(target).toLowerCase();
   requireCondition(supplied.mode === 'password' && ['developer', 'owner', 'admin'].includes(supplied.role), 403, 'Only owners and administrators can reset temporary credentials.');
@@ -35,15 +37,17 @@ export async function resetStaffTemporaryCredentials(db: Database, supplied: Act
     const actor = await currentReportActor(tx, identity, sessionHash);
     requireCondition(['developer', 'owner', 'admin'].includes(actor.role), 403, 'Only owners and administrators can reset temporary credentials.');
     await assertManagePerson(tx, actor, id);
-    const user = (await tx.query('SELECT active,requires_credential_change FROM users WHERE id=$1 AND org_id=$2', [id, actor.org_id])).rows[0];
+    const user = (await tx.query('SELECT active,requires_credential_change,require_password_change,require_pin_change FROM users WHERE id=$1 AND org_id=$2', [id, actor.org_id])).rows[0];
     const previous = (await tx.query('SELECT actor_id,target_id,fingerprint FROM staff_credential_commands WHERE org_id=$1 AND command_id=$2', [actor.org_id, input.commandId])).rows[0];
     if (previous) {
       requireCondition(previous.actor_id === actor.id && previous.target_id === id && timingSafeEqual(Buffer.from(previous.fingerprint, 'hex'), Buffer.from(commandFingerprint, 'hex')), 409, 'This reset command was already used. Retry with the original unchanged details, or start a new reset.');
       await recheckReportSession(tx, actor, sessionHash);
-      return staffTemporaryCredentialsResult.parse({ id, requiresCredentialChange: user.requires_credential_change, replayed: true });
+      return staffTemporaryCredentialsResult.parse({ id, requiresCredentialChange: user.requires_credential_change, requirePasswordChange: user.require_password_change, requirePinChange: user.require_pin_change, replayed: true });
     }
     requireCondition(user.active, 409, 'Reactivate this staff account before assigning temporary credentials.');
-    await tx.query('UPDATE users SET password_hash=$1,pin_hash=$2,requires_credential_change=true,pin_lookup=NULL,pin_lookup_key_id=NULL WHERE id=$3 AND org_id=$4', [passwordHash, pinHash, id, actor.org_id]);
+    const pending = input.requirePasswordChange || input.requirePinChange;
+    const pinLookup = input.requirePinChange ? null : await uniquePermanentPin(tx, id, input.pin);
+    await tx.query('UPDATE users SET password_hash=$1,pin_hash=$2,requires_credential_change=$5,require_password_change=$6,require_pin_change=$7,pin_lookup=$8,pin_lookup_key_id=$9 WHERE id=$3 AND org_id=$4', [passwordHash, pinHash, id, actor.org_id, pending, input.requirePasswordChange, input.requirePinChange, pinLookup?.lookup ?? null, pinLookup?.keyId ?? null]);
     await tx.query('DELETE FROM sessions WHERE user_id=$1 AND org_id=$2', [id, actor.org_id]);
     await tx.query('UPDATE setup_tokens SET consumed_at=clock_timestamp() WHERE user_id=$1 AND org_id=$2 AND consumed_at IS NULL', [id, actor.org_id]);
     await tx.query('DELETE FROM credential_change_challenges WHERE user_id=$1 AND org_id=$2', [id, actor.org_id]);
@@ -51,9 +55,9 @@ export async function resetStaffTemporaryCredentials(db: Database, supplied: Act
     await tx.query('DELETE FROM mfa_factors WHERE user_id=$1 AND org_id=$2 AND enabled_at IS NULL', [id, actor.org_id]);
     await tx.query('UPDATE api_tokens SET revoked_at=clock_timestamp() WHERE user_id=$1 AND org_id=$2 AND revoked_at IS NULL', [id, actor.org_id]);
     await tx.query('INSERT INTO staff_credential_commands(org_id,actor_id,command_id,target_id,fingerprint) VALUES($1,$2,$3,$4,$5)', [actor.org_id, actor.id, input.commandId, id, commandFingerprint]);
-    await audit(tx, actor, 'staff.temporary_credentials_reset', id, { commandId: input.commandId, reason: input.reason, requiresCredentialChange: true });
+    await audit(tx, actor, 'staff.temporary_credentials_reset', id, { commandId: input.commandId, reason: input.reason, requiresCredentialChange: pending, requirePasswordChange: input.requirePasswordChange, requirePinChange: input.requirePinChange });
     await recheckReportSession(tx, actor, sessionHash);
-    return staffTemporaryCredentialsResult.parse({ id, requiresCredentialChange: true, replayed: false });
+    return staffTemporaryCredentialsResult.parse({ id, requiresCredentialChange: pending, requirePasswordChange: input.requirePasswordChange, requirePinChange: input.requirePinChange, replayed: false });
   });
 }
 

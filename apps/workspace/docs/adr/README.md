@@ -19,3 +19,7 @@ For a new decision, add the next numbered file with date, status, context, decis
 - [0008: Management editing and preserved evidence](0008-management-editing-and-preserved-evidence.md)
 
 - [0009: Workforce activation and durable scheduled starts](0009-workforce-activation.md)
+
+- [0010: Employee job assignments and account authority](0010-employee-job-assignment-management.md)
+
+- [0011: Independent employee sign-in requirements](0011-configurable-employee-sign-in.md)

@@ -1,3 +1,4 @@
+import { testStaffRevision } from '../scripts/test-staff-revision';
 import {before,after,test} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -98,7 +99,7 @@ test('manager scope and unit/user filters apply to both periods with fresh assig
   const scoped=await getAuthorizedPayrollReview(db,actor(manager),proof(auth),selected);assert.equal(scoped.totals.current.breakMicroseconds,'0');assert.equal(scoped.totals.previous.breakMicroseconds,'0');assert.equal(scoped.evidence.currentSourceRows,1);
   const foreign=await getAuthorizedPayrollReview(db,actor(manager),proof(auth),{...selected,unitId:units[1]});assert.equal(foreign.employees.length,0);
   const filtered=await getAuthorizedPayrollReview(db,owner,proof(ownerAuth),{...selected,userId:randomUUID()});assert.equal(filtered.employees.length,0);
-  await send('/staff/'+manager.id,{name:'Synthetic comparison staff',email:manager.email,role:'manager',active:true,unitIds:[units[1]],jobIds:[]},ownerAuth,'patch');
+  await send('/staff/'+manager.id,{expectedRevision:await testStaffRevision(db,manager.id),name:'Synthetic comparison staff',email:manager.email,role:'manager',active:true,unitIds:[units[1]],jobIds:[]},ownerAuth,'patch');
   await assert.rejects(getAuthorizedPayrollReview(db,actor(manager),proof(auth),selected),{status:401});
   const renewed=await login(manager.email,manager.password),stale=await getAuthorizedPayrollReview(db,actor(manager),proof(renewed),selected);assert.equal(stale.totals.current.workMicroseconds,'0');assert.equal(stale.totals.current.breakMicroseconds,'3600000001');
 });

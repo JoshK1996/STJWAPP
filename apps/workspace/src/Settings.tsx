@@ -157,7 +157,7 @@ export default function Settings({
         </div>
         <p className="panel-note">
           Managers operate within their assigned communities. Accounts and jobs
-          are assigned through People & jobs. Each subgroup requires its own
+          are assigned through Employees & jobs. Each subgroup requires its own
           explicit assignment. School-year settings are in School records.
         </p>
       </Panel>
