@@ -10,3 +10,10 @@
 :root[data-reduced-motion="true"] .workforce-workflow-nav button{transition:none}
 @media(prefers-reduced-motion:reduce){.workforce-workflow-nav button{transition:none}}
 @media(max-width:650px){.workforce-workflow-nav{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:6px}.workforce-workflow-nav button{padding:12px 8px;font-size:12px;gap:6px}.workforce-personal-toggle{width:100%;justify-content:center}}
+
+.staff-account-actions{display:flex;flex-wrap:wrap;gap:.6rem;min-width:150px;max-width:230px}
+.staff-account-actions .text-link{white-space:normal;text-align:left}
+.staff-tool-content{min-width:0;max-width:100%;overflow-wrap:anywhere}
+dialog:has(.staff-tool-content){width:min(1080px,calc(100vw - 28px));max-width:calc(100vw - 28px)}
+.workforce-import-entry{margin:0 0 1rem;max-width:100%;white-space:normal}
+@media(max-width:520px){.staff-tool-content .form-row{grid-template-columns:1fr}.staff-tool-content .panel{padding:12px}.staff-account-actions{min-width:125px}}

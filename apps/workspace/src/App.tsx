@@ -1,3 +1,8 @@
+import WorkforceImport from "./WorkforceImport";
+import StaffCredentials, { TemporaryCredentialFields } from "./StaffCredentials";
+import { EmployeeClockPolicy } from "./ScheduledClock";
+import StaffImport from "./StaffImport";
+import Compensation from "./Compensation";
 import { JobManagement, JobForm } from "./JobManagement";
 import {
   useEffect,
@@ -145,6 +150,8 @@ export default function App() {
   const [compactClock, setCompactClock] = useState(() => matchMedia("(max-width: 720px), (max-width: 1024px) and (max-height: 500px)").matches);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [showPersonalCards, setShowPersonalCards] = useState(false);
+  const [moreTools, setMoreTools] = useState(false);
+  const [staffTool, setStaffTool] = useState<{kind: "rates"|"credentials"|"clock"|"import"|"jobs-import"|"schedules-import"; person?: any}|null>(null);
   const [boardState,setBoardState]=useState<TeamBoardState>({receivedAt:null,unavailable:false});
   const [clockPending, setClockPending] = useState(false);
   const clockPendingRef = useRef(false);
@@ -245,7 +252,7 @@ export default function App() {
     setBranding({ status: 'loading', current: null, error: '' });
     reportGeneration.current += 1; setReportState({scope:'',status:'loading'});
     setStaff([]); setBoard([]); setBoardState({receivedAt:null,unavailable:false}); setRequests([]); setJobs([]); setSchedules([]); setAudit([]);
-    setDialog(null); setPrivateLink(""); setScheduleRequestTarget(null);
+    setDialog(null); setStaffTool(null); setMoreTools(false); setPrivateLink(""); setScheduleRequestTarget(null);
     setUnsavedChanges(false); setBusy(false); setToast(null); setMobile(false);
     clockPendingRef.current = false; setClockPending(false);
     setScope(""); setSearch(""); setIncludeInactiveStaff(false);
@@ -352,7 +359,7 @@ export default function App() {
     if (me.permissions.report) {
       const privileged = await Promise.all([api("/board"), api("/staff")]);
       if (sessionEpoch.current !== workspaceEpoch) return;
-      if(ownsReport()){setBoard(privileged[0].rows);setBoardState({receivedAt:new Date().toISOString(),unavailable:false});}
+      if(ownsReport()){setBoard(privileged[0].rows);setBoardState({receivedAt:new Date().toISOString(),unavailable:false,asOf:privileged[0].asOf});}
       setStaff(privileged[1].rows);
     }
     } catch (error) {
@@ -451,6 +458,15 @@ export default function App() {
   const visibleStaff = includedStaff.filter((person) =>
     `${person.name} ${person.email} ${person.role}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
+  const canManagePerson = (person: any) => me?.permissions.manage && person.id !== me.actor.id &&
+    (me.actor.role === 'developer' || (me.actor.role === 'owner' && !['developer','owner'].includes(person.role)) ||
+     (me.actor.role === 'admin' && !['developer','owner','admin'].includes(person.role)) ||
+     (me.actor.role === 'manager' && person.role === 'employee' && person.unit_ids.every((id: string) => me.actor.unit_ids.includes(id))));
+  function closeStaffTool() {
+    if (pendingWrites > 0) return;
+    if (unsavedChanges && !window.confirm('Discard unsaved changes in this editor?')) return;
+    setStaffTool(null); setUnsavedChanges(false);
+  }
   function closeManagementDialog() {
     if (busy) return;
     if (unsavedChanges && !window.confirm("Discard the changes in this editor?")) return;
@@ -494,6 +510,7 @@ export default function App() {
           notify("Staff account updated. Existing sessions were signed out.");
         } else {
           const temporary = form.get("onboarding") === "temporary";
+          if (temporary && (form.get('temporaryPassword') !== form.get('temporaryPasswordConfirmation') || form.get('temporaryPin') !== form.get('temporaryPinConfirmation'))) throw new Error('The confirmation fields must match.');
           const result = staffCreateResultSchema.parse(await api("/staff", {
             ...input, ...(temporary ? { initialCredentials: { password: form.get("temporaryPassword"), pin: form.get("temporaryPin") } } : {}),
           }));
@@ -672,6 +689,7 @@ export default function App() {
             .filter(
               ([id]) =>
                 !(me.actor.mode === "pin" && id !== "clock") &&
+                (moreTools || !["calendar", "messages", "reports"].includes(id) || page === id) &&
                  !(["staff", "payroll"].includes(id) && !me.permissions.report),
              )
             .sort((a, b) => preferences.workspaceNavOrder.indexOf(a[0]) - preferences.workspaceNavOrder.indexOf(b[0]))
@@ -695,10 +713,10 @@ export default function App() {
         </nav>
         {me.actor.mode !== "pin" && (
           <>
-            <span className="nav-label tools-label">ORGANIZATION</span>
+            <nav aria-label="Additional tools"><button onClick={() => setMoreTools(value => !value)} aria-expanded={moreTools}><MoreHorizontal size={19}/><span>{moreTools ? "Fewer tools" : "More tools"}</span><ChevronDown size={16}/></button></nav>
             <nav aria-label="Organization navigation">
               {organizationNav
-                .filter(([id]) => id !== "audit" || ["developer", "owner", "admin", "finance"].includes(me.actor.role))
+                .filter(([id]) => (moreTools || id === "settings" || page === id) && (id !== "audit" || ["developer", "owner", "admin", "finance"].includes(me.actor.role)))
                 .sort((a, b) => preferences.organizationNavOrder.indexOf(a[0]) - preferences.organizationNavOrder.indexOf(b[0]))
                 .map(([id, label, Icon]) => (
                 <button
@@ -715,17 +733,7 @@ export default function App() {
                 </button>
               ))}
             </nav>
-            <div className="sidebar-note">
-              <span className="tiny-cross">✦</span>
-              <strong>Built around our people.</strong>
-              <p>
-                One shared space.
-                <br />A more connected community.
-              </p>
-              <button onClick={() => go("workspace")}>
-                Explore what’s ahead <ArrowRight size={14} />
-              </button>
-            </div>
+
           </>
         )}
         <div className="profile">
@@ -831,8 +839,8 @@ export default function App() {
             <Badge tone="outline">PREVIEW</Badge>
           </div>
         )}
-        <main id="workspace-main" ref={mainRef} tabIndex={-1} aria-labelledby="workspace-heading">
-          <div className="page-heading">
+        <main id="workspace-main" ref={mainRef} tabIndex={-1} aria-labelledby={page === "overview" && me.permissions.report ? "workforce-heading" : "workspace-heading"}>
+          {!(page === "overview" && me.permissions.report) && <div className="page-heading">
             <div>
               <div className="eyebrow">
                 <span className="day-line" />
@@ -882,8 +890,8 @@ export default function App() {
                 Customize workspace
               </button>
             )}
-          </div>
-          {!(compactClock && page === "clock") && workforceNavigation}
+          </div>}
+          {!(page === "overview" && me.permissions.report) && !(compactClock && page === "clock") && workforceNavigation}
           {((page === "overview" && !me.permissions.report) || page === "school") && (
             <WorkspaceHero
               school={page === "school"}
@@ -891,7 +899,7 @@ export default function App() {
             />
           )}
           {page === "overview" && me.permissions.report && <>
-            <WorkforceDashboard key={me.actor.id} me={me} board={board} boardState={boardState} onNavigate={go}/>
+            <WorkforceDashboard key={me.actor.id} me={me} board={board} boardState={boardState} onNavigate={go} onRefresh={refresh}/>
             <button className="workforce-personal-toggle" onClick={() => setShowPersonalCards(value => !value)} aria-expanded={showPersonalCards}><SlidersHorizontal size={17}/>{showPersonalCards ? "Hide personal workspace cards" : "Show personal workspace cards"}<ChevronDown size={17}/></button>
           </>}
           {page === "overview" && (!me.permissions.report || showPersonalCards) && (
@@ -1161,6 +1169,7 @@ export default function App() {
 
               >
                 <div className="table-toolbar">
+                  {me.permissions.manage && <button className="button secondary small" onClick={() => setStaffTool({kind:"import"})}><ArrowDownToLine size={16}/>Import employees</button>}
                   <label className="search in-panel">
                     <Search size={16} />
                     <input
@@ -1234,39 +1243,18 @@ export default function App() {
                               </span>
                             </td>
                             <td>
-                              {me.permissions.manage &&
-                                (!isOwnerRole(person.role) || me.actor.role === "developer") &&
-                                person.id !== me.actor.id && (
-                                  <div className="row-actions">
-                                    <button
-                                      className="text-link"
-                                      onClick={() =>
-                                        setDialog({
-                                          type: "staff",
-                                          staff: person,
-                                        })
-                                      }
-                                    >
-                                      Edit
-                                    </button>
-                                    <button
-                                      className="icon-button"
-                                      title="Create private setup link"
-                                      aria-label={`Create setup link for ${person.name}`}
-                                      onClick={() =>
-                                        void run(async () => {
-                                          const result = await api(
-                                            `/staff/${person.id}/setup-link`,
-                                            {},
-                                          );
-                                          if (sessionEpoch.current === workspaceEpoch) setPrivateLink(result.setupUrl);
-                                        })
-                                      }
-                                    >
-                                      <KeyIcon />
-                                    </button>
-                                  </div>
-                                )}
+                              <div className="row-actions staff-account-actions">
+                                {canManagePerson(person) && <>
+                                  <button className="text-link" onClick={() => setDialog({type:'staff',staff:person})}>Edit account</button>
+                                  <button className="text-link" onClick={() => setStaffTool({kind:'clock',person})}>Clock rules</button>
+                                  {['developer','owner','admin'].includes(me.actor.role) && <button className="text-link" onClick={() => setStaffTool({kind:'credentials',person})}>Reset sign-in</button>}
+                                  {!person.requires_credential_change && <button className="text-link" onClick={() => void run(async () => {
+                                    const result = await api(`/staff/${person.id}/setup-link`, {});
+                                    if (sessionEpoch.current === workspaceEpoch) setPrivateLink(result.setupUrl);
+                                  })}>Setup link</button>}
+                                </>}
+                                {['developer','owner','admin','finance'].includes(me.actor.role) && <button className="text-link" onClick={() => setStaffTool({kind:'rates',person})}>Pay rates</button>}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -1280,12 +1268,15 @@ export default function App() {
                   />
                 )}
               </Panel>
+              {me.permissions.manage && <button className="button secondary workforce-import-entry" onClick={() => setStaffTool({kind:"jobs-import"})}><ArrowDownToLine size={17}/>Import jobs</button>}
               <JobManagement key={me.actor.id} me={me} jobs={jobs} onEdit={(job) => setDialog({ type: "job", job })} isSessionCurrent={isSessionCurrent} />
             </>
           )}
-          {page === "schedule" && <StaffSchedule me={me} staff={staff} jobs={jobs} rows={schedules} week={scheduleWeek} zone={zone}
+          {page === "schedule" && <>
+            {me.permissions.manage && <button className="button secondary workforce-import-entry" onClick={() => setStaffTool({kind:"schedules-import"})}><ArrowDownToLine size={17}/>Import scheduled shifts</button>}
+            <StaffSchedule me={me} staff={staff} jobs={jobs} rows={schedules} week={scheduleWeek} zone={zone}
             onWeek={setScheduleWeek} onChanged={refresh} notify={notify} onDirty={workspaceDirty}
-            onRequests={(scheduleId, requestId) => { setScheduleRequestTarget({ scheduleId, requestId }); go("requests"); }}/>} 
+            onRequests={(scheduleId, requestId) => { setScheduleRequestTarget({ scheduleId, requestId }); go("requests"); }}/></>}
           {page === "requests" && (
             <><ScheduleRequests me={me} zone={zone} target={scheduleRequestTarget} onChanged={refresh} notify={notify} onDirty={workspaceDirty}
               onSchedule={date => { if (go("schedule") && date) setScheduleWeek(DateTime.fromISO(date).setZone(zone).startOf("week").toISODate()!); }}/>
@@ -1545,6 +1536,15 @@ export default function App() {
       </div>
       {updateNotice}
       {!(compactClock && page === "clock") && toastNotice}
+      {staffTool?.kind === 'credentials' && <StaffCredentials key={staffTool.person.id} person={staffTool.person} onClose={() => { setStaffTool(null); setUnsavedChanges(false); }} onSaved={refresh} notify={notify} isSessionCurrent={isSessionCurrent} onSessionExpired={sessionExpired} onDirty={workspaceDirty}/>}
+      {staffTool && staffTool.kind !== 'credentials' && <Modal title={staffTool.kind === 'jobs-import' ? 'Import jobs' : staffTool.kind === 'schedules-import' ? 'Import scheduled shifts' : staffTool.kind === 'import' ? 'Import employees' : `${staffTool.person.name} · ${staffTool.kind === 'rates' ? 'Pay rates' : 'Clock rules'}`} onClose={closeStaffTool}>
+        <div className="staff-tool-content">
+          {(staffTool.kind === 'jobs-import' || staffTool.kind === 'schedules-import') && <WorkforceImport key={me.actor.id+staffTool.kind} kind={staffTool.kind === 'jobs-import' ? 'jobs' : 'schedules'} onChange={refresh} notify={notify} onDirty={workspaceDirty} isSessionCurrent={isSessionCurrent} onSessionExpired={sessionExpired}/>}
+          {staffTool.kind === 'rates' && <Compensation key={staffTool.person.id} initialUserId={staffTool.person.id} notify={notify} onDirty={workspaceDirty}/>}
+          {staffTool.kind === 'clock' && <EmployeeClockPolicy key={staffTool.person.id} userId={staffTool.person.id} notify={notify} onDirty={workspaceDirty}/>}
+          {staffTool.kind === 'import' && <StaffImport me={me} jobs={jobs} notify={notify} onChange={refresh} onDirty={workspaceDirty}/>}
+        </div>
+      </Modal>}
       {dialog && (
         <Modal
           title={
@@ -1841,7 +1841,7 @@ function StaffForm({
   const [unitIds, setUnitIds] = useState<string[]>(
     person?.unit_ids ?? [me.units[0]?.id].filter(Boolean),
   );
-  const [onboarding, setOnboarding] = useState("private");
+  const [onboarding, setOnboarding] = useState("temporary");
   return (
     <>
       <div className="form-row">
@@ -1888,9 +1888,8 @@ function StaffForm({
           <option value="private">Private setup link</option><option value="temporary">Temporary password and PIN</option>
         </select></label>
         {onboarding === "private" ? <p>The employee chooses a private password using a one-time setup link.</p> : <>
-          <p>Share these temporary credentials privately with this employee. Either sign-in method requires them to replace both credentials before opening the workspace. Credentials will not be shown in the saved account or receipt.</p>
-          <div className="form-row"><label>Temporary password<input name="temporaryPassword" aria-label="Temporary password" type="password" autoComplete="new-password" required minLength={MIN_PASSWORD_LENGTH} maxLength={128} /><small>{MIN_PASSWORD_LENGTH}–128 characters.</small></label>
-            <label>Temporary PIN<input name="temporaryPin" aria-label="Temporary PIN" type="password" inputMode="numeric" pattern="[0-9]{6,8}" minLength={6} maxLength={8} autoComplete="off" required /><small>6–8 digits.</small></label></div>
+          <p>Share these details privately. For first sign-in, choose Password and enter the work email and temporary password. The employee must then choose their own password and unique PIN. A shared temporary PIN cannot identify an account.</p>
+          <TemporaryCredentialFields busy={busy}/>
         </>}
       </fieldset>}
       <fieldset>

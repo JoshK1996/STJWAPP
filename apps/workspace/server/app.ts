@@ -1,3 +1,8 @@
+import { installWorkforceImports } from "./workforce-imports";
+import { saveAllowanceSnapshot, listAllowanceSnapshots, getAllowanceSnapshot, exportAllowance } from "./workforce-allowance-reviews";
+import { installScheduledClockRoutes } from "./scheduled-clock";
+import {installStaffCredentials} from './staff-credentials';
+import {getWorkforceOverview,getWorkforceBoard} from './workforce-overview';
 import { editOwnRequest } from './request-editing';
 import { installAccountCredentials } from './account-credentials';
 import { registerAccountingLedgerRoutes } from './accounting-ledger';
@@ -90,13 +95,19 @@ export function createApp(db: Database, config: AppConfig) {
   installOrganizationBranding(app,db);
   app.get('/api/clock',async(req,res)=>res.set('Cache-Control','private, no-store').json(await getAuthenticatedClock(db,actorOf(req),(req as AppRequest).sessionHash!)));
   app.post('/api/clock',async(req,res)=>res.set('Cache-Control','private, no-store').json(await applyAuthenticatedClockCommand(db,actorOf(req),(req as AppRequest).sessionHash!,req.body)));
-  app.get('/api/board',async(req,res)=>{
-    const actor=actorOf(req);requireCondition(canReport(actor),403,'Manager or reporting access required.');
-    const rows=(await db.query(`SELECT u.id AS user_id,u.name,j.title AS job_title,n.name AS unit_name,n.id AS unit_id,g.kind,s.started_at,g.started_at AS segment_started_at
-      FROM shifts s JOIN users u ON u.id=s.user_id JOIN segments g ON g.shift_id=s.id AND g.org_id=s.org_id AND g.revision=s.revision AND g.ended_at IS NULL
-      JOIN jobs j ON j.id=g.job_id JOIN units n ON n.id=j.unit_id WHERE s.org_id=$1 AND s.ended_at IS NULL AND ($2::boolean OR n.id=ANY($3::uuid[])) ORDER BY u.name`,[actor.org_id,orgWide(actor),actor.unit_ids])).rows;
-    res.json({rows,asOf:new Date().toISOString()});
-  });
+  app.get('/api/board',async(req,res)=>res.json(await getWorkforceBoard(db,actorOf(req),reportProofOf(req))));
+  app.get('/api/workforce/overview',async(req,res)=>res.json(await getWorkforceOverview(db,actorOf(req),reportProofOf(req),req.query)));
+  app.post('/api/workforce/allowance/snapshots',async(req,res)=>res.status(201).json(await saveAllowanceSnapshot(db,actorOf(req),reportProofOf(req),req.body)));
+  app.get('/api/workforce/allowance/snapshots',async(req,res)=>res.json(await listAllowanceSnapshots(db,actorOf(req),reportProofOf(req))));
+  app.get('/api/workforce/allowance/snapshots/:id',async(req,res)=>res.json(await getAllowanceSnapshot(db,actorOf(req),reportProofOf(req),idOf(req.params.id))));
+  for(const format of ['csv','xlsx'] as const) {
+    const sendAllowance=async(req:Request,res:import('express').Response,id?:string)=>{const result=await exportAllowance(db,actorOf(req),reportProofOf(req),req.query,format,id);res.set('Cache-Control','private, no-store').set('X-STJW-Report-As-Of',result.asOf).attachment(`stjw-scheduled-hours-${result.query.start}-${result.query.end}.${format}`).type(format==='csv'?'text/csv':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').send(result.body);};
+    app.get('/api/workforce/allowance/export.'+format,async(req,res)=>sendAllowance(req,res));
+    app.get('/api/workforce/allowance/snapshots/:id/export.'+format,async(req,res)=>sendAllowance(req,res,idOf(req.params.id)));
+  }
+  installStaffCredentials(app,db);
+  installWorkforceImports(app,db);
+  installScheduledClockRoutes(app,db);
   app.get('/api/staff',async(req,res)=>{requireCondition(canReport(actorOf(req)),403,'Staff access required.');res.json({rows:await listStaff(db,actorOf(req))});});
   app.get('/api/jobs',async(req,res)=>{
     const actor=actorOf(req);

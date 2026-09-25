@@ -1,5 +1,30 @@
 # Validation evidence
 
+## Workforce activation — September 25, 2026
+
+The complete local application suite passed **1,157 tests**, with zero failures, cancellations or skips. After that run, actual Excel rendering exposed a long-title clipping issue in the server export. The corrected title-height helper and its regression passed **21 targeted overview/export and visual-helper tests**. The subsequent production build passed. The existing large-entry warning remains; this is not a network-performance measurement. The first full run's stale API inventory and migration-version expectations were corrected before the passing full run.
+
+Normal synthetic password/PIN authentication against disposable local databases verified these browser workflows with zero unexpected errors:
+
+| Workflow | Checks | Layout samples | Captured entry |
+| --- | ---: | ---: | --- |
+| Existing mobile clock | 80 | 14 | `a8310bd6…` |
+| Staff accounts, recovery and imports | 58 | 18 | `a8310bd6…` |
+| Scheduled clock starts and employee rules | 56 | 11 | `a8310bd6…` |
+| Workforce overview, exports and saved reviews | 70 | 13 | `a8310bd6…` |
+
+All four browser workflows passed on final entry SHA256 `a8310bd62e2bef46c529ac71e363a24e25a01da3f1c3a83666d4d88fa1b68e0d`, build version `9889c0c74be7b1994c467fda7798bbc7cd45453764780200670602177524a86e`. Each final run verified unchanged entry bytes before and after acceptance. This build includes the server Excel title-height correction.
+
+Coverage includes first-screen clock actions, exact command recovery, actual job changes and breaks; temporary account creation and mandatory credential replacement; administrator recovery; reviewed jobs/schedule CSV and Excel imports; private employee clock rules; pending PIN cancellation; and real server-worker execution while the browser context is closed, followed by reopening the active clock. Manager rules were checked for unsaved-change reload confirmation and versioned saving. Overview checks cover exact live timers, offline state, unit/break filters, employee drilldowns, actual CSV/Excel downloads, immutable saved review readback and suppressed downloads after navigation or revoked credentials. Narrow 320/390-pixel layouts and desktop views were checked; selected dark, large-text and reduced-depth screens were included. Representative screenshots were visually reviewed. Browser discovery corrected the pending-start cancel target, contradictory desktop pending captions and a narrow recovery-dialog footer before final acceptance.
+
+Actual installed Microsoft Excel opened the synthetic allowance workbooks and rendered their three sheets: **Employee summary**, **Jobs and communities**, and **Daily review**. The ordinary fixture produced three PDF pages; the long-title, 16-person fixture produced seven. After the title-height correction, all rendered pages were visually inspected: long titles were unclipped, repeated headings remained visible and no unexpected blank pages appeared. One continuation contains the final employee, so pagination is not evenly balanced. PDF page counts were independently parsed; workbook/PDF hashes and the current export-source hash matched the retained verification receipt. This does not prove every possible workbook length, printer or font configuration.
+
+Evidence remains private under `output/playwright/mobile-clock-first/final-results.json`, `output/playwright/workforce-readiness/results.json`, `output/playwright/scheduled-clock/results.json`, `output/playwright/workforce-overview/results.json`, `output/pdf/workforce-allowance/`, and the ignored `.work` test/export receipts. Counts and captured hashes were read from those artifacts, not inferred from planned checks. Jev source screens `3d4576011c6744678887acdacf502784` and `b009d71e38874e85bdaf2e95145d440a` provided advisory runtime-grant and authorization hypotheses, independently checked against source and negative/normal-authentication regressions. Exact validation, arithmetic and authorization remain ordinary code.
+
+These are local synthetic checks. They do not establish physical iPhone/Android behavior, hosted customer-account acceptance, multi-connection PostgreSQL contention, payroll-policy approval or provider connectivity. No deployment outcome is claimed by this section.
+
+Hosted public verification of the workforce release separately passed 36 checks, 12 exact asset comparisons and 98 anonymous protected-route denials. The actual web container verified schema043, runtime/login role `stjw_runtime`, all 31 protection flags and archive-access denial. Owner-requested recovery of the two existing administrators was narrowly verified through the public Password form: each reached required credential replacement without a management session; no final credentials were selected. This does not establish broader customer-account workflow acceptance. DEPLOYMENT records the source and maintenance hashes.
+
 ## Management editing — September 24, 2026
 
 The final application suite passed all 1,106 tests, with zero failures, cancellations or skips. Final production build passed: version `7faeab7148e8df229aa0f0ed88be6adc681a074a9c169fac3b90699524c936dc`, entry SHA256 `5ea710ff678e16c3d8c227452cb5729577e2716c43e6b22d28c3358dcae75d87`. Existing large-entry warnings remain. The production dependency audit reported zero vulnerabilities. Publication hygiene checked 527 files without problems. Source bytes retain the repository's mixed line endings; whitespace checking recognizes CRLF while still rejecting actual trailing blanks.

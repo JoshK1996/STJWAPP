@@ -1,3 +1,4 @@
+import {workforceInstantMicroseconds} from './workforce-reports-v2';
 import type { WorkforceReportRowV2 } from './workforce-reports-v2';
 
 const hour = 3_600_000_000n, minute = 60_000_000n;
@@ -54,4 +55,15 @@ export function workforceDonutSlices(items: readonly WorkforceMix[], limit = 7):
 
 export function exactDescending(a: string, b: string): number {
   return amount(a) > amount(b) ? -1 : amount(a) < amount(b) ? 1 : 0;
+}
+
+/** A live display estimate anchored to a server timestamp; never a recorded payroll total. */
+export function workforceLiveElapsed(start:string,serverAsOf:string,elapsedMilliseconds:number):string|null {
+  if(!Number.isFinite(elapsedMilliseconds)||elapsedMilliseconds<0)return null;
+  try {const duration=workforceInstantMicroseconds(serverAsOf)+BigInt(Math.floor(elapsedMilliseconds))*1000n-workforceInstantMicroseconds(start);return duration<0n?null:duration.toString();}catch{return null;}
+}
+/** Whole seconds for a moving clock. Exact source durations remain separate. */
+export function workforceClockLabel(value:string):string {
+  const seconds=amount(value)/1_000_000n,hours=seconds/3600n,minutes=(seconds%3600n)/60n;
+  return `${hours.toLocaleString('en-US')}:${minutes.toString().padStart(2,'0')}:${(seconds%60n).toString().padStart(2,'0')}`;
 }

@@ -4,14 +4,15 @@ import { schoolImportCatalog } from "./school-imports";
 import { gradeImportColumns } from "./grade-imports";
 import { staffImportColumns } from "./staff-imports";
 import { compensationCsvColumns } from "./compensation";
+import { workforceImportColumns } from "./workforce-imports";
 
 export const schoolWorkbookKinds = ["school_students", "school_enrollments", "school_roster", "school_households", "school_household_members", "school_contacts"] as const;
-export const workbookKinds = ["finance", ...schoolWorkbookKinds, "grade_scores", "staff", "compensation_rates"] as const;
+export const workbookKinds = ["finance", ...schoolWorkbookKinds, "grade_scores", "staff", "compensation_rates", "jobs", "schedules"] as const;
 export const workbookKindSchema = z.enum(workbookKinds);
 export type WorkbookKind = z.infer<typeof workbookKindSchema>;
 const schoolKind = z.enum(schoolWorkbookKinds);
 export function workbookColumnsFor(kind: WorkbookKind): readonly string[] {
-  return kind === "finance" ? financeColumns : kind === "grade_scores" ? gradeImportColumns : kind === "staff" ? staffImportColumns : kind === "compensation_rates" ? compensationCsvColumns : schoolImportCatalog[kind.slice(7) as keyof typeof schoolImportCatalog].columns;
+  return kind === "finance" ? financeColumns : kind === "grade_scores" ? gradeImportColumns : kind === "staff" ? staffImportColumns : kind === "compensation_rates" ? compensationCsvColumns : kind === 'jobs' || kind === 'schedules' ? workforceImportColumns[kind] : schoolImportCatalog[kind.slice(7) as keyof typeof schoolImportCatalog].columns;
 }
 
 export const workbookLimits = {
@@ -33,6 +34,8 @@ const convertFields = { base64, sheetId, headerRow: z.number().int().min(1).max(
 export const workbookInspectInput = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("finance"), ...inspectFields }).strict(),
   z.object({ kind: z.literal("staff"), ...inspectFields }).strict(),
+  z.object({ kind: z.literal('jobs'), ...inspectFields }).strict(),
+  z.object({ kind: z.literal('schedules'), ...inspectFields }).strict(),
   z.object({ kind: schoolKind, unitId: z.uuid(), ...inspectFields }).strict(),
   z.object({ kind: z.literal("grade_scores"), assignmentId: z.uuid(), ...inspectFields }).strict(),
   z.object({ kind: z.literal("compensation_rates"), userId: z.uuid(), jobId: z.uuid(), ...inspectFields }).strict(),
@@ -40,6 +43,8 @@ export const workbookInspectInput = z.discriminatedUnion("kind", [
 export const workbookConvertInput = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("finance"), ...convertFields }).strict(),
   z.object({ kind: z.literal("staff"), ...convertFields }).strict(),
+  z.object({ kind: z.literal('jobs'), ...convertFields }).strict(),
+  z.object({ kind: z.literal('schedules'), ...convertFields }).strict(),
   z.object({ kind: schoolKind, unitId: z.uuid(), ...convertFields }).strict(),
   z.object({ kind: z.literal("grade_scores"), assignmentId: z.uuid(), ...convertFields }).strict(),
   z.object({ kind: z.literal("compensation_rates"), userId: z.uuid(), jobId: z.uuid(), ...convertFields }).strict(),
@@ -47,6 +52,8 @@ export const workbookConvertInput = z.discriminatedUnion("kind", [
 export const workbookTemplateInput = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("finance") }).strict(),
   z.object({ kind: z.literal("staff") }).strict(),
+  z.object({ kind: z.literal('jobs') }).strict(),
+  z.object({ kind: z.literal('schedules') }).strict(),
   z.object({ kind: schoolKind, unitId: z.uuid() }).strict(),
   z.object({ kind: z.literal("grade_scores"), assignmentId: z.uuid() }).strict(),
   z.object({ kind: z.literal("compensation_rates"), userId: z.uuid(), jobId: z.uuid() }).strict(),
@@ -72,7 +79,7 @@ export const workbookInspectResultSchema = z.object({ schemaVersion: z.literal(1
 export type WorkbookInspectResult = z.infer<typeof workbookInspectResultSchema>;
 export function workbookConvertResultSchemaFor(kind: WorkbookKind) {
   const columns = workbookColumnsFor(workbookKindSchema.parse(kind));
-  const rowLimit = kind === "grade_scores" ? workbookLimits.gradeDataRows : kind === "compensation_rates" ? workbookLimits.compensationDataRows : workbookLimits.dataRows;
+  const rowLimit = kind === "grade_scores" ? workbookLimits.gradeDataRows : kind === "compensation_rates" ? workbookLimits.compensationDataRows : kind === 'jobs' || kind === 'schedules' ? 100 : workbookLimits.dataRows;
   const csvLimit = kind === "compensation_rates" ? workbookLimits.compensationCsvBytes : workbookLimits.csvBytes;
   return z.object({ schemaVersion: z.literal(1), parserVersion: z.literal(1),
   workbookHash: hash, workbookBytes: z.number().int().min(1).max(workbookLimits.inputBytes), sheetId, sheetName: name,

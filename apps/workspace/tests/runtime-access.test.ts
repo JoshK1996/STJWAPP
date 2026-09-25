@@ -78,9 +78,36 @@ async function runtime(fn: () => Promise<void>) {
     await db.query('SET SESSION AUTHORIZATION "'+maintenanceLogin.replaceAll('"','""')+'"');
   }
 }
+test('runtime guards scheduled starts, credential receipts, allowance evidence and workforce imports',async()=>{
+ const guards=[['users','advance_clock_authority_version'],['clock_intents','protected_clock_intent'],
+  ['clock_intent_events','immutable_clock_intent_events'],['clock_intent_commands','immutable_clock_intent_commands'],
+  ['staff_credential_commands','staff_credential_commands_immutable'],['workforce_allowance_reviews','immutable_workforce_allowance_reviews'],
+  ['workforce_import_batches','workforce_import_evidence_immutable']];
+ for(const [table,trigger] of guards){
+  await db.query(`ALTER TABLE ${table} DISABLE TRIGGER ${trigger}`);
+  try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}
+  finally{await db.query(`ALTER TABLE ${table} ENABLE TRIGGER ${trigger}`);}
+ }
+ const immutable=['clock_intent_events','clock_intent_commands','staff_credential_commands','workforce_allowance_reviews'];
+ const transitions=['clock_intents','clock_employee_policies','workforce_import_batches'];
+ await runtime(async()=>{
+  for(const table of immutable)await assert.rejects(db.query(`UPDATE ${table} SET org_id=org_id`),/permission denied/i);
+  for(const table of [...immutable,...transitions])await assert.rejects(db.query(`DELETE FROM ${table}`),/permission denied/i);
+ });
+ for(const [table,permission,extra] of [
+  ...immutable.flatMap(table=>[[table,'UPDATE',true],[table,'DELETE',true],[table,'INSERT',false]] as const),
+  ...transitions.flatMap(table=>[[table,'DELETE',true],[table,'INSERT',false],[table,'UPDATE',false]] as const),
+  ['users','UPDATE',false],
+ ] as const){
+  await db.query(`${extra?'GRANT':'REVOKE'} ${permission} ON ${table} ${extra?'TO':'FROM'} stjw_runtime`);
+  try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}
+  finally{await db.query(`${extra?'REVOKE':'GRANT'} ${permission} ON ${table} ${extra?'FROM':'TO'} stjw_runtime`);}
+ }
+ await runtime(async()=>{await assertRuntimeAccess(db);});
+});
 test("the restricted runtime identity can verify the schema without migration privileges", async () => {
   await runtime(async () => {
-    assert.equal(await verifySchema(db), 39);
+    assert.equal(await verifySchema(db), 43);
     const access = await assertRuntimeAccess(db);
     assert.equal(access.role, "stjw_runtime");
     assert.equal(access.login, "stjw_runtime");

@@ -16,7 +16,7 @@ type GradeContext = Awaited<ReturnType<typeof gradeImportWorkbookContext>>;
 type CompensationContext = Awaited<ReturnType<typeof compensationImportWorkbookContext>>;
 async function currentWorkbookActor(tx: Queryable, supplied: Actor, sessionHash: string | undefined, scope: Exclude<WorkbookTemplateInput, { kind: "grade_scores" | "compensation_rates" }>) {
   if (scope.kind === "finance") return currentFinanceActor(tx, supplied, sessionHash);
-  if (scope.kind === "staff") return currentStaffImportActor(tx, supplied, sessionHash);
+  if (scope.kind === "staff" || scope.kind === 'jobs' || scope.kind === 'schedules') return currentStaffImportActor(tx, supplied, sessionHash);
   requireCondition(typeof sessionHash === "string" && /^[a-f0-9]{64}$/.test(sessionHash), 401, "A verified password session is required.");
   // No academic/domain parents are acquired here. Account/session/memberships
   // precede the terminal office-grant lock, matching current grant revocation.
@@ -72,7 +72,7 @@ async function prepare(db: Database, supplied: Actor, sessionHash: string | unde
   const parsed = action === "template" ? { action, input: workbookTemplateInput.parse(raw) } as const
     : action === "inspect" ? { action, input: workbookInspectInput.parse(raw) } as const
     : { action, input: workbookConvertInput.parse(raw) } as const;
-  const scope: WorkbookTemplateInput = parsed.input.kind === "finance" || parsed.input.kind === "staff" ? { kind: parsed.input.kind }
+  const scope: WorkbookTemplateInput = parsed.input.kind === "finance" || parsed.input.kind === "staff" || parsed.input.kind === 'jobs' || parsed.input.kind === 'schedules' ? { kind: parsed.input.kind }
     : parsed.input.kind === "grade_scores" ? { kind: "grade_scores", assignmentId: parsed.input.assignmentId }
     : parsed.input.kind === "compensation_rates" ? { kind: "compensation_rates", userId: parsed.input.userId, jobId: parsed.input.jobId }
     : { kind: parsed.input.kind, unitId: parsed.input.unitId };
@@ -143,7 +143,7 @@ export function installImportWorkbooks(app: Express, db: Database) {
       if (action === "template") {
         const input = workbookTemplateInput.parse(req.query);
         const result = await downloadImportWorkbookTemplate(db, actor, sessionHash, input, controller.signal); assertWorkbookNotAborted(controller.signal);
-        const filename = input.kind === "finance" ? "stjw-financial-template.xlsx" : input.kind === "staff" ? "stjw-staff-template.xlsx" : input.kind === "grade_scores" ? "stjw-assignment-scores-template.xlsx" : input.kind === "compensation_rates" ? "stjw-editable-pay-template.xlsx" : `stjw-${input.kind.slice(7).replaceAll("_", "-")}-template.xlsx`;
+        const filename = input.kind === "finance" ? "stjw-financial-template.xlsx" : input.kind === "staff" ? "stjw-staff-template.xlsx" : input.kind === 'jobs' || input.kind === 'schedules' ? `stjw-${input.kind}-template.xlsx` : input.kind === "grade_scores" ? "stjw-assignment-scores-template.xlsx" : input.kind === "compensation_rates" ? "stjw-editable-pay-template.xlsx" : `stjw-${input.kind.slice(7).replaceAll("_", "-")}-template.xlsx`;
         res.set({ "X-Workbook-SHA256": result.hash, "X-Workbook-Format-Version": "1", "Content-Length": String(result.bytes), "X-Content-Type-Options": "nosniff" })
           .type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").attachment(filename).send(result.buffer);
       } else {

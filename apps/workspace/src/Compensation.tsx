@@ -15,6 +15,7 @@ import WorkbookImport from './WorkbookImport';
 import type { WorkbookConvertResult } from '../shared/import-workbooks';
 
 type Props = {
+  initialUserId?: string;
   notify: (message: string, error?: boolean) => void;
   onDirty: (dirty: boolean) => void;
 };
@@ -23,9 +24,9 @@ const label = (r: CompensationRate) =>
 const saveReceiptSchema = z.object({ id: z.uuid(), version: z.number().int().positive(), previewHash: z.string().regex(/^[a-f0-9]{64}$/), changedEntries: z.number().int().min(1).max(200) }).strict();
 type SaveAttempt = z.infer<typeof compensationSaveInput>;
 const errorMessage = (cause: unknown) => cause instanceof ApiError ? cause.message : 'The connection was interrupted. Try again when it is ready.';
-export default function Compensation({ notify, onDirty }: Props) {
+export default function Compensation({ notify, onDirty, initialUserId = "" }: Props) {
   const [staff, setStaff] = useState<any[]>([]),
-    [userId, setUserId] = useState(""),
+    [userId, setUserId] = useState(initialUserId),
     [jobs, setJobs] = useState<any[]>([]),
     [jobId, setJobId] = useState(""),
     [record, setRecord] = useState<any>(null),

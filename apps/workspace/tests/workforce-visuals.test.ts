@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compactWorkDuration, decimalWorkHours, visualRatio, workforceMix, workforceDonutSlices, exactDescending } from '../shared/workforce-visuals';
+import { compactWorkDuration, decimalWorkHours, visualRatio, workforceMix, workforceDonutSlices, exactDescending, workforceLiveElapsed, workforceClockLabel } from '../shared/workforce-visuals';
 import type { WorkforceReportRowV2 } from '../shared/workforce-reports-v2';
 
 test('readable compact labels distinguish display approximation from exact subminute time', () => {
@@ -32,4 +32,14 @@ test('Other is the exact complete remainder, with no omitted work', () => {
   const slices = workforceDonutSlices(entries,1);
   assert.equal(slices[1].duration,'10'); assert.equal(slices[1].records,2);
   assert.equal(slices.reduce((sum,x)=>sum+BigInt(x.duration),0n),19n);
+});
+
+test('live clock estimates use a server anchor and retain exact fractions across midnight without payroll rounding',()=>{
+ assert.equal(workforceLiveElapsed('2026-09-24T23:59:59.999999Z','2026-09-25T00:00:00.000001Z',1250),'1250002');
+ assert.equal(workforceLiveElapsed('2026-09-25T00:01:00Z','2026-09-25T00:00:00Z',0),null);
+ assert.equal(workforceLiveElapsed('invalid','2026-09-25T00:00:00Z',0),null);
+ assert.equal(workforceLiveElapsed('2026-09-25T00:00:00Z','2026-09-25T00:00:00Z',Number.NaN),null);
+ assert.equal(workforceLiveElapsed('2026-09-25T00:00:00Z','2026-09-25T00:00:00Z',-1),null);
+ assert.equal(workforceClockLabel('3661999999'),'1:01:01');assert.equal(workforceClockLabel('999999999'),'0:16:39');
+ assert.equal(workforceClockLabel('3600000000000'),'1,000:00:00');
 });

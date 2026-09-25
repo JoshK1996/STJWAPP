@@ -1244,7 +1244,7 @@ function SchoolSetup({
     <div className="school-setup-grid">
       <Panel
         title="School years"
-        detail="Use dates approved by your school. Synthetic example dates are labeled."
+        detail="Create and manage the dates approved by your school."
         action={
           <button
             className="button secondary small"

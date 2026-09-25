@@ -10,6 +10,8 @@ export const financeWorkbookColumns = Object.freeze(['lineCode', 'lineLabel', 'g
 export const workbookImportColumns = Object.freeze({
   finance: financeWorkbookColumns,
   staff: Object.freeze(['name', 'email', 'role', 'unitIds', 'jobIds']),
+  jobs: Object.freeze(['community', 'title', 'description']),
+  schedules: Object.freeze(['employeeEmail', 'community', 'jobTitle', 'startsAt', 'endsAt', 'note']),
   grade_scores: Object.freeze(['assignmentId', 'bookVersion', 'assignmentVersion', 'studentId', 'studentName', 'status', 'points', 'note']),
   compensation_rates: Object.freeze(['userId', 'jobId', 'recordVersion', 'rateId', 'startsOn', 'endsOn', 'amount', 'currency', 'basis', 'voided', 'note']),
   school_students: Object.freeze(['studentNumber', 'name', 'dateOfBirth']),
@@ -19,7 +21,7 @@ export const workbookImportColumns = Object.freeze({
   school_household_members: Object.freeze(['householdId', 'householdVersion', 'personId', 'personVersion', 'role', 'remove']),
   school_contacts: Object.freeze(['studentId', 'studentNumber', 'studentVersion', 'personId', 'personVersion', 'contactVersion', 'relationship', 'isGuardian', 'canCommunicate', 'canPickup', 'pickupUntilAction', 'pickupUntil', 'emergencyPriority', 'restrictionNoteAction', 'restrictionNote']),
 });
-const workbookSheetNames = Object.freeze({ finance: 'Financial data', staff: 'New staff', grade_scores: 'Assignment scores', compensation_rates: 'Employee pay rates', school_students: 'New students', school_enrollments: 'School-year enrollment', school_roster: 'Class roster', school_households: 'Households', school_household_members: 'Household membership', school_contacts: 'Student contacts' });
+const workbookSheetNames = Object.freeze({ finance: 'Financial data', staff: 'New staff', jobs: 'New jobs', schedules: 'New staff schedules', grade_scores: 'Assignment scores', compensation_rates: 'Employee pay rates', school_students: 'New students', school_enrollments: 'School-year enrollment', school_roster: 'Class roster', school_households: 'Households', school_household_members: 'Household membership', school_contacts: 'Student contacts' });
 function columnsFor(kind) { check(typeof kind === 'string' && Object.hasOwn(workbookImportColumns, kind), 'invalid_input'); return workbookImportColumns[kind]; }
 const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -255,18 +257,18 @@ export async function parseImportWorkbook(input) {
   const headers = rowValues(input.headerRow);
   const headerNames = input.kind === 'compensation_rates' ? headers.map(header => header.trim()) : headers;
   check(new Set(headerNames).size === columns.length && columns.every(k => headerNames.includes(k)), 'header_mismatch');
-  if (input.kind.startsWith('school_') || input.kind === 'staff') check(columns.every((k, i) => headers[i] === k), 'header_mismatch');
+  if (input.kind.startsWith('school_') || ['staff', 'jobs', 'schedules'].includes(input.kind)) check(columns.every((k, i) => headers[i] === k), 'header_mismatch');
   check(![...selected.values.values()].some(c => c.row >= input.headerRow && c.column > columns.length && c.value !== ''), 'header_mismatch');
   const rows = [], rowMap = [], emptyRows = [];
   for (let r = input.headerRow + 1; r <= selected.lastRow; r++) {
     const row = rowValues(r); if (row.every(v => v === '')) { emptyRows.push(r); continue; }
-    check(rows.length < (['grade_scores', 'compensation_rates'].includes(input.kind) ? 200 : 500), 'limit'); rows.push(row); rowMap.push({ csvRow: rows.length + 1, worksheetRow: r });
+    check(rows.length < (['jobs', 'schedules'].includes(input.kind) ? 100 : ['grade_scores', 'compensation_rates'].includes(input.kind) ? 200 : 500), 'limit'); rows.push(row); rowMap.push({ csvRow: rows.length + 1, worksheetRow: r });
   }
   check(rows.length > 0, 'header_mismatch');
   const record = row => row.map(v => '"' + v.replaceAll('"', '""') + '"').join(',');
   let sourceBytes = 3; const records = [];
   for (const row of [headers, ...rows]) {
-    const encoded = record(row), length = Buffer.byteLength(encoded); check(length <= (input.kind === 'compensation_rates' ? 10000 : input.kind.startsWith('school_') || input.kind === 'staff' ? 4096 : 20000), 'limit');
+    const encoded = record(row), length = Buffer.byteLength(encoded); check(length <= (input.kind === 'compensation_rates' ? 10000 : input.kind.startsWith('school_') || ['staff', 'jobs', 'schedules'].includes(input.kind) ? 4096 : 20000), 'limit');
     sourceBytes += length + (records.length ? 2 : 0); check(sourceBytes <= (input.kind === 'compensation_rates' ? 64000 : L.csvBytes), 'limit'); records.push(encoded);
   }
   const csv = '\uFEFF' + records.join('\r\n');
