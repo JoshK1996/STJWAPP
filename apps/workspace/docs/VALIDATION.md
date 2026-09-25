@@ -14,7 +14,9 @@ Browser review corrected scoped action sizes, inline checkbox layout, colored st
 
 Jev receipts `8402b210a8d948868750ab5463ac5c6d`, `4ff2be100c244d678781f63b47b49e48`, `5fa1bac8127843e5acac821657c6583c`, `0ad08268e55845bbaf376592117e29de`, `743c719c331242319dd1bb4abb1b9ec9`, `a33fd08a6a9f4fc4a6350e5cb9fe7e97` and `313489f453fb470fac9ca16ebcc698f7` supported compact ranking and narrow invariant review. Findings were independently checked against source and executable evidence. Deeper review found the uncertain-import interleaving despite a clear advisory screen; model judgments are not proof or authorization.
 
-Deployment verification is pending. Original document bytes are not retained; text-only PDF support excludes OCR. Worker V8 limits do not establish a total-process memory ceiling. The larger organization/SIS/accounting scope remains incomplete.
+Deployment `ee207b5a-6d45-4959-a898-391959eca882` passed hosted public acceptance: 36 checks, 12 exact assets and 102 anonymous protected-route denials, with zero unexpected errors. The hosted version and entry match the final browser-tested build above. Actual web-container readback verified schema046, runtime/login identity `stjw_runtime`, all 32 protection flags, no private archive access, consistent credential policy flags and active required developer/administrator roles. Separate maintenance dry-run and commit preserved existing credentials, roles, active states and operational-record counts; temporary maintenance access was revoked. All 383 runtime source files match commit `f96b9cd8ff87d8c5582f301b693a994b4000a3ad` and the manifest recorded in DEPLOYMENT. Public anonymous checks and read-only runtime metadata verification do not establish authenticated hosted customer workflows.
+
+Original document bytes are not retained; text-only PDF support excludes OCR. Worker V8 limits do not establish a total-process memory ceiling. The larger organization/SIS/accounting scope remains incomplete.
 
 ## Employee and job administration - September 25, 2026
 
