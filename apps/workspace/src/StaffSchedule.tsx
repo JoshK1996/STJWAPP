@@ -52,7 +52,7 @@ export default function StaffSchedule({ me, staff, jobs, rows, week, zone, onWee
 }) {
   const canManage = ["developer", "owner", "admin", "manager"].includes(me.actor.role) && me.actor.mode === "password";
   const canManageShift = (shift: Shift) => canManage && (me.actor.role !== "manager" || me.actor.unit_ids.includes(shift.unit_id));
-  const [showCancelled, setShowCancelled] = useState(false), [unitId, setUnitId] = useState("");
+  const [showCancelled, setShowCancelled] = useState(false), [showEmptyDays, setShowEmptyDays] = useState(false), [unitId, setUnitId] = useState("");
   const [editor, setEditor] = useState<Editor | null>(null), [draft, setDraft] = useState<Draft | null>(null);
   const [review, setReview] = useState<Review | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -73,13 +73,13 @@ export default function StaffSchedule({ me, staff, jobs, rows, week, zone, onWee
   useEffect(() => { onBlocked?.(busy); return () => onBlocked?.(false); },[busy,onBlocked]);
   useEffect(() => { onDirty(dirty || busy || requestDirty); return () => onDirty(false); }, [dirty, busy, requestDirty, onDirty]);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; historyRequest.current += 1; }; }, []);
-  useEffect(() => setPage(1), [range?.start, range?.end, filters?.unitId, filters?.jobId, filters?.userId, filters?.search, unitId, showCancelled]);
+  useEffect(() => setPage(1), [range?.start, range?.end, filters?.unitId, filters?.jobId, filters?.userId, filters?.search, unitId, showCancelled, showEmptyDays]);
 
   const visible = rows.filter(row => (showCancelled || row.status !== "cancelled") && (!(filters?.unitId || unitId) || row.unit_id === (filters?.unitId || unitId)) && (!filters?.jobId || row.job_id === filters.jobId) && (!filters?.userId || row.user_id === filters.userId) && (!filters?.search || `${row.employee_name} ${row.job_title} ${row.unit_name} ${row.note}`.toLowerCase().includes(filters.search.toLowerCase())));
   const units = Array.from(new Map([...jobs.map(row => [row.unit_id, row.unit_name] as [string,string]), ...rows.map(row => [row.unit_id, row.unit_name] as [string,string])]).entries());
   const firstDay = DateTime.fromISO(range?.start ?? week, { zone });
   const dayCount = range ? Math.round(DateTime.fromISO(range.end, { zone }).diff(firstDay, "days").days) + 1 : 7;
-  const days = Array.from({length: Math.min(366, Math.max(1, dayCount))}, (_, i) => firstDay.plus({days:i})).filter(date => dayCount <= 7 || visible.some(shift => Date.parse(shift.starts_at) < date.plus({days:1}).toMillis() && Date.parse(shift.ends_at) > date.toMillis()));
+  const days = Array.from({length: Math.min(366, Math.max(1, dayCount))}, (_, i) => firstDay.plus({days:i})).filter(date => showEmptyDays || visible.some(shift => Date.parse(shift.starts_at) < date.plus({days:1}).toMillis() && Date.parse(shift.ends_at) > date.toMillis()));
   const activeStaff = staff.filter(person => person.active);
   const assignedJobs = draft ? jobs.filter(job => job.active !== false &&
     (staff.find(person => person.id === draft.userId)?.job_ids ?? []).includes(job.id)) : [];
@@ -174,6 +174,7 @@ export default function StaffSchedule({ me, staff, jobs, rows, week, zone, onWee
         </div>
         <label>Week containing<input aria-label="Week containing" type="date" value={week} onChange={event => { if (event.target.value) onWeek(DateTime.fromISO(event.target.value).startOf("week").toISODate()!); }}/></label></>}
         {me.permissions.report && !range && <label>Community<select value={unitId} onChange={event => setUnitId(event.target.value)}><option value="">All permitted communities</option>{units.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>}
+        <label className="staff-schedule-check"><input type="checkbox" checked={showEmptyDays} onChange={event=>setShowEmptyDays(event.target.checked)}/>Show days without shifts</label>
         <details className="staff-schedule-options"><summary>History & schedule help</summary><label className="staff-schedule-check"><input type="checkbox" checked={showCancelled} onChange={event => setShowCancelled(event.target.checked)}/>Show cancelled shifts</label><p>Schedule changes keep earlier versions and never change clock history. A shift request takes effect after another authorized reviewer approves it.</p></details>
         <button className="button secondary small" disabled={refreshing} onClick={() => void refreshList()}><RefreshCw size={15}/>{refreshing ? "Refreshing…" : "Refresh"}</button>
       </div>
@@ -183,7 +184,7 @@ export default function StaffSchedule({ me, staff, jobs, rows, week, zone, onWee
           const end = date.plus({ days: 1 });
           const items = visible.filter(shift => Date.parse(shift.starts_at) < end.toMillis() && Date.parse(shift.ends_at) > date.toMillis());
           const daySummary=scheduleWindowSummary(items,{start:date.toISODate()!,end:date.toISODate()!},zone);
-          return <section key={date.toISODate()} className={date.hasSame(DateTime.now().setZone(zone), "day") ? "today" : ""} aria-label={date.toFormat("cccc, LLLL d")}>
+          return <section key={date.toISODate()} className={`${date.hasSame(DateTime.now().setZone(zone), "day") ? "today" : ""} ${items.length ? "" : "staff-day-empty"}`} aria-label={date.toFormat("cccc, LLLL d")}>
             <header><span>{date.toFormat("ccc")}</span><strong>{date.toFormat("LLL d")}</strong><small>{daySummary.shifts ? `${daySummary.shifts} ${daySummary.shifts===1?"shift":"shifts"} · ${scheduledTime(daySummary.microseconds)}` : "No shifts"}</small></header>
             {items.map(shift => { const bar=scheduleDayBar(shift,date.toISODate()!,zone); return <article key={shift.id} className={`schedule-card staff-shift-card ${shift.status === "cancelled" ? "staff-shift-cancelled" : ""}`}>
               <strong>{shift.employee_name}</strong>
@@ -205,7 +206,6 @@ export default function StaffSchedule({ me, staff, jobs, rows, week, zone, onWee
                 </>}
               </div></details>
             </article>;})}
-            {!items.length && <span className="calendar-empty">No shifts</span>}
           </section>;
         })}
       </div>

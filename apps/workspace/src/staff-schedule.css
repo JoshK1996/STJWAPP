@@ -77,3 +77,8 @@
  .staff-schedule .staff-shift-time { font-size: 13px; }
  .staff-schedule-options { flex-basis: 100%; }
 }
+
+.staff-schedule .staff-schedule-grid > section.today > header strong { width: auto; height: auto; min-height: 30px; padding: 3px 9px; border-radius: 8px; white-space: nowrap; }
+.staff-schedule .staff-schedule-grid > section.staff-day-empty { min-height: 0; }
+.staff-schedule .staff-schedule-grid > section.staff-day-empty > header { padding-bottom: 0; }
+@media(max-width:720px) { .staff-schedule .staff-schedule-grid > section.staff-day-empty > header > small { flex-basis: auto; margin-left: auto; } }
