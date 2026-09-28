@@ -163,7 +163,10 @@ test('personalization persists across sessions and partial changes retain other 
  const chosen={theme:'dark',accent:'violet',customColor:'#17a8c2',artwork:'subtle',depth:false,contrast:'high',textSize:'large',navigation:'rail',corners:'crisp',compact:false,reducedMotion:true,home:'clock',widgetOrder:['clock','metrics','people','requests','hours','community'],hiddenWidgets:['community']};
  assert.equal((await patch(chosen)).status,200);
  const partial=await patch({compact:true});assert.equal(partial.status,200);assert.equal(partial.body.preferences.accent,'violet');assert.equal(partial.body.preferences.theme,'dark');assert.equal(partial.body.preferences.compact,true);
- const second=await session(actor);const read=await request(app).get('/api/me').set('Cookie',second.cookie);assert.deepEqual(read.body.actor.preferences,{...chosen,compact:true,workspaceNavOrder:['overview','clock','time-records','payroll','staff','schedule','calendar','messages','requests','reports'],organizationNavOrder:['school','care','dismissal','workspace','audit','settings']});
+ const second=await session(actor);const read=await request(app).get('/api/me').set('Cookie',second.cookie);
+ const {workspaceMode,favoritePages,scheduleView,payrollExport,...legacySaved}=read.body.actor.preferences;
+ assert.deepEqual(legacySaved,{...chosen,compact:true,workspaceNavOrder:['overview','clock','time-records','payroll','staff','schedule','calendar','messages','requests','reports'],organizationNavOrder:['school','care','dismissal','workspace','audit','settings']});
+ assert.equal(workspaceMode,'simple');assert.ok(favoritePages.includes('clock'));assert.equal(scheduleView.view,'assigned');assert.equal(payrollExport.includeOverview,true);
  const isolated=await request(app).get('/api/me').set('Cookie',(await session(owner)).cookie);assert.notEqual(isolated.body.actor.preferences.accent,'violet');
 });
 test('personalization rejects injected fields, inaccessible landing pages, invalid and empty dashboards, and PIN writes',async()=>{
@@ -186,7 +189,7 @@ test('personalization rejects injected fields, inaccessible landing pages, inval
 test('new migrations apply once and preserve existing accounts',async()=>{
  const before=(await db.query('SELECT count(*)::integer AS count FROM users')).rows[0].count;
  await migrate(db);await migrate(db);
- assert.deepEqual((await db.query('SELECT version FROM schema_migrations ORDER BY version')).rows.map(r=>r.version),[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47]);
+ assert.deepEqual((await db.query('SELECT version FROM schema_migrations ORDER BY version')).rows.map(r=>r.version),[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48]);
  assert.equal((await db.query('SELECT count(*)::integer AS count FROM users')).rows[0].count,before);
 });
 const eventFixture=(overrides:any={})=>eventCreateInput.parse({event:{title:'Synthetic planning',startsAt:'2026-10-25T13:00:00.000Z',endsAt:'2026-10-25T14:00:00.000Z',timezone:'America/New_York',audience:'personal',...overrides},repeat:{frequency:'weekly',interval:1,count:3}});

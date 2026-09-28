@@ -10,6 +10,10 @@ Three new synthetic workbooks were rendered through actual Excel; eight printed 
 
 Jev ranking/audit receipts: f3263ffc522b46fc8ba37e093b5f728f, a418ddfa105b4268961ca0f88b2e7ed1,231307e34833401fb5cc1053a4efc892,25b6c81a94c04aedac6f69016730a021,950dd8b857eb4f07908df5d824af01fb,b578cab754d04285aec993f3e32df4eb,e7b86ea89bf34529995b49b783d668be,2ba5d39eab994746be14ec05a5327f7d. Relevant hypotheses were independently checked against source and executable results; narrow excerpts with insufficient authority/schema context were resolved through the actual schema and service tests. No token-savings claim is made.
 
+The final mobile Payroll review-card correction passed18targeted checks across4layouts (390/320, standard/large text); actions now sit below full-width descriptions. This brings the deduplicated browser result to183checks/35layouts. Final entry SHA256d612da5c127c202a7a841061a95b83c0f9f45243abaeef8a212c0b136295e855; earlier functional results apply to unchanged behavior, with intervening CSS-only differences explicitly retained in the private phase receipt.
+
+The first automatic GitHub full-suite run passed1,286 of1,292tests. Six old expectations failed on the new preference fields, schema048 and includeOverview default. Those directly affected assertions were updated; all six failing cases and one directly affected legacy helper case passed in targeted runs. Product source was unchanged by these test corrections. The final GitHub check is pending; a duplicate push workflow was cancelled to prevent parallel repetition.
+
 Separate production maintenance dry run passed with rollback, expected schema047 and existing accounts, preferences and time records preserved. The exact migration048 plan hash is6d004a404ea7d22c8078ab8c79e5c18898014b2b39841f8264e3d4c9dd67420a. Deployment remains pending until the final staged source and release readback are recorded.
 
 ## Administrator time-card editing - September 25, 2026

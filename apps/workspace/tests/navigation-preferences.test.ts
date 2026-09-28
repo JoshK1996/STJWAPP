@@ -20,7 +20,9 @@ const legacy = {
 };
 const reversedWorkspace = () => [...workspaceNavigationIds].reverse();
 const reversedOrganization = () => [...organizationNavigationIds].reverse();
-const withoutOrders = ({ workspaceNavOrder: _w, organizationNavOrder: _o, ...rest }: Preferences) => rest;
+// Compare only the historical fields; newly introduced preferences have their
+// own default/repair tests in simple-preferences.test.ts.
+const withoutOrders = ({ workspaceNavOrder: _w, organizationNavOrder: _o, workspaceMode: _m, favoritePages: _f, scheduleView: _s, payrollExport: _p, ...rest }: Preferences) => rest;
 
 test('old valid preferences gain exact existing group defaults without losing any legacy choice', () => {
   const old = structuredClone(legacy), result = normalizePreferences(old);
