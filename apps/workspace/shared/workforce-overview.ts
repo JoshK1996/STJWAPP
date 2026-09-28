@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {allowanceAttentionSchema,attentionPolicySchema} from './attention-policy';
 import {workforceLocalDateSchema,workforceMicrosecondsSchema,workforceReportQueryV2Schema,workforceUtcMicrosSchema} from './workforce-reports-v2';
 
 export const allowanceMetricsSchema=z.object({
@@ -15,10 +16,10 @@ export const allowancePeriodSchema=z.object({
   people:z.array(z.object({userId:z.uuid(),name:z.string(),...metrics}).strict()),
   jobs:z.array(z.object({userId:z.uuid(),employeeName:z.string(),jobId:z.uuid(),jobTitle:z.string(),unitId:z.uuid(),unitName:z.string(),...jobMetrics}).strict()),
   days:z.array(z.object({date:workforceLocalDateSchema,label:z.string(),...metrics}).strict()),
-  notice:z.string(),
+  notice:z.string(),attention:allowanceAttentionSchema.optional(),
 }).strict();
 export const workforceOverviewSchema=z.object({
-  asOf:workforceUtcMicrosSchema,timezone:z.string(),organizationName:z.string(),
+  asOf:workforceUtcMicrosSchema,timezone:z.string(),organizationName:z.string(),attentionPolicy:attentionPolicySchema,
   today:allowancePeriodSchema,week:allowancePeriodSchema,selected:allowancePeriodSchema,
 }).strict();
 export type AllowanceMetrics=z.infer<typeof allowanceMetricsSchema>;

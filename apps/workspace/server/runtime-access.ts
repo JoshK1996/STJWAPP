@@ -47,7 +47,7 @@ DO $$ DECLARE immutable_table record; BEGIN
   SELECT DISTINCT n.nspname,c.relname FROM pg_trigger t
   JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
   JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
-  WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN ('protect_time_correction','protect_time_adjustment_request','protect_staff_schedule_request','protect_standing_policy','protect_standing_series','protect_gpa_policy','protect_gpa_series','protect_staff_import','protect_organization_branding','protect_payroll_saved_views','protect_accounting_planning','protect_accounting_editable_record','protect_clock_intent','preserve_workforce_import_evidence') AND NOT t.tgisinternal
+  WHERE n.nspname='public' AND f.nspname='public' AND p.proname IN ('protect_workforce_attention_policy','protect_time_correction','protect_time_adjustment_request','protect_staff_schedule_request','protect_standing_policy','protect_standing_series','protect_gpa_policy','protect_gpa_series','protect_staff_import','protect_organization_branding','protect_payroll_saved_views','protect_accounting_planning','protect_accounting_editable_record','protect_clock_intent','preserve_workforce_import_evidence') AND NOT t.tgisinternal
  LOOP
   EXECUTE format('REVOKE DELETE ON TABLE %I.%I FROM stjw_runtime',immutable_table.nspname,immutable_table.relname);
  END LOOP;
@@ -78,6 +78,8 @@ const accountingProtectionValues = accountingProtections.map(([table,trigger,fn,
 // Exact trigger identities are checked even when a table currently has no rows.
 // Policy rows cannot be deleted and recreated with a reused pending version.
 const workforceProtections = [
+ ['workforce_attention_policy','protected_workforce_attention_policy','protect_workforce_attention_policy',31,true,true],
+ ['workforce_attention_history','immutable_workforce_attention_history','protect_audit_events',27,false,true],
  ['users','advance_clock_authority_version','advance_clock_authority',19,true,false],
  ['time_corrections','immutable_time_correction','protect_time_correction',27,true,true],
  ['time_adjustment_requests','protected_time_adjustment_request','protect_time_adjustment_request',31,true,true],

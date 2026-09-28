@@ -108,9 +108,31 @@ test('runtime guards time-card evidence, scheduled starts, credential receipts a
  }
  await runtime(async()=>{await assertRuntimeAccess(db);});
 });
+test('runtime guards shared attention rules and their immutable history',async()=>{
+ const guards=[['workforce_attention_policy','protected_workforce_attention_policy'],['workforce_attention_history','immutable_workforce_attention_history']];
+ for(const [table,trigger] of guards){
+  await db.query(`ALTER TABLE ${table} DISABLE TRIGGER ${trigger}`);
+  try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}
+  finally{await db.query(`ALTER TABLE ${table} ENABLE TRIGGER ${trigger}`);}
+ }
+ for(const [table,permission,extra] of [
+  ['workforce_attention_policy','INSERT',false],['workforce_attention_policy','UPDATE',false],['workforce_attention_policy','DELETE',true],
+  ['workforce_attention_history','INSERT',false],['workforce_attention_history','UPDATE',true],['workforce_attention_history','DELETE',true],
+ ] as const){
+  await db.query(`${extra?'GRANT':'REVOKE'} ${permission} ON ${table} ${extra?'TO':'FROM'} stjw_runtime`);
+  try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}
+  finally{await db.query(`${extra?'REVOKE':'GRANT'} ${permission} ON ${table} ${extra?'FROM':'TO'} stjw_runtime`);}
+ }
+ await runtime(async()=>{
+  await assertRuntimeAccess(db);
+  await assert.rejects(db.query('DELETE FROM workforce_attention_policy'),/permission denied/i);
+  await assert.rejects(db.query('DELETE FROM workforce_attention_history'),/permission denied/i);
+  await assert.rejects(db.query('UPDATE workforce_attention_history SET version=version'),/permission denied/i);
+ });
+});
 test("the restricted runtime identity can verify the schema without migration privileges", async () => {
   await runtime(async () => {
-    assert.equal(await verifySchema(db), 47);
+    assert.equal(await verifySchema(db), 48);
     const access = await assertRuntimeAccess(db);
     assert.equal(access.role, "stjw_runtime");
     assert.equal(access.login, "stjw_runtime");

@@ -4,13 +4,14 @@ import { ArrowDownToLine, ArrowRight, ArrowRightLeft, Bookmark, ChartNoAxesCombi
 import { api, download } from './api';
 import Compensation from './Compensation';
 import PayrollReportDesigner from './PayrollReportDesigner';
-import { defaultPayrollPresentationOptions, payrollPresentationOptionsSchema, type PayrollPresentationOptions } from '../shared/payroll-presentation';
+import { payrollPresentationOptionsSchema, type PayrollPresentationOptions } from '../shared/payroll-presentation';
 import { formatReportDecimal } from '../shared/report-presentation';
 import { Modal } from './components';
 import { payrollHoursReportSchema, type PayrollHoursReport } from '../shared/payroll-hours';
 import { createPayrollViewSchema, payrollViewListSchema, resolvedPayrollViewSchema, savedPayrollViewSchema, updatePayrollViewSchema, type PayrollViewFilters, type SavedPayrollView } from '../shared/payroll-views';
 import { payrollReviewSchema, type PayrollReview } from '../shared/payroll-review';
 import { formatWorkforceDuration, workforceBarPercent } from '../shared/workforce-display';
+import { normalizePreferences } from '../shared/preferences';
 import type { TimeRecordsTarget } from './TimeRecords';
 import './payroll.css';
 import './payroll-preparation.css';
@@ -19,12 +20,12 @@ const displayHours = (value: string) => {
   const hundredths = (BigInt(value) * 100n + 1_800_000_000n) / 3_600_000_000n;
   return `${(hundredths / 100n).toLocaleString()}.${String(hundredths % 100n).padStart(2,'0')}`;
 };
-type Props = { me:any; staff:any[]; notify:(message:string,error?:boolean)=>void; onDirty:(value:boolean)=>void; onNavigateRecords:(target?:TimeRecordsTarget)=>void };
+type Props = { me:any; staff:any[]; notify:(message:string,error?:boolean)=>void; onDirty:(value:boolean)=>void; onNavigateRecords:(target?:TimeRecordsTarget)=>void; onSaveExportDefaults:(options:PayrollPresentationOptions)=>Promise<void> };
 type ViewEditor = { owner:string; id:string; revision?:number; name:string; filters:PayrollViewFilters; baseline:string };
 const periodNames:Record<PayrollViewFilters['period'],string> = {this_week:'This week',last_week:'Last week',last_14_days:'Last 14 days',this_month:'This month',custom:'Custom dates'};
 const viewSummary=(filters:PayrollViewFilters)=>`${filters.period==='custom'?`${filters.start} through ${filters.end}`:periodNames[filters.period]} · ${filters.group} groups${filters.unitId?' · selected community':''}${filters.userId?' · selected employee':''}${filters.comparePrevious?' · previous-period comparison':''}`;
 const editorSnapshot=(value:Pick<ViewEditor,'name'|'filters'>)=>JSON.stringify({name:value.name,filters:value.filters});
-export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords }: Props) {
+export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords, onSaveExportDefaults }: Props) {
   const zone=me.organization.timezone, today=DateTime.now().setZone(zone);
   const [start,setStart]=useState(today.startOf('week').toISODate()!),[end,setEnd]=useState(today.toISODate()!),[unit,setUnit]=useState(''),[person,setPerson]=useState('');
   const [view,setView]=useState<'hours'|'rates'>('hours'),[dirty,setDirty]=useState(false),[search,setSearch]=useState(''),[order,setOrder]=useState<'name'|'hours'|'breaks'>('hours');
@@ -35,7 +36,8 @@ export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords 
   const [viewLibrary,setViewLibrary]=useState(false),[viewsVersion,setViewsVersion]=useState(0),[viewsLoading,setViewsLoading]=useState(true);
   const [savedViews,setSavedViews]=useState<{owner:string;views:SavedPayrollView[];limit:number}|null>(null),[viewsError,setViewsError]=useState<{owner:string;message:string}|null>(null);
   const [selectedView,setSelectedView]=useState(''),[viewTask,setViewTask]=useState<string|null>(null),[editor,setEditor]=useState<ViewEditor|null>(null),[editorError,setEditorError]=useState('');
-  const [customizeExport,setCustomizeExport]=useState(false),[exportOptions,setExportOptions]=useState<PayrollPresentationOptions>({...defaultPayrollPresentationOptions});
+  const [customizeExport,setCustomizeExport]=useState(false),[exportOptions,setExportOptions]=useState<PayrollPresentationOptions>(()=>normalizePreferences(me.actor.preferences).payrollExport),[savingExportDefaults,setSavingExportDefaults]=useState(false);
+  const savedExportOptions=normalizePreferences(me.actor.preferences).payrollExport,exportDefaultsSaved=JSON.stringify(exportOptions)===JSON.stringify(savedExportOptions);
   const generation=useRef(0),mounted=useRef(true);
   const actorKey=`${me.actor.org_id}:${me.actor.id}:${me.actor.mode}:${me.actor.role}:${me.actor.csrf}:${JSON.stringify(me.actor.unit_ids??[])}`;
   const actorRef=useRef(actorKey),viewGeneration=useRef(0),resolveGeneration=useRef(0),viewTaskRef=useRef<string|null>(null),viewOperation=useRef(0);
@@ -49,7 +51,7 @@ export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords 
   const canPay=['developer','owner','admin','finance'].includes(me.actor.role);
   // Invalidate pending publications during unmount, before passive cleanup.
   useLayoutEffect(()=>{mounted.current=true;return()=>{mounted.current=false;generation.current++;viewGeneration.current++;resolveGeneration.current++;};},[]);
-  useEffect(()=>{setEditor(null);setEditorError('');setSelectedView('');setViewTask(null);setBusy(null);setDirty(false);setCustomizeExport(false);setExportOptions({...defaultPayrollPresentationOptions});viewTaskRef.current=null;viewOperation.current++;resolveGeneration.current++;},[actorKey]);
+  useEffect(()=>{setEditor(null);setEditorError('');setSelectedView('');setViewTask(null);setBusy(null);setDirty(false);setCustomizeExport(false);setExportOptions(normalizePreferences(me.actor.preferences).payrollExport);setSavingExportDefaults(false);viewTaskRef.current=null;viewOperation.current++;resolveGeneration.current++;},[actorKey]);
   useEffect(()=>{
     const current=++viewGeneration.current;setViewsLoading(true);setViewsError(null);setSavedViews(null);
     void api('/payroll/views').then(value=>{
@@ -142,6 +144,15 @@ export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords 
     }catch(cause){if(ownsViewTask(owner,operation))setViewsError({owner,message:cause instanceof Error?cause.message:'Could not delete this view.'});}
     finally{endViewTask(owner,operation);}
   }
+  async function saveExportDefaults() {
+    if (savingExportDefaults) return;
+    const parsed=payrollPresentationOptionsSchema.safeParse(exportOptions);
+    if (!parsed.success) { notify('Choose a valid report title and layout before saving.',true); return; }
+    const owner=actorKey; setSavingExportDefaults(true);
+    try { await onSaveExportDefaults(parsed.data); if(mounted.current&&actorRef.current===owner) notify('Your report setup is saved for next time.'); }
+    catch(cause) { if(mounted.current&&actorRef.current===owner) notify(cause instanceof Error?cause.message:'Your report setup could not be saved.',true); }
+    finally { if(mounted.current&&actorRef.current===owner) setSavingExportDefaults(false); }
+  }
   async function exportFile(format:'csv'|'xlsx'|'json') {
     if(busy||!data)return;
     const presentation=payrollPresentationOptionsSchema.safeParse(exportOptions);
@@ -209,13 +220,13 @@ export default function Payroll({ me, staff, notify, onDirty, onNavigateRecords 
             <div className="payroll-check-row"><span className="policy"><Wallet size={19}/></span><div><strong>Hours and pay rates in one workspace</strong><p>Gross/net pay, overtime, paid breaks, leave, taxes and deductions are not calculated. Confirm the organization’s rules before processing payroll.</p></div>{canPay&&<button onClick={()=>changeView('rates')}>Pay rates<ArrowRight size={15}/></button>}</div>
           </section>
           <section className="payroll-export-card"><span className="eyebrow">03 · SEND TO YOUR ACCOUNTANT</span><h3>Clear reports.<br/>Ready to hand over.</h3><div className="payroll-export-mix"><div className="payroll-mini-donut" style={{background:`conic-gradient(#887bff 0 ${workRatio}%, #ffba83 ${workRatio}% 100%)`}} aria-hidden="true"><span><FileSpreadsheet size={23}/></span></div><div><strong>{totals.employeeCount} employee summaries</strong><p>Readable names · formatted hours · organized sheets</p></div></div>
-            <button className="button secondary" type="button" disabled={!!busy} aria-expanded={customizeExport} aria-controls="payroll-export-customization" onClick={()=>setCustomizeExport(value=>!value)}><Pencil size={17}/>{customizeExport?'Hide report designer':'Customize report & preview'}</button>
-            <button className="payroll-download-main" disabled={!!busy} onClick={()=>void exportFile('xlsx')}><FileSpreadsheet size={20}/>{busy==='xlsx'?'Preparing Excel…':'Download Excel'}<ArrowDownToLine size={18}/></button>
-            <div className="payroll-download-more"><button disabled={!!busy} onClick={()=>void exportFile('csv')}>{busy==='csv'?'Preparing…':'Download CSV'}</button><button disabled={!!busy} onClick={()=>void exportFile('json')}>{busy==='json'?'Preparing…':'Source JSON'}</button></div>
-            <p className="payroll-export-note">Excel and CSV use your report layout (2 decimal places by default). Choose Customize report for columns, job rows, and optional Excel audit sheets. Source JSON keeps exact evidence.</p>
+            <button className="button secondary" type="button" disabled={!!busy} aria-expanded={customizeExport} aria-controls="payroll-export-customization" onClick={()=>setCustomizeExport(value=>!value)}><Pencil size={17}/>{customizeExport?'Hide report setup':'Set up report & preview'}</button>
+            <button className="payroll-download-main" disabled={!!busy} onClick={()=>void exportFile('xlsx')}><FileSpreadsheet size={20}/>{busy==='xlsx'?'Preparing Excel…':'Download Excel · recommended'}<ArrowDownToLine size={18}/></button>
+            <div className="payroll-download-more"><button disabled={!!busy} onClick={()=>void exportFile('csv')}>{busy==='csv'?'Preparing…':'CSV · plain data'}</button><button disabled={!!busy} onClick={()=>void exportFile('json')}>{busy==='json'?'Preparing…':'Source JSON'}</button></div>
+            <p className="payroll-export-note">Excel keeps the column sizes, wrapped text and colors. CSV contains plain values and cannot save spreadsheet formatting. Set up your report once and save it for next time.</p>
           </section>
         </div>
-        {customizeExport&&<div id="payroll-export-customization"><PayrollReportDesigner report={data} options={exportOptions} onChange={setExportOptions} busy={!!busy} onExport={format=>void exportFile(format)}/></div>}
+        {customizeExport&&<div id="payroll-export-customization"><PayrollReportDesigner report={data} options={exportOptions} onChange={setExportOptions} busy={!!busy||savingExportDefaults} onExport={format=>void exportFile(format)} onSaveDefaults={()=>void saveExportDefaults()} savingDefaults={savingExportDefaults} defaultsSaved={exportDefaultsSaved}/></div>}
         <section className="payroll-people-card"><div className="payroll-section-title"><div><span className="eyebrow">THE PEOPLE BEHIND THE TOTAL</span><h3>Employee hours</h3><p>Select a person to see their jobs and communities.</p></div><span className="payroll-count">{employees.length} of {data.employees.length}</span></div>
           <div className="payroll-people-controls"><label className="payroll-search"><Search size={17}/><input aria-label="Search displayed employees" placeholder="Find an employee…" value={search} onChange={e=>setSearch(e.target.value)}/></label><label>Sort<select value={order} onChange={e=>setOrder(e.target.value as typeof order)}><option value="hours">Most work hours</option><option value="name">Employee name</option><option value="breaks">Most break hours</option></select></label></div>
           <div className="payroll-employee-heading" aria-hidden="true"><span>Employee / job</span><span>Work hours</span><span>Break hours</span><span>Shifts</span></div>

@@ -5445,6 +5445,172 @@
                       ]
                     }
                   },
+                  "workspaceMode": {
+                    "type": "string",
+                    "enum": [
+                      "simple",
+                      "full"
+                    ]
+                  },
+                  "favoritePages": {
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "overview",
+                        "clock",
+                        "time-records",
+                        "payroll",
+                        "staff",
+                        "schedule",
+                        "calendar",
+                        "messages",
+                        "requests",
+                        "reports"
+                      ]
+                    }
+                  },
+                  "scheduleView": {
+                    "type": "object",
+                    "properties": {
+                      "period": {
+                        "default": "week",
+                        "type": "string",
+                        "enum": [
+                          "day",
+                          "week",
+                          "month",
+                          "year"
+                        ]
+                      },
+                      "view": {
+                        "default": "assigned",
+                        "type": "string",
+                        "enum": [
+                          "assigned",
+                          "coverage",
+                          "rules",
+                          "targets"
+                        ]
+                      },
+                      "employeeId": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "unitId": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "jobId": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "payrollExport": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "default": "Employee hours report",
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "decimalPlaces": {
+                        "default": 2,
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "const": 2
+                          },
+                          {
+                            "type": "number",
+                            "const": 3
+                          },
+                          {
+                            "type": "number",
+                            "const": 4
+                          }
+                        ]
+                      },
+                      "grouping": {
+                        "default": "employees",
+                        "type": "string",
+                        "enum": [
+                          "employees",
+                          "jobs"
+                        ]
+                      },
+                      "sortBy": {
+                        "default": "name",
+                        "type": "string",
+                        "enum": [
+                          "name",
+                          "work_hours"
+                        ]
+                      },
+                      "columns": {
+                        "default": [
+                          "workHours",
+                          "breakHours",
+                          "shiftCount",
+                          "ongoingSegmentCount"
+                        ],
+                        "minItems": 1,
+                        "maxItems": 5,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "workHours",
+                            "breakHours",
+                            "totalHours",
+                            "shiftCount",
+                            "ongoingSegmentCount"
+                          ]
+                        }
+                      },
+                      "includeAudit": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "includeOverview": {
+                        "default": true,
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "workspaceNavOrder": {
                     "minItems": 10,
                     "maxItems": 10,
@@ -54479,11 +54645,266 @@
         }
       }
     },
+    "/workforce/attention-policy": {
+      "get": {
+        "operationId": "get__workforce_attention_policy",
+        "summary": "Read shared workforce flag rules",
+        "description": "Actual current browser session in the same organization, completed onboarding and any required password MFA proof. API bearer tokens cannot use this operation. Password reporting role only: developer, owner, administrator, finance or explicitly scoped manager. Returns organization rules and whether this account can edit. No saved policy returns both rules enabled with zero-minute thresholds and version0. PIN and bearer sessions are denied.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionPolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, exact scope, mode, MFA, Origin or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in this account or organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state, source revision, preview expiry or changed command payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Source or result size exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Retained source evidence inconsistent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt/admission limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction/worker temporarily unavailable; follow the documented retry guidance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "put__workforce_attention_policy",
+        "summary": "Save organization-wide workforce flag rules",
+        "description": "Actual current browser session in the same organization, completed onboarding and any required password MFA proof. API bearer tokens cannot use this operation. Writes require exact configured Origin, application/json and X-CSRF-Token from /me. Password developer, owner or administrator only. Rules apply to everyone; personal display preferences remain separate. overSchedule and outsideSchedule each have enabled plus afterMinutes (whole minutes0–1440). A flag fires only when the exact positive duration exceeds the chosen threshold. Rules change highlights, never punches, scheduled allowances, payroll amounts, access, conflict blocks or original saved report evidence. expectedVersion rejects stale edits. commandId binds the exact payload to this actor and organization; retry the same command after an uncertain response. Returns retained policy with replayed:true on an exact retry, without another edit. Actor/session checks, policy version, immutable before/after history and audit commit together.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionPolicySaveResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or domain validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, revoked or changed proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current role, exact scope, mode, MFA, Origin or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record unavailable in this account or organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state, source revision, preview expiry or changed command payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Source or result size exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Retained source evidence inconsistent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt/admission limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction/worker temporarily unavailable; follow the documented retry guidance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttentionPolicyInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/workforce/overview": {
       "get": {
         "operationId": "get__workforce_overview",
         "summary": "Read worked versus scheduled hours for today, this week and a selected period",
-        "description": "Current developer/owner/administrator/finance or explicitly scoped manager; actual password session or current reports:read bearer proof. Scope and proof are rechecked before publication. 1–367 inclusive organization-local calendar dates; exact microseconds are decimal strings. One repeatable-read capture/asOf for all three periods. Today/week inherit the optional unit filter; userId applies only to selected. Schedule allowance includes future scheduled time in the period. Above/below compare total work across all jobs with total scheduled allowance for each employee and local day; excess is not offset against shorter days. Job rows show raw worked, scheduled, outside-schedule and break durations without assigning employee overage to a job. Outside-schedule work intersects actual intervals; breaks stay separate. These are duration comparisons, not legal overtime, entitlement balances, wages or approved payroll.",
+        "description": "Current developer/owner/administrator/finance or explicitly scoped manager; actual password session or current reports:read bearer proof. Scope and proof are rechecked before publication. 1–367 inclusive organization-local calendar dates; exact microseconds are decimal strings. One repeatable-read capture/asOf for all three periods. Today/week inherit the optional unit filter; userId applies only to selected. Schedule allowance includes future scheduled time in the period. Above/below compare total work across all jobs with total scheduled allowance for each employee and local day; excess is not offset against shorter days. Job rows show raw worked, scheduled, outside-schedule and break durations without assigning employee overage to a job. Outside-schedule work intersects actual intervals; breaks stay separate. Captured attention policy and per-employee/day flag counts accompany unchanged exact duration comparisons; disabled or thresholded highlights do not remove the original data. These are duration comparisons, not legal overtime, entitlement balances, wages or approved payroll.",
         "security": [
           {
             "Session": []
@@ -54640,7 +55061,7 @@
       "post": {
         "operationId": "post__workforce_allowance_snapshots",
         "summary": "Save an immutable scheduled-hours review",
-        "description": "Actual current browser session in the same organization, completed onboarding and any required password MFA proof. API bearer tokens cannot use this operation. Writes require exact configured Origin, application/json and X-CSRF-Token from /me. Reporting role with an actual password session; bearer writes denied. Captures current durations, source segment/schedule evidence and exact identities in one repeatable-read transaction. Source payload is capped at16MiB. commandId binds actor and query: identical retries recover the receipt; another actor/query conflicts. Saved review is retained evidence, not payroll approval, payment or statutory overtime determination.",
+        "description": "Actual current browser session in the same organization, completed onboarding and any required password MFA proof. API bearer tokens cannot use this operation. Writes require exact configured Origin, application/json and X-CSRF-Token from /me. Reporting role with an actual password session; bearer writes denied. Captures current durations, source segment/schedule evidence and exact identities in one repeatable-read transaction. Source payload is capped at16MiB. commandId binds actor and query: identical retries recover the receipt; another actor/query conflicts. Captures the selected shared attention policy and daily flag counts with the source; later policy edits do not alter saved reviews. Legacy reviews retain their original any-positive-duration highlights. Saved review is retained evidence, not payroll approval, payment or statutory overtime determination.",
         "security": [
           {
             "Session": []
@@ -106574,6 +106995,10 @@
           "includeAudit": {
             "default": false,
             "type": "boolean"
+          },
+          "includeOverview": {
+            "default": true,
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -112475,6 +112900,268 @@
         ],
         "additionalProperties": false
       },
+      "AttentionPolicyResponse": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "policy": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "rules": {
+                "type": "object",
+                "properties": {
+                  "overSchedule": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "afterMinutes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1440
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "afterMinutes"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "outsideSchedule": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "afterMinutes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1440
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "afterMinutes"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "overSchedule",
+                  "outsideSchedule"
+                ],
+                "additionalProperties": false
+              },
+              "updatedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "updatedByName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "version",
+              "rules",
+              "updatedAt",
+              "updatedByName"
+            ],
+            "additionalProperties": false
+          },
+          "canEdit": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "policy",
+          "canEdit"
+        ],
+        "additionalProperties": false
+      },
+      "AttentionPolicySaveResponse": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "policy": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "rules": {
+                "type": "object",
+                "properties": {
+                  "overSchedule": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "afterMinutes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1440
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "afterMinutes"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "outsideSchedule": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "afterMinutes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1440
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "afterMinutes"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "overSchedule",
+                  "outsideSchedule"
+                ],
+                "additionalProperties": false
+              },
+              "updatedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "updatedByName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "version",
+              "rules",
+              "updatedAt",
+              "updatedByName"
+            ],
+            "additionalProperties": false
+          },
+          "canEdit": {
+            "type": "boolean"
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "policy",
+          "canEdit",
+          "replayed"
+        ],
+        "additionalProperties": false
+      },
+      "AttentionPolicyInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "commandId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "rules": {
+            "type": "object",
+            "properties": {
+              "overSchedule": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "afterMinutes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1440
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "afterMinutes"
+                ],
+                "additionalProperties": false
+              },
+              "outsideSchedule": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "afterMinutes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1440
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "afterMinutes"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "overSchedule",
+              "outsideSchedule"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "commandId",
+          "rules"
+        ],
+        "additionalProperties": false
+      },
       "WorkforceOverviewQuery": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -112517,6 +113204,87 @@
           },
           "organizationName": {
             "type": "string"
+          },
+          "attentionPolicy": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "rules": {
+                "type": "object",
+                "properties": {
+                  "overSchedule": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "afterMinutes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1440
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "afterMinutes"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "outsideSchedule": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "afterMinutes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1440
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "afterMinutes"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "overSchedule",
+                  "outsideSchedule"
+                ],
+                "additionalProperties": false
+              },
+              "updatedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "updatedByName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "version",
+              "rules",
+              "updatedAt",
+              "updatedByName"
+            ],
+            "additionalProperties": false
           },
           "today": {
             "type": "object",
@@ -112751,6 +113519,177 @@
               },
               "notice": {
                 "type": "string"
+              },
+              "attention": {
+                "type": "object",
+                "properties": {
+                  "policy": {
+                    "type": "object",
+                    "properties": {
+                      "version": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "rules": {
+                        "type": "object",
+                        "properties": {
+                          "overSchedule": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "afterMinutes": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1440
+                              }
+                            },
+                            "required": [
+                              "enabled",
+                              "afterMinutes"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "outsideSchedule": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "afterMinutes": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1440
+                              }
+                            },
+                            "required": [
+                              "enabled",
+                              "afterMinutes"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "overSchedule",
+                          "outsideSchedule"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "updatedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "updatedByName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "version",
+                      "rules",
+                      "updatedAt",
+                      "updatedByName"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "totals": {
+                    "type": "object",
+                    "properties": {
+                      "overScheduleDays": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "outsideScheduleDays": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "overScheduleDays",
+                      "outsideScheduleDays"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "people": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "overScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "outsideScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "overScheduleDays",
+                        "outsideScheduleDays",
+                        "userId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "days": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "overScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "outsideScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        }
+                      },
+                      "required": [
+                        "overScheduleDays",
+                        "outsideScheduleDays",
+                        "date"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "policy",
+                  "totals",
+                  "people",
+                  "days"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -112996,6 +113935,177 @@
               },
               "notice": {
                 "type": "string"
+              },
+              "attention": {
+                "type": "object",
+                "properties": {
+                  "policy": {
+                    "type": "object",
+                    "properties": {
+                      "version": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "rules": {
+                        "type": "object",
+                        "properties": {
+                          "overSchedule": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "afterMinutes": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1440
+                              }
+                            },
+                            "required": [
+                              "enabled",
+                              "afterMinutes"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "outsideSchedule": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "afterMinutes": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1440
+                              }
+                            },
+                            "required": [
+                              "enabled",
+                              "afterMinutes"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "overSchedule",
+                          "outsideSchedule"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "updatedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "updatedByName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "version",
+                      "rules",
+                      "updatedAt",
+                      "updatedByName"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "totals": {
+                    "type": "object",
+                    "properties": {
+                      "overScheduleDays": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "outsideScheduleDays": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "overScheduleDays",
+                      "outsideScheduleDays"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "people": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "overScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "outsideScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "overScheduleDays",
+                        "outsideScheduleDays",
+                        "userId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "days": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "overScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "outsideScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        }
+                      },
+                      "required": [
+                        "overScheduleDays",
+                        "outsideScheduleDays",
+                        "date"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "policy",
+                  "totals",
+                  "people",
+                  "days"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -113241,6 +114351,177 @@
               },
               "notice": {
                 "type": "string"
+              },
+              "attention": {
+                "type": "object",
+                "properties": {
+                  "policy": {
+                    "type": "object",
+                    "properties": {
+                      "version": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "rules": {
+                        "type": "object",
+                        "properties": {
+                          "overSchedule": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "afterMinutes": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1440
+                              }
+                            },
+                            "required": [
+                              "enabled",
+                              "afterMinutes"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "outsideSchedule": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "afterMinutes": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1440
+                              }
+                            },
+                            "required": [
+                              "enabled",
+                              "afterMinutes"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "overSchedule",
+                          "outsideSchedule"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "updatedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "updatedByName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "version",
+                      "rules",
+                      "updatedAt",
+                      "updatedByName"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "totals": {
+                    "type": "object",
+                    "properties": {
+                      "overScheduleDays": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "outsideScheduleDays": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "overScheduleDays",
+                      "outsideScheduleDays"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "people": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "overScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "outsideScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "overScheduleDays",
+                        "outsideScheduleDays",
+                        "userId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "days": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "overScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "outsideScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        }
+                      },
+                      "required": [
+                        "overScheduleDays",
+                        "outsideScheduleDays",
+                        "date"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "policy",
+                  "totals",
+                  "people",
+                  "days"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -113258,6 +114539,7 @@
           "asOf",
           "timezone",
           "organizationName",
+          "attentionPolicy",
           "today",
           "week",
           "selected"
@@ -113716,6 +114998,177 @@
               },
               "notice": {
                 "type": "string"
+              },
+              "attention": {
+                "type": "object",
+                "properties": {
+                  "policy": {
+                    "type": "object",
+                    "properties": {
+                      "version": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "rules": {
+                        "type": "object",
+                        "properties": {
+                          "overSchedule": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "afterMinutes": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1440
+                              }
+                            },
+                            "required": [
+                              "enabled",
+                              "afterMinutes"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "outsideSchedule": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "afterMinutes": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1440
+                              }
+                            },
+                            "required": [
+                              "enabled",
+                              "afterMinutes"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "overSchedule",
+                          "outsideSchedule"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "updatedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "updatedByName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "version",
+                      "rules",
+                      "updatedAt",
+                      "updatedByName"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "totals": {
+                    "type": "object",
+                    "properties": {
+                      "overScheduleDays": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "outsideScheduleDays": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "overScheduleDays",
+                      "outsideScheduleDays"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "people": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "overScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "outsideScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "overScheduleDays",
+                        "outsideScheduleDays",
+                        "userId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "days": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "overScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "outsideScheduleDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        }
+                      },
+                      "required": [
+                        "overScheduleDays",
+                        "outsideScheduleDays",
+                        "date"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "policy",
+                  "totals",
+                  "people",
+                  "days"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [

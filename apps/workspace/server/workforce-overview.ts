@@ -1,4 +1,6 @@
 import {DateTime} from 'luxon';
+import {attentionExceeded,defaultAttentionPolicy,type AttentionPolicy,type AttentionCounts} from '../shared/attention-policy';
+import {readAttentionPolicy} from './attention-policy';
 import {z} from 'zod';
 import type {Database,Queryable} from './db';
 import {canReport,orgWide,requireCondition,type Actor} from './security';
@@ -17,7 +19,7 @@ function localDate(instant:bigint,zone:string){return DateTime.fromMillis(Number
 type Identity={userId:string;employeeName:string;jobId:string;jobTitle:string;unitId:string;unitName:string};
 type Cell={identity:Identity;date:string;work:bigint;rest:bigint;scheduled:bigint;outside:bigint};
 /** Exact, pure comparison. Overages accrue per employee/local day across all jobs; a shorter day never cancels an earlier flag. */
-export function aggregateAllowance(report:WorkforceReportV2,rawSchedules:AllowanceSchedule[]):AllowancePeriod{
+export function aggregateAllowance(report:WorkforceReportV2,rawSchedules:AllowanceSchedule[],policy:AttentionPolicy=defaultAttentionPolicy()):AllowancePeriod{
   const {group:_,...query}=report.query,{start,end}=workforceReportBoundsV2(report.query,report.timezone);
   requireCondition(rawSchedules.length<=20_000,400,'Choose a shorter period: too many scheduled shifts.');
   const schedules=rawSchedules.map(value=>allowanceScheduleSchema.parse(value));
@@ -47,28 +49,35 @@ export function aggregateAllowance(report:WorkforceReportV2,rawSchedules:Allowan
       item.work+=right-left;let inside=0n;for(const [a,b] of byJob.get(pair(row.user_id,row.job_id))??[]){if(a>=right)break;if(b<=left)continue;inside+=min(right,b)-max(left,a);}item.outside+=right-left-inside;
     });
   }
-  const employeeDays=new Map<string,{userId:string;date:string;work:bigint;scheduled:bigint}>();
+  const employeeDays=new Map<string,{userId:string;date:string;work:bigint;scheduled:bigint;outside:bigint}>();
   const totals=zero(),people=new Map<string,AllowancePeriod['people'][number]>(),jobs=new Map<string,Identity&AllowanceMetrics>(),days=new Map<string,AllowancePeriod['days'][number]>();
   for(let date=DateTime.fromISO(query.start,{zone:report.timezone});date.toISODate()!<=query.end;date=date.plus({days:1}))days.set(date.toISODate()!,{date:date.toISODate()!,label:date.toFormat('LLL d'),...zero()});
   for(const item of cells.values()){
     const value:AllowanceMetrics={workMicroseconds:item.work.toString(),breakMicroseconds:item.rest.toString(),scheduledMicroseconds:item.scheduled.toString(),aboveScheduledMicroseconds:'0',belowScheduledMicroseconds:'0',unscheduledWorkMicroseconds:item.outside.toString()};
-    const dayKey=item.identity.userId+':'+item.date,employeeDay=employeeDays.get(dayKey)??{userId:item.identity.userId,date:item.date,work:0n,scheduled:0n};employeeDay.work+=item.work;employeeDay.scheduled+=item.scheduled;employeeDays.set(dayKey,employeeDay);
+    const dayKey=item.identity.userId+':'+item.date,employeeDay=employeeDays.get(dayKey)??{userId:item.identity.userId,date:item.date,work:0n,scheduled:0n,outside:0n};employeeDay.work+=item.work;employeeDay.scheduled+=item.scheduled;employeeDay.outside+=item.outside;employeeDays.set(dayKey,employeeDay);
     add(totals,value);const p=people.get(item.identity.userId)??{userId:item.identity.userId,name:item.identity.employeeName,...zero()};add(p,value);people.set(p.userId,p);
     const key=pair(item.identity.userId,item.identity.jobId),j=jobs.get(key)??{...item.identity,...zero()};add(j,value);jobs.set(key,j);add(days.get(item.date)!,value);
   }
   for(const item of employeeDays.values()){const over=max(0n,item.work-item.scheduled),under=max(0n,item.scheduled-item.work);for(const value of [totals,people.get(item.userId)!,days.get(item.date)!]){value.aboveScheduledMicroseconds=(BigInt(value.aboveScheduledMicroseconds)+over).toString();value.belowScheduledMicroseconds=(BigInt(value.belowScheduledMicroseconds)+under).toString();}}
+  const emptyAttention=():AttentionCounts=>({overScheduleDays:0,outsideScheduleDays:0});
+  const attention={policy,totals:emptyAttention(),people:[...people.keys()].map(userId=>({userId,...emptyAttention()})),days:[...days.keys()].map(date=>({date,...emptyAttention()}))};
+  const personAttention=new Map(attention.people.map(row=>[row.userId,row])),dayAttention=new Map(attention.days.map(row=>[row.date,row]));
+  for(const item of employeeDays.values()){
+    const over=attentionExceeded(max(0n,item.work-item.scheduled),policy.rules.overSchedule),outside=attentionExceeded(item.outside,policy.rules.outsideSchedule);
+    for(const counts of [attention.totals,personAttention.get(item.userId)!,dayAttention.get(item.date)!]){counts.overScheduleDays+=Number(over);counts.outsideScheduleDays+=Number(outside);}
+  }
   requireCondition(totals.workMicroseconds===report.workMicroseconds&&totals.breakMicroseconds===report.breakMicroseconds,422,'Scheduled comparison does not reconcile to the recorded time source.');
-  return allowancePeriodSchema.parse({query,totals,people:[...people.values()].sort((a,b)=>a.name.localeCompare(b.name)||a.userId.localeCompare(b.userId)),jobs:[...jobs.values()].map(({aboveScheduledMicroseconds:_,belowScheduledMicroseconds:__,...job})=>job).sort((a,b)=>a.employeeName.localeCompare(b.employeeName)||a.unitName.localeCompare(b.unitName)||a.jobTitle.localeCompare(b.jobTitle)||a.jobId.localeCompare(b.jobId)),days:[...days.values()],notice:'Scheduled shifts are the allowance, including future scheduled time in this period. Hours over schedule compare each employee’s total work across all jobs with all scheduled hours for that local day, without offsetting excess against shorter days. Job changes within that daily allowance do not create an overage. Job breakdowns show work, scheduled time and outside-schedule intervals without allocating the employee’s overage to a job. Outside-schedule hours show work outside matching scheduled intervals. Breaks are separate. These are recorded durations, not overtime or pay calculations. Current schedules and corrected time records can change this view; saved reviews retain their captured evidence.'});
+  return allowancePeriodSchema.parse({query,totals,attention,people:[...people.values()].sort((a,b)=>a.name.localeCompare(b.name)||a.userId.localeCompare(b.userId)),jobs:[...jobs.values()].map(({aboveScheduledMicroseconds:_,belowScheduledMicroseconds:__,...job})=>job).sort((a,b)=>a.employeeName.localeCompare(b.employeeName)||a.unitName.localeCompare(b.unitName)||a.jobTitle.localeCompare(b.jobTitle)||a.jobId.localeCompare(b.jobId)),days:[...days.values()],notice:'Scheduled shifts are the allowance, including future scheduled time in this period. Hours over schedule compare each employee’s total work across all jobs with all scheduled hours for that local day, without offsetting excess against shorter days. Job changes within that daily allowance do not create an overage. Job breakdowns show work, scheduled time and outside-schedule intervals without allocating the employee’s overage to a job. Outside-schedule hours show work outside matching scheduled intervals. Breaks are separate. These are recorded durations, not overtime or pay calculations. Current schedules and corrected time records can change this view; saved reviews retain their captured evidence.'});
 }
 const exact=(column:string)=>`to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
-export async function readAllowanceSource(tx:Queryable,actor:Actor,query:WorkforceOverviewQuery,asOf:string){
+export async function readAllowanceSource(tx:Queryable,actor:Actor,query:WorkforceOverviewQuery,asOf:string,policy?:AttentionPolicy){
   const report=await readWorkforceReportSourceV2(tx,actor,{...query,group:'day'},{asOf});
   const rows=(await tx.query(`SELECT s.id,s.version,s.user_id AS "userId",u.name AS "employeeName",j.id AS "jobId",j.title AS "jobTitle",n.id AS "unitId",n.name AS "unitName",${exact('s.starts_at')} AS "startsAt",${exact('s.ends_at')} AS "endsAt"
     FROM schedules s JOIN users u ON u.id=s.user_id AND u.org_id=s.org_id JOIN jobs j ON j.id=s.job_id AND j.org_id=s.org_id JOIN units n ON n.id=j.unit_id AND n.org_id=j.org_id
     WHERE s.org_id=$1 AND s.status='scheduled' AND s.starts_at<$3::timestamptz AND s.ends_at>$2::timestamptz
     AND ($4::boolean OR n.id=ANY($5::uuid[])) AND ($6::uuid IS NULL OR n.id=$6) AND ($7::uuid IS NULL OR s.user_id=$7)
     ORDER BY s.starts_at,s.id LIMIT 20001`,[actor.org_id,report.range.from,report.range.toExclusive,orgWide(actor),actor.unit_ids,query.unitId??null,query.userId??null])).rows.map(row=>allowanceScheduleSchema.parse(row));
-  return {period:aggregateAllowance(report,rows),report,schedules:rows};
+  return {period:aggregateAllowance(report,rows,policy??await readAttentionPolicy(tx,actor.org_id)),report,schedules:rows};
 }
 export async function getWorkforceOverview(db:Database,supplied:Actor,proof:WorkforceReportProof,raw:unknown){
   const query=workforceOverviewQuerySchema.parse(raw);
@@ -77,8 +86,9 @@ export async function getWorkforceOverview(db:Database,supplied:Actor,proof:Work
     const meta=(await tx.query(`SELECT name,timezone,${exact('clock_timestamp()')} AS as_of FROM organizations WHERE id=$1`,[actor.org_id])).rows[0];requireCondition(meta,404,'Organization unavailable.');
     const current=DateTime.fromISO(meta.as_of,{zone:meta.timezone}),scope=query.unitId?{unitId:query.unitId}:{};
     const todayQuery={start:current.toISODate()!,end:current.toISODate()!,...scope},weekQuery={start:current.startOf('week').toISODate()!,end:current.endOf('week').toISODate()!,...scope};
-    const today=await readAllowanceSource(tx,actor,todayQuery,meta.as_of),week=await readAllowanceSource(tx,actor,weekQuery,meta.as_of),selected=await readAllowanceSource(tx,actor,query,meta.as_of);
-    return workforceOverviewSchema.parse({asOf:meta.as_of,timezone:meta.timezone,organizationName:meta.name,today:today.period,week:week.period,selected:selected.period});
+    const attentionPolicy=await readAttentionPolicy(tx,actor.org_id);
+    const today=await readAllowanceSource(tx,actor,todayQuery,meta.as_of,attentionPolicy),week=await readAllowanceSource(tx,actor,weekQuery,meta.as_of,attentionPolicy),selected=await readAllowanceSource(tx,actor,query,meta.as_of,attentionPolicy);
+    return workforceOverviewSchema.parse({asOf:meta.as_of,timezone:meta.timezone,organizationName:meta.name,attentionPolicy,today:today.period,week:week.period,selected:selected.period});
   },async(_tx,_actor,result)=>result,{repeatableRead:true});
 }
 export async function getWorkforceBoard(db:Database,supplied:Actor,proof:WorkforceReportProof){

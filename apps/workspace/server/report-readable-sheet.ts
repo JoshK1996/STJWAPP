@@ -2,7 +2,7 @@ import type ExcelJS from "exceljs";
 import type { SnapshotData } from "../shared/report-snapshots";
 import { formatReportValue, readableReportColumns, reportColumnLabel } from "../shared/report-presentation";
 import { sourceCatalog } from "../shared/report-library";
-import { reportSheetText } from "./report-sheet-layout";
+import { reportSheetColumnWidth, reportSheetText } from "./report-sheet-layout";
 
 /** Presentation sheet only; exact Data and source evidence remain untouched. */
 export function addReadableSnapshotSheet(book: ExcelJS.stream.xlsx.WorkbookWriter, data: SnapshotData, safeText: (value: string) => string) {
@@ -12,7 +12,13 @@ export function addReadableSnapshotSheet(book: ExcelJS.stream.xlsx.WorkbookWrite
     pageSetup: { paperSize: 9, orientation: columns.length > 5 ? "landscape" : "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "6:6" },
     headerFooter: { oddFooter: "&LSTJW · Reviewed report&RPg &P of &N" },
   });
-  sheet.columns = Array.from({ length: span }, (_, index) => ({ width: columns[index]?.key.endsWith("_at") ? 34 : columns[index]?.key.includes("name") || columns[index]?.key.includes("note") || columns[index]?.key.includes("label") ? 34 : 24 }));
+  sheet.columns = Array.from({ length: span }, (_, index) => {
+    const column = columns[index];
+    if (!column) return { width: 24 };
+    const identity = /(?:name|note|label|title)/.test(column.key), date = /(?:_at|date)$/.test(column.key);
+    const values = data.rows.map(row => formatReportValue(column.key, row[column.key], { timezone: data.timezone, source: data.source, currency: "currency" in data.provenance ? data.provenance.currency : undefined, row }));
+    return { width: reportSheetColumnWidth(reportColumnLabel(column), values, date ? 34 : identity ? 30 : 20, identity ? 52 : date ? 36 : 30) };
+  });
   const bannerWidth = sheet.columns.reduce((sum, column) => sum + (column.width ?? 24), 0);
   const banner = (rowNumber: number, text: string, size: number, height: number, fill: string, color: string) => {
     sheet.mergeCells(rowNumber, 1, rowNumber, span);

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { payrollPresentationOptionsSchema } from "./payroll-presentation";
 
 export const dashboardWidgets = [
   {
@@ -101,7 +102,20 @@ const legacyPreferencesSchema = z
       .default([]),
   })
   .strict();
+export const scheduleViewPreferencesSchema = z.object({
+  period: z.enum(['day','week','month','year']).default('week'),
+  view: z.enum(['assigned','coverage','rules','targets']).default('assigned'),
+  employeeId: z.uuid().nullable().default(null), unitId: z.uuid().nullable().default(null), jobId: z.uuid().nullable().default(null),
+}).strict();
+export type ScheduleViewPreferences = z.infer<typeof scheduleViewPreferencesSchema>;
+const favoritePagesSchema = z.array(z.enum(workspaceNavigationIds)).min(1).max(workspaceNavigationIds.length)
+  .refine(ids => new Set(ids).size === ids.length, 'Choose each page once.');
+export const simpleWorkspacePages: WorkspaceNavigationId[] = ['overview','clock','time-records','schedule','payroll','staff'];
 export const preferencesSchema = legacyPreferencesSchema.extend({
+  workspaceMode: z.enum(['simple','full']).default('simple'),
+  favoritePages: favoritePagesSchema.default(() => [...simpleWorkspacePages]),
+  scheduleView: scheduleViewPreferencesSchema.default(() => scheduleViewPreferencesSchema.parse({})),
+  payrollExport: payrollPresentationOptionsSchema.default(() => payrollPresentationOptionsSchema.parse({})),
   workspaceNavOrder: z.array(z.enum(workspaceNavigationIds))
     .length(workspaceNavigationIds.length)
     .refine(ids => new Set(ids).size === workspaceNavigationIds.length, "Include each workspace menu item exactly once.")
@@ -138,10 +152,14 @@ function storedOrder<T extends string>(value: unknown, defaults: readonly T[]): 
 export function normalizePreferences(value: unknown): Preferences {
   const stored = value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown> : null;
-  const { workspaceNavOrder, organizationNavOrder, ...legacy } = stored ?? {};
+  const { workspaceNavOrder, organizationNavOrder, workspaceMode, favoritePages, scheduleView, payrollExport, ...legacy } = stored ?? {};
   const result = legacyPreferencesSchema.safeParse(stored ? legacy : value ?? {});
   return {
     ...(result.success ? result.data : legacyPreferencesSchema.parse({})),
+    workspaceMode: workspaceMode === 'full' ? 'full' : 'simple',
+    favoritePages: favoritePagesSchema.safeParse(favoritePages).success ? favoritePages as WorkspaceNavigationId[] : [...simpleWorkspacePages],
+    scheduleView: scheduleViewPreferencesSchema.safeParse(scheduleView).success ? scheduleViewPreferencesSchema.parse(scheduleView) : scheduleViewPreferencesSchema.parse({}),
+    payrollExport: payrollPresentationOptionsSchema.safeParse(payrollExport).success ? payrollPresentationOptionsSchema.parse(payrollExport) : payrollPresentationOptionsSchema.parse({}),
     workspaceNavOrder: storedOrder(workspaceNavOrder, workspaceNavigationIds),
     organizationNavOrder: storedOrder(organizationNavOrder, organizationNavigationIds),
   };

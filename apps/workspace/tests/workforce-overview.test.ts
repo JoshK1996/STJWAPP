@@ -11,6 +11,8 @@ import {canonicalWorkforceUtc,type WorkforceSourceRowV2} from '../shared/workfor
 import {connectDatabase,migrate,type Database,type Queryable,type Row} from '../server/db';
 import {initialize} from '../server/seed';
 import {digest,opaqueToken,type Actor} from '../server/security';
+import {defaultAttentionPolicy,periodAttention} from '../shared/attention-policy';
+import {saveAttentionPolicy} from '../server/attention-policy';
 
 const userId=randomUUID(),jobId=randomUUID(),unitId=randomUUID(),hour=3_600_000_000n;
 const hours=(value:number)=>(BigInt(value)*hour).toString();
@@ -125,6 +127,26 @@ test('CSV neutralizes formulas and Excel presents typed rounded hours with reada
 test('Excel reserves printable title height for long organization names without inflating short banners',async()=>{
  const period=comparison([],[]),organizationName='Synthetic Saint Joseph the Worker School, Parish, Early Childhood Education and Extended Day Community Administration';
  const long=new ExcelJS.Workbook();await long.xlsx.load(await renderAllowanceExport({organizationName,timezone:'UTC',asOf:'2026-09-22T00:00:00.000000Z',period},'xlsx') as any);
- for(const sheet of long.worksheets){assert.equal(sheet.getCell('A1').value,organizationName+' · '+sheet.name);assert.ok(sheet.getRow(1).height!>=60);assert.ok(sheet.getRow(1).height!<=409);assert.equal(sheet.getCell('A1').alignment.wrapText,true);assert.equal(sheet.getCell('A1').font.size,20);assert.equal(sheet.pageSetup.printTitlesRow,'1:6');}
+ for(const sheet of long.worksheets){assert.equal(sheet.getCell('A1').value,organizationName+' · '+sheet.name);assert.ok(sheet.getRow(1).height!>=60);assert.ok(sheet.getRow(1).height!<=409);assert.equal(sheet.getCell('A1').alignment.wrapText,true);assert.equal(sheet.getCell('A1').font.size,20);assert.equal(sheet.pageSetup.printTitlesRow,'6:6');}
  const short=new ExcelJS.Workbook();await short.xlsx.load(await renderAllowanceExport({organizationName:'STJW',timezone:'UTC',asOf:'2026-09-22T00:00:00.000000Z',period},'xlsx') as any);assert.ok(short.worksheets.every(sheet=>sheet.getRow(1).height===42));
+});
+
+test('allowance exports use captured flags without changing amounts and preserve legacy highlights',async()=>{
+ const rows=[segment('2026-09-21T09:00:00Z','2026-09-21T18:00:00Z')],schedules=[scheduled('2026-09-21T09:00:00Z','2026-09-21T17:00:00Z')];
+ const report=aggregateSegmentsV2(rows,{start:'2026-09-21',end:'2026-09-22',group:'day'},'UTC','2026-09-23T00:00:00.000000Z');
+ const policy={...defaultAttentionPolicy(),version:3,rules:{overSchedule:{enabled:false,afterMinutes:0},outsideSchedule:{enabled:false,afterMinutes:0}}},off=aggregateAllowance(report,schedules,policy),on=aggregateAllowance(report,schedules),document={organizationName:'Synthetic policy organization',timezone:'UTC',asOf:'2026-09-23T00:00:00.000000Z'};
+ assert.deepEqual(off.totals,on.totals);const offBook=new ExcelJS.Workbook();await offBook.xlsx.load(await renderAllowanceExport({...document,period:off},'xlsx') as any);
+ const people=offBook.getWorksheet('Employee summary')!;assert.equal(people.getCell('D8').value,1);assert.equal(people.getCell('F8').value,1);assert.equal(people.getCell('D8').font.color?.argb,'FF17304B');assert.equal(people.getCell('F8').font.color?.argb,'FF17304B');assert.equal(people.getCell('H8').value,'No flags');assert.match(String(people.getCell('A5').value),/Over schedule: off/);
+ const csv=String(await renderAllowanceExport({...document,period:off},'csv'));assert.equal(csv.charCodeAt(0),0xfeff);assert.notEqual(csv.charCodeAt(1),0xfeff);assert.match(csv,/"Attention","Flag rules"/);assert.match(csv,/No flags/);assert.match(csv,/Outside schedule: off/);
+ const onBook=new ExcelJS.Workbook();await onBook.xlsx.load(await renderAllowanceExport({...document,period:on},'xlsx') as any);assert.equal(onBook.getWorksheet('Employee summary')!.getCell('D8').font.color?.argb,'FF9A5800');assert.match(String(onBook.getWorksheet('Employee summary')!.getCell('H8').value).replace(/\s+/g,' '),/Over schedule: 1 daily flag/);assert.equal(onBook.getWorksheet('Daily review')!.getCell('D7').font.color?.argb,'FF9A5800');assert.equal(onBook.getWorksheet('Daily review')!.getCell('D8').font.color?.argb,'FF17304B');
+ const {attention:_,...legacy}=on,oldBook=new ExcelJS.Workbook();await oldBook.xlsx.load(await renderAllowanceExport({...document,period:legacy},'xlsx') as any);assert.match(String(oldBook.getWorksheet('Employee summary')!.getCell('A5').value),/Historical review/);assert.equal(oldBook.getWorksheet('Employee summary')!.getCell('D8').font.color?.argb,'FF9A5800');
+});
+
+test('saved reviews retain captured rules after organization policy changes while live totals stay exact',async()=>{
+ const r=await reader(),receipt=await saveAllowanceSnapshot(db,r.actor,r.proof,{commandId:randomUUID(),query}),original=await getAllowanceSnapshot(db,r.actor,r.proof,receipt.id),before=await getWorkforceOverview(db,r.actor,r.proof,query);
+ assert.equal(original.period.attention?.policy.version,0);assert.equal(periodAttention(original.period).overScheduleDays,1);
+ const admin=await reader();await db.query("UPDATE users SET role='admin' WHERE id=$1",[admin.actor.id]);
+ await saveAttentionPolicy(db,admin.actor,admin.proof.hash,{expectedVersion:0,commandId:randomUUID(),rules:{overSchedule:{enabled:false,afterMinutes:0},outsideSchedule:{enabled:false,afterMinutes:0}}});
+ const after=await getWorkforceOverview(db,r.actor,r.proof,query);assert.equal(after.attentionPolicy.version,1);assert.deepEqual(after.selected.totals,before.selected.totals);assert.deepEqual(periodAttention(after.selected),{overScheduleDays:0,outsideScheduleDays:0});
+ const reread=await getAllowanceSnapshot(db,r.actor,r.proof,receipt.id);assert.deepEqual(reread,original);const workbook=new ExcelJS.Workbook();await workbook.xlsx.load((await exportAllowance(db,r.actor,r.proof,{},'xlsx',receipt.id)).body as any);assert.equal(workbook.getWorksheet('Employee summary')!.getCell('D8').font.color?.argb,'FF9A5800');
 });

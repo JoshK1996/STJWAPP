@@ -34,3 +34,17 @@ export function reportSheetText(text: string, columnWidth: number, fontSize: num
   }
   return { text: lines.join("\n"), height: Math.max(minimumHeight, Math.min(maximumHeight, lines.length * lineHeight + padding)), abbreviated, lines: lines.length };
 }
+
+/** Size a readable column from its actual headings and displayed values.
+ * Excel column widths are font-dependent; wrapping and explicit row heights
+ * remain necessary after this bounded sizing pass. Labels get room for two
+ * natural lines instead of making every long name a page-wide column. */
+export function reportSheetColumnWidth(heading: string, values: Iterable<string>, minimum = 20, maximum = 48): number {
+  let widest = Math.max(...heading.split(/\r?\n/u).map(units), 0);
+  const enough = (maximum - 4) * 0.72;
+  for (const value of values) for (const paragraph of value.split(/\r?\n/u)) {
+    widest = Math.max(widest, units(paragraph) / 2);
+    if (widest >= enough) return maximum;
+  }
+  return Math.max(minimum, Math.min(maximum, Math.ceil(widest / 0.72 + 4)));
+}

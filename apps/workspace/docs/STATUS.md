@@ -2,6 +2,12 @@
 
 The live workspace was cleared of owner-confirmed demonstration operational records while retaining three initial real accounts and four basic communities/jobs. New live records must be preserved. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
 
+## Shared flags and simpler daily use - September 27, 2026
+
+Implemented; release verification and deployment are in progress under issue17. Simple/full menus and favorite pages, grouped Settings, assigned-shift-first scheduling and collapsed advanced controls reduce visible decisions. Schedule filters and Payroll export layouts save to each user's account. Administrators choose shared daily over-schedule/outside-schedule flags and minute thresholds; exact records remain unchanged, and saved reviews capture their rules. Excel gains better fitted columns/rows and repeated table headings; CSV clearly remains plain data. See SIMPLE-WORKSPACE and ADR0014.
+
+Focused changed-code tests are owned separately: seven schedule helper tests, fourteen shared-policy tests, seventeen overview/export tests, twenty-two export/layout tests, four HTTP/API tests, two runtime/schema tests and three personal preference tests passed. Broader completed baselines were not repeated under the owner's no-overlap instruction. New synthetic browser checks and production release evidence will be recorded before this entry is marked live. Migration048 is additive; deployed migrations001-047 were not edited.
+
 ## Administrator time-card editing - September 25, 2026
 
 Live and verified. Administrators, owners and developers can find all employees' time, open a prefilled date/time editor and save another employee's completed-card correction immediately with retained original punches, reason and named editor. Missing cards and missed clock-outs use the same direct rule; own-account and scoped-manager corrections retain independent review. Whole-range search, inactive-employee history, filters, separate work/break totals and job/community breakdowns replace page-only summaries. Employees, Payroll and Overview provide direct links. See TIME-CARDS and ADR0013.

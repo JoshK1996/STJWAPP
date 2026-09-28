@@ -12,6 +12,7 @@ import {
 import { api } from "./api";
 import { Badge, Panel, Modal } from "./components";
 import Personalization from "./Personalization";
+import AttentionSettings from './AttentionSettings';
 import Authenticator from './Authenticator';
 import AccountPassword from './AccountPassword';
 import OrganizationBranding, { type BrandingAccess } from './OrganizationBranding';
@@ -21,19 +22,23 @@ export default function Settings({
   notify,
   onChange,
   branding, reloadBranding, onSessionExpired, isSessionCurrent, onDirty,
-  appEntry,
+  appEntry, initialSection = 'personal',
 }: BrandingAccess & {
   me: any;
   notify: (text: string, error?: boolean) => void;
   onChange: (preferences?: Preferences) => Promise<void>;
   onDirty: (value: boolean) => void;
   appEntry?: ReactNode;
+  initialSection?: 'personal' | 'security' | 'organization' | 'connections';
 }) {
+  const [section, setSection] = useState(initialSection);
+  const [attentionDirty, setAttentionDirty] = useState(false);
+  const attentionChanged = useCallback((value:boolean) => setAttentionDirty(value), []);
   const [personalDirty, setPersonalDirty] = useState(false), [brandingDirty, setBrandingDirty] = useState(false), [passwordDirty, setPasswordDirty] = useState(false);
   const personalChanged = useCallback((value: boolean) => setPersonalDirty(value), []);
   const brandingChanged = useCallback((value: boolean) => setBrandingDirty(value), []);
   const passwordChanged = useCallback((value: boolean) => setPasswordDirty(value), []);
-  useEffect(() => { onDirty(personalDirty || brandingDirty || passwordDirty); return () => onDirty(false); }, [personalDirty, brandingDirty, passwordDirty, onDirty]);
+  useEffect(() => { onDirty(personalDirty || brandingDirty || passwordDirty || attentionDirty); return () => onDirty(false); }, [personalDirty, brandingDirty, passwordDirty, attentionDirty, onDirty]);
   const [busy, setBusy] = useState(false),
     [tokens, setTokens] = useState<any[]>([]),
     [secret, setSecret] = useState("");
@@ -85,9 +90,18 @@ export default function Settings({
   }
   return (
     <>
+      <nav className="settings-sections" aria-label="Settings categories">{([
+        ['personal','Your setup','Appearance, menu & saved defaults'],
+        ['security','Sign-in','Password, PIN & authenticator'],
+        ['organization','Organization','Shared rules & communities'],
+        ['connections','Connections','External services & API access'],
+      ] as const).map(([id,label,detail]) => <button type="button" key={id} aria-pressed={section===id} disabled={section!==id&&(personalDirty||brandingDirty||passwordDirty||attentionDirty||busy)} onClick={()=>setSection(id)}><strong>{label}</strong><small>{detail}</small></button>)}</nav>
+      {(personalDirty||brandingDirty||passwordDirty||attentionDirty) && <p className="panel-note">Save or discard your changes here before switching settings categories.</p>}
+      <section className="settings-section" hidden={section!=='personal'} aria-label="Your setup">
       {appEntry && <Panel title="STJW on your device" detail="Add a Home Screen icon and check for the latest app improvements.">{appEntry}</Panel>}
       <Personalization me={me} notify={notify} onChange={onChange} branding={branding} reloadBranding={reloadBranding} onSessionExpired={onSessionExpired} isSessionCurrent={isSessionCurrent} onDirty={personalChanged} />
-      {me.permissions.owner && <OrganizationBranding branding={branding} reloadBranding={reloadBranding} onSessionExpired={onSessionExpired} isSessionCurrent={isSessionCurrent} onDirty={brandingChanged} />}
+      </section>
+      <section className="settings-section" hidden={section!=='security'} aria-label="Sign-in settings">
       <Authenticator notify={notify} onChange={onChange}/>
       <div className="account-settings-row">
         <AccountPassword onChange={onChange} onDirty={passwordChanged} isSessionCurrent={isSessionCurrent} onSessionExpired={onSessionExpired} notify={notify} />
@@ -131,6 +145,10 @@ export default function Settings({
           </form>
         </Panel>
       </div>
+      </section>
+      <section className="settings-section" hidden={section!=='organization'} aria-label="Organization settings">
+      {me.permissions.report && <AttentionSettings me={me} notify={notify} onDirty={attentionChanged} isSessionCurrent={isSessionCurrent} onSessionExpired={onSessionExpired}/>}
+      {me.permissions.owner && <OrganizationBranding branding={branding} reloadBranding={reloadBranding} onSessionExpired={onSessionExpired} isSessionCurrent={isSessionCurrent} onDirty={brandingChanged} />}
       <Panel
         title="Organization & access"
         detail="A shared structure with clear responsibilities."
@@ -162,6 +180,8 @@ export default function Settings({
         </p>
       </Panel>
       {["developer", "owner", "admin"].includes(me.actor.role) && <Organization timezone={me.organization.timezone} notify={notify} onChange={onChange}/>}
+      </section>
+      <section className="settings-section" hidden={section!=='connections'} aria-label="Connections settings">
       <Panel
         title="Connections"
         detail="Each external service has its own authorization and review process."
@@ -287,6 +307,7 @@ export default function Settings({
           </p>
         </Panel>
       )}
+      </section>
       {secret && (
         <Modal
           title="Save your private API token"

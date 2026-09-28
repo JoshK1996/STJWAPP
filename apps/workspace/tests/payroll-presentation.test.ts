@@ -85,7 +85,7 @@ test('Excel has readable numeric cells, color hierarchy, data bars, frozen/filte
   assert.equal(details.getCell('A7').value, 'Synthetic employee'); assert.equal(details.getCell('B7').value, 1); assert.equal(details.getCell('C7').value, 0.25);
   assert.equal(details.getCell('B7').numFmt, '#,##0.00'); assert.equal(details.getCell('D7').numFmt, '#,##0');
   assert.equal(details.views[0].state, 'frozen'); assert.equal((details.views[0] as any).ySplit, 6);
-  assert.equal(details.pageSetup.fitToWidth, 1); assert.equal(details.pageSetup.printTitlesRow, '1:6');
+  assert.equal(details.pageSetup.fitToWidth, 1); assert.equal(details.pageSetup.printTitlesRow, '6:6');
   assert.deepEqual(details.autoFilter, 'A6:E7');
   const styles = await zip.file('xl/styles.xml')!.async('string'); assert.match(styles, /FF245CB9/); assert.match(styles, /FF087F8C/);
   const chart = await zip.file('xl/worksheets/sheet1.xml')!.async('string'); assert.match(chart, /dataBar/); assert.match(chart, /FF68C9C3/);
@@ -134,4 +134,49 @@ test('bounded empty-environment worker honors presentation, audit selection, inv
   await assert.rejects(generatePayrollHoursXlsx(payload, { presentation: { ...options, decimalPlaces: 99 } as any }), (error: any) => error.status === 422);
   const controller = new AbortController(); controller.abort();
   await assert.rejects(generatePayrollHoursXlsx(payload, { presentation: options, signal: controller.signal }), (error: any) => error.status === 499);
+});
+
+test('a saved simple-table layout excludes only the visual overview while preserving exact audit selection', async () => {
+  const value = report(), payload = JSON.stringify(value);
+  const simple = payrollPresentationOptionsSchema.parse({ includeOverview: false, columns: ['workHours'] });
+  const { book } = await workbook(payload, simple);
+  assert.deepEqual(book.worksheets.map(sheet => sheet.name), ['Employee hours']);
+  assert.equal(book.worksheets[0].getCell('B7').value, 1);
+  const audit = await workbook(payload, { ...simple, includeAudit: true });
+  assert.equal(audit.book.worksheets[0].name, 'Employee hours');
+  const chunks: string[] = [];
+  audit.book.getWorksheet('Source JSON')!.eachRow((row, index) => { if (index > 1) chunks.push(String(row.getCell(2).value)); });
+  assert.equal(chunks.join(''), payload);
+  assert.equal(payrollPresentationOptionsSchema.parse({}).includeOverview, true);
+  assert.equal(payrollPresentationOptionsSchema.safeParse({ includeOverview: 'no' }).success, false);
+  assert.equal(payrollPresentationCsv(value, simple), payrollPresentationCsv(value, { ...simple, includeOverview: true }));
+});
+test('wide long names and communities expand their columns and wrap at measured row heights', async () => {
+  const employeeName = 'W'.repeat(500), jobTitle = '界'.repeat(500), community = 'A long synthetic early childhood and school community name';
+  const value = report([segment(3_605_400_000n, { employee_name: employeeName, job_title: jobTitle, unit_name: community })]);
+  const { book } = await workbook(JSON.stringify(value), { ...options, grouping: 'jobs', columns: ['workHours', 'totalHours', 'ongoingSegmentCount'] });
+  const details = book.getWorksheet('Hours by job')!, overview = book.getWorksheet('Report overview')!;
+  assert.equal(String(details.getCell('A7').value).replaceAll('\n', ''), employeeName);
+  assert.equal(String(details.getCell('B7').value).replaceAll('\n', ''), jobTitle);
+  assert.equal(String(overview.getCell('A13').value).replaceAll('\n', ''), employeeName);
+  for (const sheet of [details, overview]) {
+    const row = sheet.getRow(sheet === details ? 7 : 13);
+    assert.ok(row.height! > 100); assert.ok(row.height! <= 409);
+    row.eachCell(cell => {
+      if (typeof cell.value === 'string') assert.ok(row.height! >= String(cell.value).split('\n').length * 16 + 14);
+    });
+  }
+  assert.ok(details.getColumn(1).width! >= 50); assert.ok(details.getColumn(2).width! >= 50); assert.ok(details.getColumn(3).width! > 28);
+  assert.ok(details.getRow(6).height! > 34);
+  assert.equal(details.getCell('D7').type, ExcelJS.ValueType.Number);
+  assert.equal(details.getCell('D7').numFmt, '#,##0.00');
+  assert.ok(!JSON.stringify(book.model).includes('[full text:'));
+});
+test('presentation normalizes multiline labels for readable wrapping while exact evidence retains the original', async () => {
+  const original = '=Synthetic\n'.repeat(30), value = report([segment(1n, { employee_name: original })]), payload = JSON.stringify(value);
+  const { book } = await workbook(payload, { ...options, includeAudit: true });
+  const cell = book.getWorksheet('Employee hours')!.getCell('A7');
+  assert.equal(cell.type, ExcelJS.ValueType.String);
+  assert.equal(String(cell.value).replace(/\s+/gu, ' '), original.replace(/\s+/gu, ' ').trim());
+  assert.equal(book.getWorksheet('Employees')!.getCell('B2').value, original);
 });

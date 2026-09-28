@@ -162,3 +162,15 @@ test("one process/account slot rejects contenders and releases on failure", asyn
   await assert.rejects(withSnapshotXlsxSlot("synthetic-a", async () => { throw new Error("synthetic failure"); }));
   assert.equal(await withSnapshotXlsxSlot("synthetic-b", async () => 7), 7);
 });
+
+test("readable snapshot widths follow displayed long names while source columns retain exact text", async () => {
+  const name = "Synthetic Saint Joseph the Worker Extended Day Employee", input = fixture("workforce", true, [name, "3600000000", null, instant, null]);
+  const found = await inspect(await serializeSnapshotXlsx(input), input);
+  const xml = await found.zip.file("xl/worksheets/sheet1.xml")!.async("string"), report = cells(xml);
+  const widths = new Map<number, number>(), parser = new SaxesParser({ xmlns: false });
+  parser.on("opentag", node => { if (node.name === "col") for (let index = Number(node.attributes.min); index <= Number(node.attributes.max); index++) widths.set(index, Number(node.attributes.width)); });
+  parser.write(xml).close();
+  assert.ok(widths.get(1)! > 34); assert.ok(widths.get(1)! <= 52);
+  assert.equal(report.get("A7")!.text.replace(/\s+/gu, " "), name);
+  assert.equal(found.data.get("A2")!.text, name); assert.equal(report.get("B7")!.text, "1.00");
+});

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { reportSheetText } from "../server/report-sheet-layout";
+import { reportSheetColumnWidth, reportSheetText } from "../server/report-sheet-layout";
 
 test("long banners expand to their explicit wrapped line count within Excel's row-height bound", () => {
   const title = reportSheetText("W".repeat(100), 106, 22, 44, 360, "Source JSON");
@@ -29,4 +29,21 @@ test("readable cells use explicit newline spacing rather than fixed-height silen
   assert.equal(result.abbreviated, false);
   assert.ok(result.lines >= 3);
   assert.ok(result.height >= 3 * 16 + 14);
+});
+
+test("readable widths consider the longest actual label and wide Unicode glyphs within configured bounds", () => {
+  const short = reportSheetColumnWidth("Employee", ["Amy"], 20, 72);
+  const long = reportSheetColumnWidth("Employee", ["An unusually long synthetic employee name"], 20, 72);
+  assert.equal(short, 20); assert.ok(long > short); assert.ok(long <= 72);
+  assert.ok(reportSheetColumnWidth("Job", ["W".repeat(18)], 20, 72) > reportSheetColumnWidth("Job", ["i".repeat(18)], 20, 72));
+  assert.equal(reportSheetColumnWidth("Long label", ["界".repeat(500)], 20, 72), 72);
+  assert.ok(reportSheetColumnWidth("Very long column heading that needs room", [], 20, 48) > 20);
+});
+test("payroll maximum-length wide labels fit the selected readable width without losing characters", () => {
+  for (const text of ["W".repeat(500), "界".repeat(500)]) {
+    const width = reportSheetColumnWidth("Employee", [text], 34, 72);
+    const result = reportSheetText(text, width, 11, 30, 409, "Source JSON");
+    assert.equal(result.abbreviated, false); assert.equal(result.text.replaceAll("\n", ""), text);
+    assert.ok(result.height <= 409); assert.ok(result.height >= result.lines * 16 + 14);
+  }
 });
