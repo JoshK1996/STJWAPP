@@ -128,3 +128,36 @@ dialog:has(.schedule-planning-editor) { width: min(690px,calc(100vw - 24px)); }
   .schedule-planning-editor .button,.schedule-planning-preview .button { max-width: 100%; font-size: 13px; }.planning-bulk { padding: 13px; }.planning-preview-summary { gap: 6px; }.planning-preview-summary > div { padding: 12px 5px; }.planning-preview-summary span { font-size: 11px; }
   .schedule-planning-editor select,.schedule-planning-preview select { width: 100%; font-size: 14px; }
 }
+
+/* Daily scheduling is the first view; detailed planning stays optional. */
+.planning-simple-toolbar { display: grid; grid-template-columns: auto minmax(220px,1fr) auto minmax(180px,1.1fr); gap: 14px; align-items: end; }
+.planning-simple-toolbar .planning-range-modes { margin: 0; flex-wrap: nowrap; }
+.planning-simple-toolbar .planning-search { grid-column: auto; margin: 0; min-width: 0; }
+.planning-simple-toolbar input { width: 100%; margin-top: 5px; }
+.planning-simple-toolbar .planning-date-controls label { min-width: 0; margin: 0; }
+.planning-personal-options { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 6px; }
+.planning-personal-options > summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 44px; cursor: pointer; color: var(--accent); font-size: 13px; font-weight: 700; }
+.planning-personal-options > summary::after { content: '+'; margin-left: auto; font-size: 20px; }
+.planning-personal-options[open] > summary::after { content: '−'; }
+.planning-personal-options .planning-filter-grid { grid-template-columns: repeat(4,minmax(0,1fr)); padding-top: 10px; }
+.planning-option-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 15px; }
+.planning-personal-help { margin-bottom: 0; font-size: 12px; line-height: 1.6; color: var(--muted); }
+.planning-view-switch { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
+.planning-advanced-heading { padding: 18px; border: 1px solid var(--border); border-radius: 16px; margin-bottom: 20px; background: var(--surface); }
+.planning-advanced-heading > p { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0; }
+.planning-advanced-heading .planning-tabs { margin: 14px 0; }
+.planning-footnote summary { min-height: 44px; cursor: pointer; padding: 10px 0; }
+.planning-footnote p { margin: 0; }
+.planning-personal-options summary:focus-visible,.planning-footnote summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+@media(max-width:1100px) { .planning-simple-toolbar { grid-template-columns: auto minmax(200px,1fr) auto; }.planning-simple-toolbar .planning-search { grid-column: 1/-1; }.planning-personal-options .planning-filter-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:650px) {
+ .planning-simple-toolbar { grid-template-columns: minmax(0,1fr) auto; gap: 12px; }
+ .planning-simple-toolbar > .planning-date-controls { grid-column: 1/-1; grid-row: 2; }
+ .planning-simple-toolbar > .planning-search { grid-column: 1/-1; }
+ .planning-simple-toolbar > .planning-range-modes { min-width: 0; }
+ .planning-personal-options .planning-filter-grid { grid-template-columns: minmax(0,1fr); }
+ .planning-view-switch { display: grid; grid-template-columns: minmax(0,1fr); }
+ .planning-option-actions { display: grid; grid-template-columns: minmax(0,1fr); }
+ .planning-advanced-heading { padding: 14px; }.planning-advanced-heading .planning-tabs { grid-template-columns: minmax(0,1fr); }
+ .planning-heading-actions .button { flex-basis: 120px; }
+}

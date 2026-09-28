@@ -16,6 +16,7 @@ export const payrollPresentationOptionsSchema = z.object({
     .refine(values => values.includes('workHours'), 'Work hours must remain visible.')
     .default(['workHours', 'breakHours', 'shiftCount', 'ongoingSegmentCount']),
   includeAudit: z.boolean().default(false),
+  includeOverview: z.boolean().default(true),
 }).strict();
 export type PayrollPresentationOptions = z.infer<typeof payrollPresentationOptionsSchema>;
 export type PayrollPresentationColumn = typeof payrollPresentationColumns[number];

@@ -5,6 +5,7 @@ import { api, ApiError } from "./api";
 import { Badge, Empty, Modal, Panel } from "./components";
 import { ScheduleRequestComposer } from "./ScheduleRequests";
 import type { StaffScheduleSnapshot } from "../shared/staff-scheduling";
+import { scheduleDayBar, scheduleWindowSummary, scheduledTime } from "./schedule-view";
 import "./staff-schedule.css";
 
 type Shift = {
@@ -39,7 +40,7 @@ function exactInstant(value: string, offset: string, zone: string) {
   return date.toUTC().toISO()!;
 }
 
-export default function StaffSchedule({ me, staff, jobs, rows, week, zone, onWeek, onChanged, notify, onDirty, onRequests, isSessionCurrent, onSessionExpired, range, filters, onManageEmployeeJobs, onBlocked }: {
+export default function StaffSchedule({ me, staff, jobs, rows, week, zone, onWeek, onChanged, notify, onDirty, onRequests, isSessionCurrent, onSessionExpired, range, filters, onManageEmployeeJobs, onBlocked, createRequested, onCreateConsumed, hideAddButton }: {
   me: any; staff: any[]; jobs: any[]; rows: Shift[]; week: string; zone: string;
   onWeek: (value: string) => void; onChanged: () => Promise<void>;
   notify: (message: string, error?: boolean) => void; onDirty: (dirty: boolean) => void;
@@ -47,10 +48,11 @@ export default function StaffSchedule({ me, staff, jobs, rows, week, zone, onWee
   isSessionCurrent?: () => boolean; onSessionExpired?: () => void;
   range?: { start: string; end: string }; filters?: { unitId?: string; jobId?: string; userId?: string; search?: string };
   onManageEmployeeJobs?: (person: any) => void; onBlocked?: (value:boolean) => void;
+  createRequested?: boolean; onCreateConsumed?: () => void; hideAddButton?: boolean;
 }) {
   const canManage = ["developer", "owner", "admin", "manager"].includes(me.actor.role) && me.actor.mode === "password";
   const canManageShift = (shift: Shift) => canManage && (me.actor.role !== "manager" || me.actor.unit_ids.includes(shift.unit_id));
-  const [showCancelled, setShowCancelled] = useState(false), [unitId, setUnitId] = useState("");
+  const [showCancelled, setShowCancelled] = useState(false), [showEmptyDays, setShowEmptyDays] = useState(false), [unitId, setUnitId] = useState("");
   const [editor, setEditor] = useState<Editor | null>(null), [draft, setDraft] = useState<Draft | null>(null);
   const [review, setReview] = useState<Review | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -71,13 +73,13 @@ export default function StaffSchedule({ me, staff, jobs, rows, week, zone, onWee
   useEffect(() => { onBlocked?.(busy); return () => onBlocked?.(false); },[busy,onBlocked]);
   useEffect(() => { onDirty(dirty || busy || requestDirty); return () => onDirty(false); }, [dirty, busy, requestDirty, onDirty]);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; historyRequest.current += 1; }; }, []);
-  useEffect(() => setPage(1), [range?.start, range?.end, filters?.unitId, filters?.jobId, filters?.userId, filters?.search, unitId, showCancelled]);
+  useEffect(() => setPage(1), [range?.start, range?.end, filters?.unitId, filters?.jobId, filters?.userId, filters?.search, unitId, showCancelled, showEmptyDays]);
 
   const visible = rows.filter(row => (showCancelled || row.status !== "cancelled") && (!(filters?.unitId || unitId) || row.unit_id === (filters?.unitId || unitId)) && (!filters?.jobId || row.job_id === filters.jobId) && (!filters?.userId || row.user_id === filters.userId) && (!filters?.search || `${row.employee_name} ${row.job_title} ${row.unit_name} ${row.note}`.toLowerCase().includes(filters.search.toLowerCase())));
   const units = Array.from(new Map([...jobs.map(row => [row.unit_id, row.unit_name] as [string,string]), ...rows.map(row => [row.unit_id, row.unit_name] as [string,string])]).entries());
   const firstDay = DateTime.fromISO(range?.start ?? week, { zone });
   const dayCount = range ? Math.round(DateTime.fromISO(range.end, { zone }).diff(firstDay, "days").days) + 1 : 7;
-  const days = Array.from({length: Math.min(366, Math.max(1, dayCount))}, (_, i) => firstDay.plus({days:i})).filter(date => dayCount <= 7 || visible.some(shift => Date.parse(shift.starts_at) < date.plus({days:1}).toMillis() && Date.parse(shift.ends_at) > date.toMillis()));
+  const days = Array.from({length: Math.min(366, Math.max(1, dayCount))}, (_, i) => firstDay.plus({days:i})).filter(date => showEmptyDays || visible.some(shift => Date.parse(shift.starts_at) < date.plus({days:1}).toMillis() && Date.parse(shift.ends_at) > date.toMillis()));
   const activeStaff = staff.filter(person => person.active);
   const assignedJobs = draft ? jobs.filter(job => job.active !== false &&
     (staff.find(person => person.id === draft.userId)?.job_ids ?? []).includes(job.id)) : [];
@@ -95,6 +97,7 @@ export default function StaffSchedule({ me, staff, jobs, rows, week, zone, onWee
     };
     setEditor({ kind, shift, initial }); setDraft(initial); setReview(null); setError("");
   }
+  useEffect(() => { if (createRequested && canManage && !busy && mayPublish()) { openEditor("create"); onCreateConsumed?.(); } }, [createRequested]);
   function closeEditor() {
     if (busy || (dirty && !window.confirm("Discard your unsaved schedule changes?"))) return;
     setEditor(null); setDraft(null); setReview(null); setError("");
@@ -158,9 +161,11 @@ export default function StaffSchedule({ me, staff, jobs, rows, week, zone, onWee
   }
   function closeHistory() { historyRequest.current += 1; setHistoryShift(null); setHistoryLoading(false); }
 
+  const summary = scheduleWindowSummary(visible, range ?? {start:week,end:firstDay.plus({days:6}).toISODate()!}, zone);
   return <>
-    <Panel title={me.permissions.report ? "Team schedule" : "My schedule"} detail={`All dates and times use ${zone}.`} className="staff-schedule"
-      action={canManage ? <button className="button primary" onClick={() => openEditor("create")}><Plus size={17}/>Add shift</button> : undefined}>
+    <Panel title={me.permissions.report ? "Scheduled shifts" : "My schedule"} detail={`All dates and times use ${zone}.`} className="staff-schedule"
+      action={canManage && !hideAddButton ? <button className="button primary" onClick={() => openEditor("create")}><Plus size={17}/>Add shift</button> : undefined}>
+      <div className="staff-schedule-overview" aria-label="Schedule summary"><div><strong>{summary.employees}</strong><span>Employees</span></div><div><strong>{summary.shifts}</strong><span>Shifts</span></div><div><strong title={`${summary.microseconds} microseconds scheduled in these dates`}>{scheduledTime(summary.microseconds)}</strong><span>Scheduled in these dates</span></div></div>
       <div className="staff-schedule-toolbar">
         {!range && <><div className="week-control">
           <button className="icon-button" aria-label="Previous week" onClick={() => onWeek(DateTime.fromISO(week).minus({ weeks: 1 }).toISODate()!)}><ChevronLeft size={18}/></button>
@@ -169,39 +174,38 @@ export default function StaffSchedule({ me, staff, jobs, rows, week, zone, onWee
         </div>
         <label>Week containing<input aria-label="Week containing" type="date" value={week} onChange={event => { if (event.target.value) onWeek(DateTime.fromISO(event.target.value).startOf("week").toISODate()!); }}/></label></>}
         {me.permissions.report && !range && <label>Community<select value={unitId} onChange={event => setUnitId(event.target.value)}><option value="">All permitted communities</option>{units.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>}
-        <label className="staff-schedule-check"><input type="checkbox" checked={showCancelled} onChange={event => setShowCancelled(event.target.checked)}/>Show cancelled shifts</label>
+        <label className="staff-schedule-check"><input type="checkbox" checked={showEmptyDays} onChange={event=>setShowEmptyDays(event.target.checked)}/>Show days without shifts</label>
+        <details className="staff-schedule-options"><summary>History & schedule help</summary><label className="staff-schedule-check"><input type="checkbox" checked={showCancelled} onChange={event => setShowCancelled(event.target.checked)}/>Show cancelled shifts</label><p>Schedule changes keep earlier versions and never change clock history. A shift request takes effect after another authorized reviewer approves it.</p></details>
         <button className="button secondary small" disabled={refreshing} onClick={() => void refreshList()}><RefreshCw size={15}/>{refreshing ? "Refreshing…" : "Refresh"}</button>
       </div>
-      <p className="staff-schedule-guidance">Linked shift requests change the selected shift when a different authorized reviewer approves them. General requests record a decision only. Schedule edits never change clock history.</p>
       {!visible.length && <Empty title="No shifts in this view" detail={showCancelled ? "Choose another week or community to review scheduled shifts." : "Choose another week or include cancelled shifts to see retained records."}/>}
-      <div className={`calendar-grid staff-schedule-grid ${dayCount > 7 ? "staff-schedule-agenda" : ""}`}>
+      <div className={`calendar-grid staff-schedule-grid ${dayCount > 7 ? "staff-schedule-agenda" : ""} ${dayCount === 1 ? "staff-schedule-one-day" : ""}`}>
         {days.slice(0, page * 28).map(date => {
           const end = date.plus({ days: 1 });
           const items = visible.filter(shift => Date.parse(shift.starts_at) < end.toMillis() && Date.parse(shift.ends_at) > date.toMillis());
-          return <section key={date.toISODate()} className={date.hasSame(DateTime.now().setZone(zone), "day") ? "today" : ""} aria-label={date.toFormat("cccc, LLLL d")}>
-            <header><span>{date.toFormat("ccc")}</span><strong>{date.toFormat("LLL d")}</strong></header>
-            {items.map(shift => <article key={shift.id} className={`schedule-card staff-shift-card ${shift.status === "cancelled" ? "staff-shift-cancelled" : ""}`}>
+          const daySummary=scheduleWindowSummary(items,{start:date.toISODate()!,end:date.toISODate()!},zone);
+          return <section key={date.toISODate()} className={`${date.hasSame(DateTime.now().setZone(zone), "day") ? "today" : ""} ${items.length ? "" : "staff-day-empty"}`} aria-label={date.toFormat("cccc, LLLL d")}>
+            <header><span>{date.toFormat("ccc")}</span><strong>{date.toFormat("LLL d")}</strong><small>{daySummary.shifts ? `${daySummary.shifts} ${daySummary.shifts===1?"shift":"shifts"} · ${scheduledTime(daySummary.microseconds)}` : "No shifts"}</small></header>
+            {items.map(shift => { const bar=scheduleDayBar(shift,date.toISODate()!,zone); return <article key={shift.id} className={`schedule-card staff-shift-card ${shift.status === "cancelled" ? "staff-shift-cancelled" : ""}`}>
               <strong>{shift.employee_name}</strong>
-              <span>{DateTime.fromISO(shift.starts_at).setZone(zone).toFormat("LLL d, h:mm a")} – {DateTime.fromISO(shift.ends_at).setZone(zone).toFormat("LLL d, h:mm a")}</span>
+              <span className="staff-shift-time">{DateTime.fromISO(shift.starts_at).setZone(zone).toFormat("LLL d, h:mm a")} – {DateTime.fromISO(shift.ends_at).setZone(zone).toFormat("LLL d, h:mm a")}</span>
               {Date.parse(shift.starts_at) < date.toMillis() && <small>Continues from previous day</small>}
-              <small>{shift.job_title}</small><Badge>{shift.unit_name}</Badge>
+              <div className="staff-shift-daybar" aria-hidden="true"><i style={{marginLeft:`${bar.left}%`,width:`${bar.width}%`}}/></div><small className="staff-shift-job">{shift.job_title}</small><Badge>{shift.unit_name}</Badge>
               {shift.status === "cancelled" && <Badge tone="warning">Cancelled</Badge>}
-              {shift.note && <p className="staff-shift-note">{shift.note}</p>}
-              <small>Version {shift.version}</small>
-              <div className="staff-shift-actions">
+              <div className="staff-shift-actions staff-shift-primary-action">{canManageShift(shift) && shift.status !== "cancelled" && <button className="button secondary small" aria-label={`Edit shift for ${shift.employee_name}, ${timeLabel(shift.starts_at, zone)}`} onClick={() => openEditor("edit", shift)}><Pencil size={14}/>Edit shift</button>}
+                {me.actor.mode === "password" && shift.user_id === me.actor.id && shift.status === "scheduled" && <button className="button secondary small" aria-label={`Request a change for ${timeLabel(shift.starts_at, zone)}`} onClick={() => setRequestEditor({ shift, action: "update" })}>Request a change</button>}
+              </div>
+              <details className="staff-shift-more"><summary>More actions & history</summary>{shift.note && <p className="staff-shift-note">{shift.note}</p>}<small>Version {shift.version}</small><div className="staff-shift-actions">
                 <button className="button secondary small" aria-label={`History for ${shift.employee_name}, ${timeLabel(shift.starts_at, zone)}`} onClick={() => void loadHistory(shift)}><History size={14}/>History</button>
                 {me.actor.mode === "password" && shift.user_id === me.actor.id && <>
-                  {shift.status === "scheduled" && <><button className="button secondary small" aria-label={`Request a change for ${timeLabel(shift.starts_at, zone)}`} onClick={() => setRequestEditor({ shift, action: "update" })}>Request a change</button>
-                    <button className="button secondary small" aria-label={`Request cancellation for ${timeLabel(shift.starts_at, zone)}`} onClick={() => setRequestEditor({ shift, action: "cancel" })}>Request cancellation</button></>}
+                  {shift.status === "scheduled" && <><button className="button secondary small" aria-label={`Request cancellation for ${timeLabel(shift.starts_at, zone)}`} onClick={() => setRequestEditor({ shift, action: "cancel" })}>Request cancellation</button></>}
                   <button className="button secondary small" aria-label={`View requests for ${timeLabel(shift.starts_at, zone)}`} onClick={() => onRequests(shift.id)}>View requests</button>
                 </>}
                 {canManageShift(shift) && shift.status !== "cancelled" && <>
-                  <button className="button secondary small" aria-label={`Edit shift for ${shift.employee_name}, ${timeLabel(shift.starts_at, zone)}`} onClick={() => openEditor("edit", shift)}><Pencil size={14}/>Edit</button>
                   <button className="button secondary small" aria-label={`Cancel shift for ${shift.employee_name}, ${timeLabel(shift.starts_at, zone)}`} onClick={() => openEditor("cancel", shift)}><XCircle size={14}/>Cancel shift</button>
                 </>}
-              </div>
-            </article>)}
-            {!items.length && <span className="calendar-empty">No shifts</span>}
+              </div></details>
+            </article>;})}
           </section>;
         })}
       </div>

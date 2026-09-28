@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import ExcelJS from 'exceljs';
+import {DateTime} from 'luxon';
 import {z} from 'zod';
 import type {Database,Queryable} from './db';
 import {audit,canReport,orgWide,requireCondition,type Actor} from './security';
@@ -9,6 +10,8 @@ import {allowanceSnapshotInput,allowanceSnapshotReceipt,allowanceSnapshotSchema,
 import {payrollPresentationHours} from '../shared/payroll-presentation';
 import {toCsv} from './reports';
 import {xlsxText} from './report-snapshot-xlsx';
+import {reportSheetColumnWidth,reportSheetText} from './report-sheet-layout';
+import {periodAttention,type AttentionCounts} from '../shared/attention-policy';
 
 const exact=(value:string)=>`to_char(${value} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 const access=(actor:Actor)=>requireCondition(canReport(actor),403,'Workforce reporting access required.');
@@ -53,32 +56,52 @@ export function listAllowanceSnapshots(db:Database,actor:Actor,proof:WorkforceRe
 type Document={organizationName:string;timezone:string;asOf:string;period:AllowancePeriod};
 const labels=['Worked hours','Scheduled hours','Hours over schedule','Hours below schedule','Outside schedule hours','Break hours'];
 const values=(value:AllowanceMetrics)=>[value.workMicroseconds,value.scheduledMicroseconds,value.aboveScheduledMicroseconds,value.belowScheduledMicroseconds,value.unscheduledWorkMicroseconds,value.breakMicroseconds].map(value=>payrollPresentationHours(value,2));
+function allowanceRuleNotice(period:AllowancePeriod){
+ if(!period.attention)return 'Historical review: no flag rules were captured. Original highlights identify any time over or outside schedule.';
+ const rules=period.attention.policy.rules;
+ const describe=(label:string,rule:typeof rules.overSchedule)=>`${label}: ${rule.enabled?`more than ${rule.afterMinutes} ${rule.afterMinutes===1?'minute':'minutes'} per employee per day`:'off'}`;
+ return `Captured flag rules · ${describe('Over schedule',rules.overSchedule)} · ${describe('Outside schedule',rules.outsideSchedule)}. Flags change highlights only; all recorded hours stay visible.`;
+}
+function allowanceAttentionLabel(period:AllowancePeriod,counts:AttentionCounts){
+ const names=[counts.overScheduleDays?`Over schedule${period.attention?`: ${counts.overScheduleDays} daily ${counts.overScheduleDays===1?'flag':'flags'}`:''}`:'',counts.outsideScheduleDays?`Outside schedule${period.attention?`: ${counts.outsideScheduleDays} daily ${counts.outsideScheduleDays===1?'flag':'flags'}`:''}`:''].filter(Boolean);
+ return names.join('; ')||'No flags';
+}
 export async function renderAllowanceExport(document:Document,format:'csv'|'xlsx'){
- const {period}=document,headers=['Organization','Period start','Period end','Employee',...labels];
- const rows=period.people.map(row=>[document.organizationName,period.query.start,period.query.end,row.name,...values(row)]);
- if(format==='csv')return '\uFEFF'+toCsv(rows.map(row=>Object.fromEntries(headers.map((name,index)=>[name,row[index]]))),headers);
+ const {period}=document,ruleNotice=allowanceRuleNotice(period),headers=['Organization','Period start','Period end','Employee',...labels,'Attention','Flag rules'];
+ const rows=period.people.map(row=>[document.organizationName,period.query.start,period.query.end,row.name,...values(row),allowanceAttentionLabel(period,periodAttention(period,{userId:row.userId})),ruleNotice]);
+ if(format==='csv')return toCsv(rows.map(row=>Object.fromEntries(headers.map((name,index)=>[name,row[index]]))),headers);
  requireCondition(rows.length<=10_000&&period.jobs.length<=10_000,400,'Choose a shorter period or CSV for more than 10,000 employee or job rows.');
  const workbook=new ExcelJS.Workbook();workbook.creator='STJW';
- function sheet(name:string,headers:string[],data:(string|number)[][],numericFrom:number){
+ function sheet(name:string,headers:string[],data:(string|number)[][],numericFrom:number,flags?:AttentionCounts[]){
+  const numericEnd=numericFrom+(flags?labels.length:headers.length-numericFrom);
   const tab=workbook.addWorksheet(name,{views:[{state:'frozen',ySplit:6,showGridLines:false}],pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0},headerFooter:{oddFooter:'&LSTJW | Scheduled hours review&RPage &P of &N'}});
-  tab.columns=headers.map((_,index)=>({width:index<numericFrom?30:21}));
-  const banner=(number:number,text:string,height:number)=>{tab.mergeCells(number,1,number,headers.length);const row=tab.getRow(number);row.getCell(1).value=xlsxText(text);row.height=height;row.getCell(1).alignment={wrapText:true,vertical:'middle',indent:1};};
-  const title=document.organizationName+' · '+name,totalWidth=tab.columns.reduce((sum,column)=>sum+(column.width??18),0);
-  // Excel cannot auto-fit merged title rows; leave room for wrapped 20pt text.
-  const titleLines=title.split(/\r?\n/).reduce((sum,line)=>sum+Math.max(1,Math.ceil(line.length/Math.max(12,(totalWidth-5)*10/20))),0);
-  banner(1,title,Math.min(409,Math.max(42,titleLines*24+14)));tab.getRow(1).getCell(1).font={size:20,bold:true,color:{argb:'FFFFFFFF'}};tab.getRow(1).getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF17304B'}};
-  banner(2,`${period.query.start} through ${period.query.end} · ${document.timezone}`,25);
-  banner(3,`Captured ${document.asOf} · Hours rounded to two decimals after aggregation`,25);
+  tab.columns=headers.map((heading,index)=>({width:reportSheetColumnWidth(heading,data.map(row=>String(row[index])),index<numericFrom?30:index>=numericEnd?28:18,index<numericFrom?72:index>=numericEnd?34:20)}));
+  const totalWidth=tab.columns.reduce((sum,column)=>sum+(column.width??18),0);
+  const banner=(number:number,text:string,height:number,size=11)=>{tab.mergeCells(number,1,number,headers.length);const row=tab.getRow(number),layout=reportSheetText(text,totalWidth,size,height,409,'Source JSON');row.getCell(1).value=xlsxText(text);row.height=layout.lines===1?height:layout.height;row.getCell(1).font={name:'Aptos',size};row.getCell(1).alignment={wrapText:true,vertical:'middle',indent:1};};
+  const title=document.organizationName+' · '+name;
+  banner(1,title,42,20);tab.getRow(1).getCell(1).font={name:'Aptos',size:20,bold:true,color:{argb:'FFFFFFFF'}};tab.getRow(1).getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF17304B'}};
+  const localDate=(value:string)=>DateTime.fromISO(value).setLocale('en-US').toFormat('MMM d, yyyy');
+  banner(2,`${localDate(period.query.start)} through ${localDate(period.query.end)} · ${document.timezone}`,25);
+  banner(3,`Captured ${DateTime.fromISO(document.asOf,{zone:document.timezone}).setLocale('en-US').toFormat('MMM d, yyyy, h:mm:ss a ZZZZ')} · Hours rounded to two decimals after aggregation`,25);
   banner(4,period.notice,85);
-  tab.getRow(6).values=headers.map(value=>xlsxText(value));tab.getRow(6).height=38;
-  tab.getRow(6).eachCell(cell=>{cell.font={bold:true,color:{argb:'FFFFFFFF'}};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF245CB9'}};cell.alignment={wrapText:true,vertical:'middle'};});
-  data.forEach((entry,index)=>{const row=tab.getRow(7+index);row.values=entry.map((value,i)=>i<numericFrom?xlsxText(String(value)):Number(value));row.height=Math.max(30,...entry.slice(0,numericFrom).map(value=>Math.ceil(String(value).length/27)*16+8));row.eachCell((cell,col)=>{cell.font={name:'Aptos',size:11,color:{argb:col===numericFrom+3&&Number(entry[col-1])>0?'FF9A5800':'FF17304B'}};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:index%2?'FFF0F5FC':'FFFFFFFF'}};cell.alignment={wrapText:true,vertical:'middle',horizontal:col>numericFrom?'right':'left'};if(col>numericFrom)cell.numFmt='#,##0.00';});});
+  banner(5,ruleNotice+(name==='Jobs and communities'?' Job rows show contributions; daily flags appear on Employee summary and Daily review.':''),45,10);
+  tab.getRow(5).getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF0F5FC'}};
+  const headings=headers.map((value,index)=>reportSheetText(value,tab.columns[index].width??24,11,38,180,'Source JSON'));
+  tab.getRow(6).values=headings.map(value=>xlsxText(value.text));tab.getRow(6).height=Math.max(...headings.map(value=>value.height));
+  tab.getRow(6).eachCell(cell=>{cell.font={name:'Aptos',size:11,bold:true,color:{argb:'FFFFFFFF'}};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF245CB9'}};cell.alignment={wrapText:true,vertical:'middle'};});
+  data.forEach((entry,index)=>{
+   const text=entry.map((value,i)=>i<numericFrom||i>=numericEnd?reportSheetText(String(value).replace(/\s+/gu,' ').trim(),tab.columns[i].width??30,11,30,409,'Source JSON'):null);
+   const row=tab.getRow(7+index);row.values=entry.map((value,i)=>text[i]?xlsxText(text[i]!.abbreviated?String(value):text[i]!.text):Number(value));row.height=Math.max(30,...text.map(value=>value?.height??0));
+   row.eachCell((cell,col)=>{const flagged=Boolean(flags?.[index]&&((col===numericFrom+3&&flags[index].overScheduleDays)||(col===numericFrom+5&&flags[index].outsideScheduleDays)||(col>numericEnd&&(flags[index].overScheduleDays||flags[index].outsideScheduleDays))));cell.font={name:'Aptos',size:11,color:{argb:flagged?'FF9A5800':'FF17304B'},...(flagged?{bold:true}:{})};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:index%2?'FFF0F5FC':'FFFFFFFF'}};cell.alignment={wrapText:true,vertical:'middle',horizontal:col>numericFrom&&col<=numericEnd?'right':'left'};if(col>numericFrom&&col<=numericEnd)cell.numFmt='#,##0.00';});
+  });
   if(!data.length)banner(7,'No matching time or scheduled shifts in this period.',34);
-  tab.autoFilter={from:{row:6,column:1},to:{row:6+Math.max(data.length,1),column:headers.length}};tab.pageSetup.printTitlesRow='1:6';
+  tab.autoFilter={from:{row:6,column:1},to:{row:6+Math.max(data.length,1),column:headers.length}};tab.pageSetup.printTitlesRow='6:6';
  }
- sheet('Employee summary',['Employee',...labels],[['All employees',...values(period.totals)],...period.people.map(row=>[row.name,...values(row)])],1);
+ const totalFlags=periodAttention(period),peopleFlags=period.people.map(row=>periodAttention(period,{userId:row.userId}));
+ sheet('Employee summary',['Employee',...labels,'Attention'],[['All employees',...values(period.totals),allowanceAttentionLabel(period,totalFlags)],...period.people.map((row,index)=>[row.name,...values(row),allowanceAttentionLabel(period,peopleFlags[index])])],1,[totalFlags,...peopleFlags]);
  sheet('Jobs and communities',['Employee','Community','Job','Worked hours','Scheduled hours','Outside schedule hours','Break hours'],period.jobs.map(row=>[row.employeeName,row.unitName,row.jobTitle,...[row.workMicroseconds,row.scheduledMicroseconds,row.unscheduledWorkMicroseconds,row.breakMicroseconds].map(value=>payrollPresentationHours(value,2))]),3);
- sheet('Daily review',['Date',...labels],period.days.map(row=>[row.date,...values(row)]),1);
+ const dayFlags=period.days.map(row=>periodAttention(period,{date:row.date}));
+ sheet('Daily review',['Date',...labels,'Attention'],period.days.map((row,index)=>[row.date,...values(row),allowanceAttentionLabel(period,dayFlags[index])]),1,dayFlags);
  return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 export function exportAllowance(db:Database,actor:Actor,proof:WorkforceReportProof,raw:unknown,format:'csv'|'xlsx',snapshotId?:string){

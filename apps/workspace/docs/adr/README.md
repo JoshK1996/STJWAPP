@@ -27,3 +27,5 @@ For a new decision, add the next numbered file with date, status, context, decis
 - [0012: Job coverage and reviewed schedule documents](0012-job-coverage-and-reviewed-schedule-documents.md)
 
 - [0013: Direct administrator time-card corrections](0013-direct-administrator-time-cards.md)
+
+- [0014: Shared attention rules and personal simplicity](0014-shared-attention-and-personal-simplicity.md)

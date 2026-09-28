@@ -319,7 +319,7 @@ test('readable HTTP payroll exports honor options and current explicit unit scop
     }
   }
   const evidence = (await db.query("SELECT detail FROM audit_events WHERE actor_id=$1 AND action='payroll.hours_exported'", [reader.id])).rows;
-  assert.equal(evidence.length, 2); assert.deepEqual(evidence[0].detail.presentation, presentation);
+  assert.equal(evidence.length, 2); assert.deepEqual(evidence[0].detail.presentation, { ...presentation, includeOverview: true });
   assert.equal(evidence[0].detail.employees, undefined); assert.equal(evidence[0].detail.sourceRowCount, 1);
   await change(reader, { role: 'employee' });
   const fresh = await login(reader);

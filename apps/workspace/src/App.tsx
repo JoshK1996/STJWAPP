@@ -85,7 +85,7 @@ const TimeRecords = lazy(() => import("./TimeRecords"));
 import type { TimeRecordsTarget } from "./TimeRecords";
 import SchedulePlanning, { type SchedulePlanningTarget } from "./SchedulePlanning";
 import ScheduleRequests from "./ScheduleRequests";
-import { normalizePreferences } from "../shared/preferences";
+import { normalizePreferences, preferencesSchema, type Preferences } from "../shared/preferences";
 import { applyAppearance } from "./appearance";
 import { WorkspaceArt, WorkspaceHero } from "./WorkspaceArt";
 import "./accessibility.css";
@@ -153,6 +153,7 @@ export default function App() {
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [showPersonalCards, setShowPersonalCards] = useState(false);
   const [moreTools, setMoreTools] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<'personal'|'organization'>('personal');
   const [staffTool, setStaffTool] = useState<{kind: "rates"|"credentials"|"clock"|"import"|"jobs-import"|"schedules-import"|"assignments"; person?: any}|null>(null);
   const [boardState,setBoardState]=useState<TeamBoardState>({receivedAt:null,unavailable:false});
   const [clockPending, setClockPending] = useState(false);
@@ -397,6 +398,18 @@ export default function App() {
         .catch((e) => notify(e.message, true));
   }, [page, notify, workspaceEpoch]);
   const preferences = normalizePreferences(me?.actor.preferences);
+  async function savePersonalDefaults(patch: Partial<Preferences>) {
+    if (!isSessionCurrent() || me?.actor.mode !== 'password') throw new Error('Sign in again before saving your defaults.');
+    try {
+      const result = await api('/me/preferences', patch, 'PATCH');
+      if (!isSessionCurrent()) throw new Error('Your session changed. Sign in again to check saved defaults.');
+      const saved = preferencesSchema.parse(result.preferences);
+      setMe((current:any) => current?.actor.id === me.actor.id ? {...current,actor:{...current.actor,preferences:saved}} : current);
+    } catch (cause) {
+      if (isSessionCurrent() && cause instanceof ApiError && [401,403].includes(cause.status)) sessionExpired();
+      throw cause;
+    }
+  }
   useEffect(() => {
     // The mounted personal editor owns its unsaved preview. Reapplying saved
     // preferences on an unrelated account refresh would overwrite that preview.
@@ -461,6 +474,7 @@ export default function App() {
     setUnsavedChanges(false);
     focusDestination.current = document.activeElement?.tagName === "BUTTON";
     setPage(next);
+    if(next==='settings')setSettingsSection('personal');
     setMobile(false);
     setSearch("");
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -730,7 +744,7 @@ export default function App() {
             .filter(
               ([id]) =>
                 !(me.actor.mode === "pin" && id !== "clock") &&
-                (moreTools || !["calendar", "messages", "reports"].includes(id) || page === id) &&
+                (preferences.workspaceMode === 'full' || moreTools || id === 'clock' || preferences.favoritePages.includes(id) || page === id) &&
                  !(["staff", "payroll"].includes(id) && !me.permissions.report),
              )
             .sort((a, b) => preferences.workspaceNavOrder.indexOf(a[0]) - preferences.workspaceNavOrder.indexOf(b[0]))
@@ -754,10 +768,10 @@ export default function App() {
         </nav>
         {me.actor.mode !== "pin" && (
           <>
-            <nav aria-label="Additional tools"><button onClick={() => setMoreTools(value => !value)} aria-expanded={moreTools}><MoreHorizontal size={19}/><span>{moreTools ? "Fewer tools" : "More tools"}</span><ChevronDown size={16}/></button></nav>
+            {preferences.workspaceMode === 'simple' && <nav aria-label="Additional tools"><button onClick={() => setMoreTools(value => !value)} aria-expanded={moreTools}><MoreHorizontal size={19}/><span>{moreTools ? "Fewer tools" : "More tools"}</span><ChevronDown size={16}/></button></nav>}
             <nav aria-label="Organization navigation">
               {organizationNav
-                .filter(([id]) => (moreTools || id === "settings" || page === id) && (id !== "audit" || ["developer", "owner", "admin", "finance"].includes(me.actor.role)))
+                .filter(([id]) => (preferences.workspaceMode === 'full' || moreTools || id === "settings" || page === id) && (id !== "audit" || ["developer", "owner", "admin", "finance"].includes(me.actor.role)))
                 .sort((a, b) => preferences.organizationNavOrder.indexOf(a[0]) - preferences.organizationNavOrder.indexOf(b[0]))
                 .map(([id, label, Icon]) => (
                 <button
@@ -941,7 +955,7 @@ export default function App() {
             />
           )}
           {page === "overview" && me.permissions.report && <>
-            <WorkforceDashboard key={me.actor.id} me={me} board={board} boardState={boardState} onNavigate={go} onRefresh={refresh} onNavigateRecords={openTimeRecords}/>
+            <WorkforceDashboard key={me.actor.id} me={me} board={board} boardState={boardState} onNavigate={go} onRefresh={refresh} onNavigateRecords={openTimeRecords} onFlagSettings={()=>{if(go('settings'))setSettingsSection('organization');}}/>
             <button className="workforce-personal-toggle" onClick={() => setShowPersonalCards(value => !value)} aria-expanded={showPersonalCards}><SlidersHorizontal size={17}/>{showPersonalCards ? "Hide personal workspace cards" : "Show personal workspace cards"}<ChevronDown size={17}/></button>
           </>}
           {page === "overview" && (!me.permissions.report || showPersonalCards) && (
@@ -1285,6 +1299,7 @@ export default function App() {
           )}
           {page === "schedule" && <SchedulePlanning key={me.actor.id+":"+workspaceEpoch} me={me} staff={staff} jobs={jobs} rows={schedules} week={scheduleWeek} zone={zone}
             onWeek={setScheduleWeek} onChanged={refresh} notify={notify} onDirty={workspaceDirty}
+            onSaveScheduleDefaults={value=>savePersonalDefaults({scheduleView:value})}
             isSessionCurrent={isSessionCurrent} onSessionExpired={sessionExpired}
             initialTarget={schedulePlanningTarget??undefined} onConsumeTarget={consumeSchedulePlanningTarget}
             onImport={() => { if(isSessionCurrent()&&!clockPendingRef.current)setStaffTool({kind:"schedules-import"}); }}
@@ -1412,7 +1427,7 @@ export default function App() {
           {page === "time-records" && (
             <TimeRecords key={me.actor.id+":"+workspaceEpoch} me={me} notify={notify} onChanged={refresh} onDirty={workspaceDirty} target={timeRecordsTarget} onTargetConsumed={consumeTimeRecordsTarget} onPendingChange={timeCardPendingChanged} onNavigatePayroll={me.permissions.report ? () => go("payroll") : undefined}/>
           )}
-          {page === "payroll" && me.actor.mode !== "pin" && me.permissions.report && <Payroll me={me} staff={staff} notify={notify} onDirty={workspaceDirty} onNavigateRecords={openTimeRecords}/>}
+          {page === "payroll" && me.actor.mode !== "pin" && me.permissions.report && <Payroll key={me.actor.id+':'+workspaceEpoch} me={me} staff={staff} notify={notify} onDirty={workspaceDirty} onNavigateRecords={openTimeRecords} onSaveExportDefaults={value=>savePersonalDefaults({payrollExport:value})}/>}
           {page === "audit" && (
             <Panel
               title="Activity log"
@@ -1517,6 +1532,8 @@ export default function App() {
           )}
           {page === "settings" && (
             <Settings
+              key={me.actor.id+':'+workspaceEpoch}
+              initialSection={settingsSection}
               me={me}
               appEntry={<InstallEntry experience={installExperience} />}
               notify={notify}

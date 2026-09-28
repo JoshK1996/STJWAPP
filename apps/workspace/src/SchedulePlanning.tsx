@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DateTime } from 'luxon';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, History, Pencil, Plus, RefreshCw, Search, Target, Upload, Users } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, History, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Target, Upload, Users } from 'lucide-react';
 import { api } from './api';
 import { Badge, Empty } from './components';
 import StaffSchedule from './StaffSchedule';
@@ -8,6 +8,8 @@ import { planningQuery, type CoverageRule, type HoursTarget, type PlanningWorksp
 import { PlanningHistoryDialog, PlanningRuleEditor, PlanningTargetEditor } from './SchedulePlanningEditors';
 import { PlanningAssignmentPreview } from './SchedulePlanningPreview';
 import { filledPercent, planningDate, planningError, planningRange, planningTime, staffHours, usePlanningAccess, type PlanningAccess, type PlanningRangeMode } from './SchedulePlanningShared';
+import { initialScheduleSelection } from './schedule-view';
+import type { ScheduleViewPreferences } from '../shared/preferences';
 import './schedule-planning.css';
 
 export type SchedulePlanningTarget = {jobId?:string;userId?:string;unitId?:string;mode?:'coverage'|'rules'|'targets'|'assigned'};
@@ -17,6 +19,7 @@ type Props = PlanningAccess & {
   onDirty:(value:boolean)=>void;onRequests:(scheduleId:string,requestId?:string)=>void;
   onImport?:()=>void;onManageEmployeeJobs?:(person:any)=>void;
   initialTarget?:SchedulePlanningTarget|null;onConsumeTarget?:()=>void;
+  onSaveScheduleDefaults?:(value:ScheduleViewPreferences)=>Promise<void>;
 };
 type Tab = NonNullable<SchedulePlanningTarget['mode']>;
 type Editor = {kind:'rule';row?:CoverageRule}|{kind:'target';row?:HoursTarget}|{kind:'preview'}|{kind:'history';type:'rules'|'targets';id:string;title:string};
@@ -25,12 +28,15 @@ export default function SchedulePlanning(props:Props) {
   return manage ? <ManagementPlanning {...props}/> : <StaffSchedule {...props}/>;
 }
 function ManagementPlanning(props:Props) {
-  const [tab,setTab] = useState<Tab>(props.initialTarget?.mode ?? 'coverage');
-  const [mode,setMode] = useState<PlanningRangeMode>('week'), [anchor,setAnchor] = useState(props.week);
-  const [range,setRange] = useState(()=>planningRange(props.week,'week')!);
-  const [jobId,setJobId] = useState(props.initialTarget?.jobId ?? ''), [unitId,setUnitId] = useState(props.initialTarget?.unitId ?? ''), [userId,setUserId] = useState(props.initialTarget?.userId ?? ''), [search,setSearch] = useState('');
+  const [initial]=useState(()=>initialScheduleSelection(props.me.actor.preferences?.scheduleView,props.initialTarget,DateTime.now().setZone(props.zone).toISODate()!,props.staff,props.jobs));
+  const [tab,setTab] = useState<Tab>(initial.view);
+  const [mode,setMode] = useState<PlanningRangeMode>(initial.period), [anchor,setAnchor] = useState(initial.anchor);
+  const [range,setRange] = useState(()=>planningRange(initial.anchor,initial.period)!);
+  const [jobId,setJobId] = useState(initial.jobId), [unitId,setUnitId] = useState(initial.unitId), [userId,setUserId] = useState(initial.userId), [search,setSearch] = useState('');
+  const [savingDefaults,setSavingDefaults]=useState(false),[defaultsMessage,setDefaultsMessage]=useState(initial.notice);
   const [workspace,setWorkspace] = useState<PlanningWorkspace|null>(null), [loading,setLoading] = useState(true), [error,setError] = useState(''), [generation,setGeneration] = useState(0);
   const [editor,setEditor] = useState<Editor|null>(null), [editorDirty,setEditorDirty] = useState(false), [assignedDirty,setAssignedDirty] = useState(false), [blocked,setBlocked] = useState(false);
+  const [createShift,setCreateShift] = useState(false);
   const [showArchived,setShowArchived] = useState(false), [visibleCount,setVisibleCount] = useState(40), [expandedWindows,setExpandedWindows] = useState(false);
   const access = usePlanningAccess(props), accessRef = useRef(access); accessRef.current=access;
   const request = useRef(0), dialogOwner = useRef(0), firstTarget = useRef(props.initialTarget);
@@ -56,7 +62,7 @@ function ManagementPlanning(props:Props) {
     if(!props.initialTarget)return;
     if(firstTarget.current === props.initialTarget){firstTarget.current=null;props.onConsumeTarget?.();return;}
     if(!discard()){props.onConsumeTarget?.();return;}
-    setTab(props.initialTarget.mode ?? 'coverage');setJobId(props.initialTarget.jobId ?? '');setUnitId(props.initialTarget.unitId ?? '');setUserId(props.initialTarget.userId ?? '');setSearch('');setVisibleCount(40);props.onConsumeTarget?.();
+    setTab(props.initialTarget.mode ?? 'assigned');setJobId(props.initialTarget.jobId ?? '');setUnitId(props.initialTarget.unitId ?? '');setUserId(props.initialTarget.userId ?? '');setSearch('');setVisibleCount(40);props.onConsumeTarget?.();
   },[props.initialTarget,props.onConsumeTarget,discard]);
   const mutateView=(action:()=>void)=>{if(discard()){action();setVisibleCount(40);setExpandedWindows(false);}};
   const open=(next:Editor)=>{if(discard()){setEditor(next);setEditorDirty(false);}};
@@ -77,20 +83,39 @@ function ManagementPlanning(props:Props) {
   const currentDialog=dialogOwner.current;
   const editorProps={jobs:workspace?.jobs??[],start:range.start,zone:workspace?.timezone??props.zone,jobId:jobId||undefined,onClose:close,onSaved:saved,onReload:reloadForConflict,onDirty:setEditorDirty,onBlocked:setBlocked,isSessionCurrent:()=>access.current()&&dialogOwner.current===currentDialog,onSessionExpired:props.onSessionExpired};
   function rangeMode(next:PlanningRangeMode,date=anchor){const value=planningRange(date,next);if(value){setMode(next);setAnchor(date);setRange(value);}}
+  async function saveDefaults() {
+    if(!props.onSaveScheduleDefaults||savingDefaults||dirty||blocked||!access.current())return;
+    if(mode==='custom'){setDefaultsMessage('Choose Day, Week, Month or Year before saving defaults. Each visit opens the current period.');return;}
+    setSavingDefaults(true);setDefaultsMessage('');
+    try {await props.onSaveScheduleDefaults({period:mode,view:tab,employeeId:userId||null,unitId:unitId||null,jobId:jobId||null});if(access.current())setDefaultsMessage('Saved for your account. Future visits open the current period with these filters.');}
+    catch(cause){if(access.current()&&!access.reject(cause))setDefaultsMessage(planningError(cause));}
+    finally{if(access.current())setSavingDefaults(false);}
+  }
   const move=(direction:number)=>mutateView(()=>{const unit=mode==='custom'?'day':mode;const date=DateTime.fromISO(anchor).plus({[unit]:direction}).toISODate()!;rangeMode(mode,date);});
   if(access.accessDenied)return <p role="alert">Your access changed. Reopen the workspace to refresh your permissions.</p>;
   return <section className="schedule-planning" aria-label="Schedule planning">
-    <header className="planning-heading"><div><span className="planning-eyebrow"><CalendarDays size={16}/>Workforce planning</span><h2>Right people. Right time.</h2><p>See coverage, set job needs, then review and assign employee shifts.</p></div><div className="planning-heading-actions">{props.onImport&&<button className="button secondary" onClick={()=>{if(discard())props.onImport?.();}}><Upload size={17}/>Upload schedule</button>}<button className="button primary" disabled={!workspace||loading||!rules.some(row=>row.active)} onClick={()=>open({kind:'preview'})}><Users size={17}/>Review & assign</button></div></header>
-    <nav className="planning-tabs" aria-label="Schedule views">{([{id:'coverage',name:'Coverage',icon:Users},{id:'rules',name:'Staffing rules',icon:CalendarDays},{id:'targets',name:'Hours targets',icon:Target},{id:'assigned',name:'Assigned shifts',icon:Clock3}] as const).map(item=><button key={item.id} className={tab===item.id?'active':''} aria-pressed={tab===item.id} onClick={()=>mutateView(()=>setTab(item.id))}><item.icon size={17}/>{item.name}</button>)}</nav>
-    <div className="planning-filters"><div className="planning-range-modes" aria-label="Date range size">{(['day','week','month','year','custom'] as const).map(value=><button key={value} className={mode===value?'active':''} aria-pressed={mode===value} onClick={()=>mutateView(()=>rangeMode(value))}>{value[0].toUpperCase()+value.slice(1)}</button>)}</div>
-      <div className="planning-filter-grid"><div className="planning-date-controls">{mode!=='custom'&&<button className="icon-button" aria-label={`Previous ${mode}`} onClick={()=>move(-1)}><ChevronLeft size={18}/></button>}<label>{mode==='custom'?'From':'Date'}<input aria-label="Planning date" type="date" value={mode==='custom'?range.start:anchor} onChange={e=>{if(e.target.value)mutateView(()=>mode==='custom'?setRange(value=>({...value,start:e.target.value})):rangeMode(mode,e.target.value));}}/></label>{mode==='custom'?<label>Through<input aria-label="Planning through date" type="date" value={range.end} onChange={e=>{if(e.target.value)mutateView(()=>setRange(value=>({...value,end:e.target.value})));}}/></label>:<button className="icon-button" aria-label={`Next ${mode}`} onClick={()=>move(1)}><ChevronRight size={18}/></button>}</div>
-      <label>Community<select aria-label="Planning community" value={unitId} onChange={e=>mutateView(()=>{setUnitId(e.target.value);setJobId('');})}><option value="">All communities</option>{units.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
-      <label>Job<select aria-label="Planning job" value={jobId} onChange={e=>mutateView(()=>setJobId(e.target.value))}><option value="">All jobs</option>{(workspace?.jobs??[]).filter(job=>!unitId||job.unitId===unitId).map(job=><option key={job.id} value={job.id}>{job.title}{!unitId?` · ${job.unitName}`:''}{!job.active?' (archived)':''}</option>)}</select></label>
-      <label>{tab==='assigned'?'Employee':'Highlight employee'}<select aria-label="Planning employee" value={userId} onChange={e=>mutateView(()=>setUserId(e.target.value))}><option value="">All employees</option>{(workspace?.employees??[]).map(person=><option key={person.id} value={person.id}>{person.name}</option>)}</select></label>
-      <label className="planning-search"><span><Search size={14}/>Search</span><input aria-label="Search schedule planning" value={search} placeholder={tab==='assigned'?'Name, job or note':tab==='targets'?'Job or community':'Job, community or rule'} onChange={e=>{if(!dirtyRef.current)setSearch(e.target.value);}} disabled={dirty}/></label>
-      <button className="button secondary" disabled={loading||dirty} onClick={refresh}><RefreshCw size={16}/>{loading?'Loading…':'Refresh'}</button></div>
+    <header className="planning-heading"><div><span className="planning-eyebrow"><CalendarDays size={16}/>Schedule</span><h2>See who’s working</h2><p>Add a shift, find an employee, or review the week ahead.</p></div><div className="planning-heading-actions"><button className="button primary" disabled={!workspace||loading} onClick={()=>mutateView(()=>{setTab('assigned');setCreateShift(true);})}><Plus size={17}/>Add shift</button>{props.onImport&&<button className="button secondary" onClick={()=>{if(discard())props.onImport?.();}}><Upload size={17}/>Import schedule</button>}</div></header>
+    <div className="planning-filters">
+      <div className="planning-simple-toolbar"><div className="planning-range-modes" aria-label="Date range size">{(['day','week'] as const).map(value=><button key={value} className={mode===value?'active':''} aria-pressed={mode===value} onClick={()=>mutateView(()=>rangeMode(value))}>{value==='day'?'Day':'Week'}</button>)}</div>
+        <div className="planning-date-controls">{mode!=='custom'&&<button className="icon-button" aria-label={`Previous ${mode}`} onClick={()=>move(-1)}><ChevronLeft size={18}/></button>}<label>{mode==='custom'?'From':'Date'}<input aria-label="Planning date" type="date" value={mode==='custom'?range.start:anchor} onChange={e=>{if(e.target.value)mutateView(()=>mode==='custom'?setRange(value=>({...value,start:e.target.value})):rangeMode(mode,e.target.value));}}/></label>{mode==='custom'?<label>Through<input aria-label="Planning through date" type="date" value={range.end} onChange={e=>{if(e.target.value)mutateView(()=>setRange(value=>({...value,end:e.target.value})));}}/></label>:<button className="icon-button" aria-label={`Next ${mode}`} onClick={()=>move(1)}><ChevronRight size={18}/></button>}</div>
+        <button className="button secondary" onClick={()=>mutateView(()=>rangeMode(mode==='day'?'day':'week',DateTime.now().setZone(props.zone).toISODate()!))}>{mode==='day'?'Today':'This week'}</button>
+        <label className="planning-search"><span><Search size={14}/>Search schedule</span><input aria-label="Search schedule planning" value={search} placeholder={tab==='assigned'?'Employee, job or note':tab==='targets'?'Job or community':'Job, community or rule'} onChange={e=>{if(!dirtyRef.current)setSearch(e.target.value);}} disabled={dirty}/></label>
+      </div>
+      <details className="planning-personal-options"><summary><SlidersHorizontal size={16}/>Filters & view options{[unitId,jobId,userId].filter(Boolean).length>0&&<Badge>{[unitId,jobId,userId].filter(Boolean).length} active</Badge>}</summary>
+        <div className="planning-filter-grid">
+          <label>Community<select aria-label="Planning community" value={unitId} onChange={e=>mutateView(()=>{setUnitId(e.target.value);setJobId('');})}><option value="">All communities</option>{unitId&&!units.some(([id])=>id===unitId)&&<option value={unitId}>Unavailable community — clear filter</option>}{units.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
+          <label>Job<select aria-label="Planning job" value={jobId} onChange={e=>mutateView(()=>setJobId(e.target.value))}><option value="">All jobs</option>{jobId&&!(workspace?.jobs??[]).some(job=>job.id===jobId)&&<option value={jobId}>Unavailable job — clear filter</option>}{(workspace?.jobs??[]).filter(job=>!unitId||job.unitId===unitId).map(job=><option key={job.id} value={job.id}>{job.title}{!unitId?` · ${job.unitName}`:''}{!job.active?' (archived)':''}</option>)}</select></label>
+          <label>{tab==='assigned'?'Employee':'Highlight employee'}<select aria-label="Planning employee" value={userId} onChange={e=>mutateView(()=>setUserId(e.target.value))}><option value="">All employees</option>{userId&&!(workspace?.employees??[]).some(person=>person.id===userId)&&<option value={userId}>Unavailable employee — clear filter</option>}{(workspace?.employees??[]).map(person=><option key={person.id} value={person.id}>{person.name}</option>)}</select></label>
+          <label>Show dates<select aria-label="Schedule date range" value={mode} onChange={e=>mutateView(()=>rangeMode(e.target.value as PlanningRangeMode))}><option value="day">One day</option><option value="week">One week</option><option value="month">One month</option><option value="year">One year</option><option value="custom">Choose a date range</option></select></label>
+        </div>
+        <div className="planning-option-actions">{props.onSaveScheduleDefaults&&<button className="button primary" disabled={savingDefaults||loading||dirty||blocked} onClick={()=>void saveDefaults()}>{savingDefaults?'Saving defaults…':'Use these as my defaults'}</button>}<button className="button secondary" onClick={()=>mutateView(()=>{setUnitId('');setJobId('');setUserId('');setSearch('');})}>Clear filters</button><button className="button secondary" disabled={loading||dirty} onClick={refresh}><RefreshCw size={16}/>{loading?'Loading…':'Refresh schedule'}</button></div>
+        <p className="planning-personal-help">These filters and the selected schedule view are personal to you. Saving defaults opens the current day, week, month or year each time; search text and specific dates are not saved.</p>
+      </details>
+      {defaultsMessage&&<p className="planning-personal-help" role="status">{defaultsMessage}</p>}
       <p className="planning-scope">{planningDate(range.start)}–{planningDate(range.end)} · {workspace?.timezone??props.zone}{jobId?` · ${workspace?.jobs.find(job=>job.id===jobId)?.title??'Selected job'}`:''}{unitId?` · ${workspace?.jobs.find(job=>job.unitId===unitId)?.unitName??'Selected community'}`:''}{userId?` · ${tab==='assigned'?'Employee':'Highlighting'}: ${workspace?.employees.find(person=>person.id===userId)?.name??'Selected employee'}${tab!=='assigned'?'; coverage still counts every assigned employee.':''}`:''}</p>
     </div>
+    <div className="planning-view-switch"><button className={`button ${tab==='assigned'?'primary':'secondary'}`} aria-pressed={tab==='assigned'} onClick={()=>mutateView(()=>setTab('assigned'))}><CalendarDays size={17}/>Employee shifts</button><button className="button secondary" aria-expanded={tab!=='assigned'} onClick={()=>mutateView(()=>setTab(tab==='assigned'?'coverage':'assigned'))}><Target size={17}/>Staffing & hours planning</button></div>
+    {tab!=='assigned'&&<div className="planning-advanced-heading"><p>Optional planning tools: choose staffing needs, set job hours targets, then assign people.</p><nav className="planning-tabs" aria-label="Schedule planning views">{([{id:'coverage',name:'Who’s needed',icon:Users},{id:'rules',name:'Staffing rules',icon:CalendarDays},{id:'targets',name:'Hours targets',icon:Target}] as const).map(item=><button key={item.id} className={tab===item.id?'active':''} aria-pressed={tab===item.id} onClick={()=>mutateView(()=>setTab(item.id))}><item.icon size={17}/>{item.name}</button>)}</nav><button className="button primary" disabled={!workspace||loading||!rules.some(row=>row.active)} onClick={()=>open({kind:'preview'})}><Users size={17}/>Review & assign employees</button></div>}
     {error&&<div className="planning-callout"><p role="alert" className="form-error">{error}</p><button className="button secondary" onClick={refresh}>Retry schedule</button></div>}
     {loading&&<p className="planning-loading" role="status">Loading the selected schedule and staffing needs…</p>}
     {workspace&&<>
@@ -115,8 +140,8 @@ function ManagementPlanning(props:Props) {
         {!(tab==='rules'?rules:targets).length&&<Empty title={tab==='rules'?'No staffing rules in this view':'No hours targets in this view'} detail="Choose another filter or add the job’s first configuration. Nothing is published automatically."/>}
         {tab==='targets'&&workspace.targetPeriods.filter(row=>visibleIds.has(row.jobId)).length>0&&<><div className="planning-section-title"><div><h3>Scheduled hours against targets</h3><p>Full target-period boundaries are shown. Partial periods are flagged; targets are never prorated.</p></div></div><div className="planning-target-periods">{workspace.targetPeriods.filter(row=>visibleIds.has(row.jobId)).slice(0,visibleCount).map(row=><article key={`${row.targetId}-${row.start}`}><header><h4>{workspace.jobs.find(job=>job.id===row.jobId)?.title}</h4>{row.partial&&<Badge tone="warning">Partial period</Badge>}</header><p>{planningDate(row.start)}–{planningDate(row.end)}</p><strong>{staffHours(row.scheduledMicroseconds)} <small>/ {row.targetHours} h scheduled</small></strong><div className="planning-bar" aria-hidden="true"><i style={{width:`${Math.min(100,filledPercent(row.scheduledMicroseconds,row.targetMicroseconds))}%`}}/></div><p>{BigInt(row.deltaMicroseconds)>0n?`${staffHours(row.deltaMicroseconds)} h above target`:BigInt(row.deltaMicroseconds)<0n?`${staffHours(-BigInt(row.deltaMicroseconds))} h below target`:'Target met'}</p></article>)}</div>{workspace.targetPeriods.filter(row=>visibleIds.has(row.jobId)).length>visibleCount&&<button className="button secondary" onClick={()=>setVisibleCount(value=>value+80)}>Show more target periods</button>}</>}
       </>}
-      {tab==='assigned'&&<StaffSchedule {...props} rows={allScheduleRows} range={range} filters={{unitId,jobId,userId,search}} onDirty={setAssignedDirty} onBlocked={setBlocked} onChanged={saved} onManageEmployeeJobs={person=>{if(discard())props.onManageEmployeeJobs?.(person);}}/>}
-      <p className="planning-footnote">{workspace.notice} Last checked {DateTime.fromISO(workspace.asOf).setZone(workspace.timezone).toFormat('LLL d, h:mm a')}.</p>
+      {tab==='assigned'&&<StaffSchedule key={currentDialog} {...props} createRequested={createShift} onCreateConsumed={()=>setCreateShift(false)} hideAddButton rows={allScheduleRows} range={range} filters={{unitId,jobId,userId,search}} onDirty={setAssignedDirty} onBlocked={setBlocked} onChanged={saved} onManageEmployeeJobs={person=>{if(discard())props.onManageEmployeeJobs?.(person);}}/>}
+      <details className="planning-footnote"><summary>How schedule totals work</summary><p>{workspace.notice} Last checked {DateTime.fromISO(workspace.asOf).setZone(workspace.timezone).toFormat('LLL d, h:mm a')}.</p></details>
     </>}
     {editor?.kind==='rule'&&<PlanningRuleEditor {...editorProps} row={editor.row}/>}
     {editor?.kind==='target'&&<PlanningTargetEditor {...editorProps} row={editor.row}/>}

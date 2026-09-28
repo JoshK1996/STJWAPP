@@ -20,6 +20,7 @@ import { applyAppearance, palettes } from "./appearance";
 import { api, ApiError } from "./api";
 import { WorkspaceArt } from "./WorkspaceArt";
 import type { BrandingAccess } from './OrganizationBranding';
+import SimpleWorkspaceSetup from "./SimpleWorkspaceSetup";
 import NavigationOrderEditor, { NavigationPreferenceValue, navigationPreferenceLabels } from './NavigationOrderEditor';
 
 export default function Personalization({
@@ -39,7 +40,7 @@ export default function Personalization({
   const [busy, setBusy] = useState(false);
   const [uncertainSave, setUncertainSave] = useState(false), [status, setStatus] = useState(''), [error, setError] = useState('');
   const [observed, setObserved] = useState<Preferences | null>(null);
-  const active = useRef(true), running = useRef(false), submitted = useRef<Preferences | null>(null), draftRef = useRef(draft);
+  const active = useRef(true), running = useRef(false), submitted = useRef<Partial<Preferences> | null>(null), draftRef = useRef(draft);
   draftRef.current = draft;
   const actorId = me.actor.id;
   const owns = () => active.current && isSessionCurrent();
@@ -81,7 +82,9 @@ export default function Personalization({
   }
   async function save() {
     if (running.current || uncertainSave || !owns()) return;
-    const body = preferencesSchema.parse(draft);
+    const parsed = preferencesSchema.parse(draft);
+    const body = Object.fromEntries(Object.entries(parsed).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(saved.current[key as keyof Preferences]))) as Partial<Preferences>;
+    if (!Object.keys(body).length) return;
     running.current = true; submitted.current = body; setError(''); setStatus(''); setObserved(null);
     setBusy(true);
     try {
@@ -113,7 +116,7 @@ export default function Personalization({
       const current = await api('/me'); if (!owns()) return;
       if (current.actor.id !== actorId || current.actor.mode !== 'password') { onSessionExpired(); return; }
       const preferences = preferencesSchema.parse(current.actor.preferences);
-      if (JSON.stringify(preferences) === JSON.stringify(submitted.current)) {
+      if (Object.entries(submitted.current).every(([key, value]) => JSON.stringify(preferences[key as keyof Preferences]) === JSON.stringify(value))) {
         saved.current = preferences; setDraft(preferences); submitted.current = null; setUncertainSave(false); setObserved(null);
         setStatus('The account currently has the preferences you submitted. No second save was sent.');
         try { await onChange(preferences); } catch (cause) { if (owns() && !accessLost(cause)) setError('Saved preferences were checked, but other account details could not refresh.'); }
@@ -123,7 +126,8 @@ export default function Personalization({
   }
   function resolveDifferent(useCurrent: boolean) {
     if (!observed || running.current) return;
-    saved.current = observed; if (useCurrent) setDraft(observed);
+    saved.current = observed;
+    setDraft(useCurrent ? observed : { ...observed, ...submitted.current });
     submitted.current = null; setUncertainSave(false); setObserved(null); setError('');
     setStatus(useCurrent ? 'Using the account’s current saved preferences.' : 'Your draft is preserved. Review it, then explicitly save if you want to replace the account’s current preferences.');
     void onChange(observed).catch(cause => { if (owns() && !accessLost(cause)) setError('Account details could not refresh. Your reviewed draft remains here.'); });
@@ -146,7 +150,7 @@ export default function Personalization({
           <LayoutDashboard size={26} />
         </span>
       </div>
-      <fieldset className="personalization-edit-controls" disabled={busy || uncertainSave}><legend className="sr-only">Personal appearance, dashboard and navigation controls</legend><div className="personalization-body">
+      <fieldset className="personalization-edit-controls" disabled={busy || uncertainSave}><legend className="sr-only">Personal appearance, dashboard and navigation controls</legend><SimpleWorkspaceSetup draft={draft} canReport={me.permissions.report} onChange={patch => setDraft(current => ({...current,...patch}))}/><details className="personalization-advanced"><summary>More appearance and menu options</summary><div className="personalization-body">
         <div className="appearance-options">
           <section className="organization-style-adoption" aria-label="Organization style starting point">
             <h3>A shared starting point</h3>
@@ -562,8 +566,9 @@ export default function Personalization({
         </div>
       </div>
       <NavigationOrderEditor draft={draft} me={me} onChange={orders => setDraft(current => ({ ...current, ...orders }))}/>
+      </details>
       </fieldset>
-      {(error || status || uncertainSave) && <div className="preferences-recovery">{error && <p role="alert">{error}</p>}{status && <p role="status">{status}</p>}{uncertainSave && <button type="button" className="button primary" disabled={busy} onClick={() => void checkSaved()}>{busy ? 'Checking…' : 'Check saved preferences'}</button>}{observed && <><details><summary>Compare your draft with current saved preferences</summary><p>Navigation lists show pages available to your account. Saved positions for other pages are preserved.</p><div className="branding-comparison"><table><thead><tr><th>Preference</th><th>Your draft</th><th>Currently saved</th></tr></thead><tbody>{Object.keys(observed).map(key => <tr key={key}><th scope="row">{key === 'workspaceNavOrder' || key === 'organizationNavOrder' ? navigationPreferenceLabels[key] : key}</th><td>{key === 'workspaceNavOrder' || key === 'organizationNavOrder' ? <NavigationPreferenceValue field={key} value={draft[key]} me={me}/> : String(draft[key as keyof Preferences])}</td><td>{key === 'workspaceNavOrder' || key === 'organizationNavOrder' ? <NavigationPreferenceValue field={key} value={observed[key]} me={me}/> : String(observed[key as keyof Preferences])}</td></tr>)}</tbody></table></div></details><button type="button" className="button secondary" disabled={busy} onClick={() => resolveDifferent(true)}>Use current saved preferences</button><button type="button" className="button secondary" disabled={busy} onClick={() => resolveDifferent(false)}>Keep my draft for review</button></>}</div>}
+      {(error || status || uncertainSave) && <div className="preferences-recovery">{error && <p role="alert">{error}</p>}{status && <p role="status">{status}</p>}{uncertainSave && <button type="button" className="button primary" disabled={busy} onClick={() => void checkSaved()}>{busy ? 'Checking…' : 'Check saved preferences'}</button>}{observed && <><details><summary>Compare your draft with current saved preferences</summary><p>Navigation lists show pages available to your account. Saved positions for other pages are preserved.</p><div className="branding-comparison"><table><thead><tr><th>Preference</th><th>Your draft</th><th>Currently saved</th></tr></thead><tbody>{Object.keys(submitted.current ?? {}).map(key => <tr key={key}><th scope="row">{key === 'workspaceNavOrder' || key === 'organizationNavOrder' ? navigationPreferenceLabels[key] : key.replace(/([A-Z])/g, ' $1').replace(/^./, character => character.toUpperCase())}</th><td>{key === 'workspaceNavOrder' || key === 'organizationNavOrder' ? <NavigationPreferenceValue field={key} value={draft[key]} me={me}/> : Array.isArray(draft[key as keyof Preferences]) ? (draft[key as keyof Preferences] as string[]).join(', ') : String(draft[key as keyof Preferences])}</td><td>{key === 'workspaceNavOrder' || key === 'organizationNavOrder' ? <NavigationPreferenceValue field={key} value={observed[key]} me={me}/> : Array.isArray(observed[key as keyof Preferences]) ? (observed[key as keyof Preferences] as string[]).join(', ') : String(observed[key as keyof Preferences])}</td></tr>)}</tbody></table></div></details><button type="button" className="button secondary" disabled={busy} onClick={() => resolveDifferent(true)}>Use current saved preferences</button><button type="button" className="button secondary" disabled={busy} onClick={() => resolveDifferent(false)}>Keep my draft for review</button></>}</div>}
       <div className="personalization-actions">
         <span role="status">
           {dirty ? "Previewing unsaved changes" : "Saved to your account"}
@@ -574,7 +579,7 @@ export default function Personalization({
           className="text-link"
           disabled={busy || uncertainSave}
           onClick={() =>
-            setDraft(normalizePreferences({ home: saved.current.home }))
+            setDraft(normalizePreferences({ home: saved.current.home, scheduleView: saved.current.scheduleView, payrollExport: saved.current.payrollExport }))
           }
         >
           <RotateCcw size={15} />

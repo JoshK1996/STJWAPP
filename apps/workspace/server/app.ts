@@ -4,6 +4,7 @@ import { saveAllowanceSnapshot, listAllowanceSnapshots, getAllowanceSnapshot, ex
 import { installScheduledClockRoutes } from "./scheduled-clock";
 import {installStaffCredentials} from './staff-credentials';
 import {getWorkforceOverview,getWorkforceBoard} from './workforce-overview';
+import {getAttentionPolicy,saveAttentionPolicy} from './attention-policy';
 import { editOwnRequest } from './request-editing';
 import { installAccountCredentials } from './account-credentials';
 import { registerAccountingLedgerRoutes } from './accounting-ledger';
@@ -101,6 +102,14 @@ export function createApp(db: Database, config: AppConfig) {
   app.get('/api/clock',async(req,res)=>res.set('Cache-Control','private, no-store').json(await getAuthenticatedClock(db,actorOf(req),(req as AppRequest).sessionHash!)));
   app.post('/api/clock',async(req,res)=>res.set('Cache-Control','private, no-store').json(await applyAuthenticatedClockCommand(db,actorOf(req),(req as AppRequest).sessionHash!,req.body)));
   app.get('/api/board',async(req,res)=>res.json(await getWorkforceBoard(db,actorOf(req),reportProofOf(req))));
+  app.get('/api/workforce/attention-policy',async(req,res)=>{
+    requireCondition(actorOf(req).mode==='password',403,'Sign in with your password to view shared flag rules.');
+    res.set('Cache-Control','private, no-store').json(await getAttentionPolicy(db,actorOf(req),sessionHashOf(req)));
+  });
+  app.put('/api/workforce/attention-policy',async(req,res)=>{
+    requireCondition(actorOf(req).mode==='password',403,'Sign in with your password to change shared flag rules.');
+    res.set('Cache-Control','private, no-store').json(await saveAttentionPolicy(db,actorOf(req),sessionHashOf(req),req.body));
+  });
   app.get('/api/workforce/overview',async(req,res)=>res.json(await getWorkforceOverview(db,actorOf(req),reportProofOf(req),req.query)));
   app.post('/api/workforce/allowance/snapshots',async(req,res)=>res.status(201).json(await saveAllowanceSnapshot(db,actorOf(req),reportProofOf(req),req.body)));
   app.get('/api/workforce/allowance/snapshots',async(req,res)=>res.json(await listAllowanceSnapshots(db,actorOf(req),reportProofOf(req))));

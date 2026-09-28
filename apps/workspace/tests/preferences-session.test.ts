@@ -8,7 +8,7 @@ import { initialize } from "../server/seed";
 import { createApp } from "../server/app";
 import { digest, issueSetup, type Actor } from "../server/security";
 import { savePersonalPreferences } from "../server/preferences";
-import { preferencesSchema } from "../shared/preferences";
+import { preferencesSchema, normalizePreferences } from "../shared/preferences";
 import { totpAt } from "../server/totp";
 
 const origin = "http://localhost:3197";
@@ -71,6 +71,19 @@ test("partial preferences preserve custom color, accessibility and dashboard lay
   assert.equal((await send(user.auth, "/me/preferences", { organizationBranding: {} }, "patch")).status, 400);
   assert.equal((await send(user.auth, "/me/preferences", { home: "reports" }, "patch")).status, 403);
   assert.deepEqual(await state(user), before);
+});
+
+test("simple personal defaults save independently across views and accounts without changing shared policy", async () => {
+  const user=await person(), other=await person();
+  const scheduleView={period:'day',view:'assigned',employeeId:user.id,unitId:user.units[0],jobId:null};
+  let result=await send(user.auth,'/me/preferences',{scheduleView},'patch');assert.equal(result.status,200,result.body.error);
+  const payrollExport={...preferencesSchema.parse({}).payrollExport,title:'My clear report',includeOverview:false};
+  result=await send(user.auth,'/me/preferences',{payrollExport},'patch');assert.equal(result.status,200,result.body.error);
+  result=await send(user.auth,'/me/preferences',{workspaceMode:'full',favoritePages:['clock','schedule'],accent:'forest'},'patch');assert.equal(result.status,200,result.body.error);
+  assert.deepEqual(result.body.preferences.scheduleView,scheduleView);assert.deepEqual(result.body.preferences.payrollExport,payrollExport);
+  const read=await request(app()).get('/api/me').set('Cookie',user.auth.cookie);assert.deepEqual(read.body.actor.preferences,result.body.preferences);
+  const otherRead=await request(app()).get('/api/me').set('Cookie',other.auth.cookie), otherDefaults=normalizePreferences(otherRead.body.actor.preferences);assert.equal(otherDefaults.workspaceMode,'simple');assert.equal(otherDefaults.scheduleView.employeeId,null);
+  const before=await state(user);assert.equal((await send(user.auth,'/me/preferences',{attentionPolicy:{version:0}},'patch')).status,400);assert.deepEqual(await state(user),before);
 });
 
 test("installed preference save requires CSRF, origin, actual password proof and account before session lock", async () => {

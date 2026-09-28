@@ -4,11 +4,14 @@ import { buildPayrollPresentationTable, payrollPresentationHours, payrollPresent
 import { payrollPresentationContext } from './payroll-presentation';
 import { xlsxText } from './report-snapshot-xlsx';
 import { XlsxFailure } from './report-snapshot-xlsx-contract';
+import { reportSheetColumnWidth, reportSheetText } from './report-sheet-layout';
 
 const ink = 'FF17304B', blue = 'FF245CB9', teal = 'FF087F8C', paper = 'FFF0F5FC', white = 'FFFFFFFF', line = 'FFDCE5EF', amber = 'FF9A5800';
 type Sheet = ReturnType<ExcelJS.stream.xlsx.WorkbookWriter['addWorksheet']>;
 const font = { name: 'Aptos', size: 11, color: { argb: ink } };
 const fill = (argb: string): ExcelJS.Fill => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+const displayLabel = (value: string) => value.replace(/\s+/gu, ' ').trim();
+const textLayout = (value: string, width: number, size = 11, minimum = 30) => reportSheetText(value, width, size, minimum, 409, 'Source JSON');
 const amountFormat = (options: PayrollPresentationOptions) => '#,##0.' + '0'.repeat(options.decimalPlaces);
 
 function number(value: string): number {
@@ -19,17 +22,18 @@ function number(value: string): number {
 }
 function merged(sheet: Sheet, rowNumber: number, value: string, columns: number, height: number, kind: 'title' | 'caption' | 'note' | 'section' = 'caption') {
   sheet.mergeCells(rowNumber, 1, rowNumber, columns);
-  const row = sheet.getRow(rowNumber), cell = row.getCell(1); cell.value = xlsxText(value);
+  const row = sheet.getRow(rowNumber), cell = row.getCell(1);
   cell.font = { ...font, ...(kind === 'title' ? { size: 22, bold: true, color: { argb: white } } : kind === 'section' ? { size: 12, bold: true, color: { argb: white } } : kind === 'note' ? { size: 10 } : {}) };
   cell.fill = fill(kind === 'title' || kind === 'section' ? ink : kind === 'note' ? paper : white);
   const totalWidth = Array.from({ length: columns }, (_, index) => sheet.getColumn(index + 1).width ?? 18).reduce((sum, size) => sum + size, 0);
   const size = kind === 'title' ? 22 : kind === 'section' ? 12 : kind === 'note' ? 10 : 11;
-  // Excel does not auto-fit merged rows; reserve room for the complete wrapped text.
-  const estimatedLines = Math.ceil(value.length / Math.max(12, (totalWidth - 5) * 10 / size));
-  cell.alignment = { vertical: 'middle', wrapText: true, indent: 1 }; row.height = Math.min(409, Math.max(height, estimatedLines * (size + 4) + 12)); row.commit();
+  const layout = textLayout(value, totalWidth, size, height);
+  cell.value = xlsxText(layout.text);
+  cell.alignment = { vertical: 'middle', wrapText: true, indent: 1 }; row.height = layout.height; row.commit();
 }
 function header(sheet: Sheet, rowNumber: number, values: string[]) {
-  const row = sheet.getRow(rowNumber); row.values = values.map(value => xlsxText(value)); row.height = 34;
+  const layouts = values.map((value, index) => textLayout(value, sheet.getColumn(index + 1).width ?? 24, 11, 34));
+  const row = sheet.getRow(rowNumber); row.values = layouts.map(value => xlsxText(value.text)); row.height = Math.max(...layouts.map(value => value.height));
   row.eachCell(cell => { cell.font = { ...font, bold: true, color: { argb: white } }; cell.fill = fill(blue); cell.alignment = { vertical: 'middle', wrapText: true, indent: 1 }; }); row.commit();
 }
 function sheetOptions(tabColor: string, columns: number, freeze = 0): Partial<ExcelJS.AddWorksheetOptions> {
@@ -45,8 +49,9 @@ function sheetOptions(tabColor: string, columns: number, freeze = 0): Partial<Ex
 /** Styled presentation only. The bounded worker and exact source validator own execution. */
 export function writePayrollPresentationSheets(book: ExcelJS.stream.xlsx.WorkbookWriter, report: PayrollHoursReport, raw: PayrollPresentationOptions) {
   const options = payrollPresentationOptionsSchema.parse(raw), context = payrollPresentationContext(report), table = buildPayrollPresentationTable(report, options);
+  if (options.includeOverview) {
   const overview = book.addWorksheet('Report overview', sheetOptions(teal, 4));
-  overview.columns = [{ width: 38 }, { width: 22 }, { width: 22 }, { width: 25 }];
+  overview.columns = [{ width: reportSheetColumnWidth('Employee', report.employees.map(row => displayLabel(row.name)), 38, 72) }, { width: 22 }, { width: 22 }, { width: 25 }];
   merged(overview, 1, options.title, 4, 54, 'title');
   merged(overview, 2, `STJW · ${context.period}`, 4, 27);
   merged(overview, 3, `Prepared ${context.capturedAt} · ${context.timezone}`, 4, 25);
@@ -61,9 +66,10 @@ export function writePayrollPresentationSheets(book: ExcelJS.stream.xlsx.Workboo
   shown.forEach((item, index) => {
     const total = BigInt(report.totals.workMicroseconds), work = BigInt(item.amounts.workMicroseconds);
     const share = total ? Number((work * 10000n + total / 2n) / total) / 10000 : 0;
-    const row = overview.getRow(13 + index); row.values = [xlsxText(item.employee), number(payrollPresentationHours(item.amounts.workMicroseconds, options.decimalPlaces)), share,
+    const label = textLayout(displayLabel(item.employee), overview.getColumn(1).width!, 11, 29);
+    const row = overview.getRow(13 + index); row.values = [xlsxText(label.text), number(payrollPresentationHours(item.amounts.workMicroseconds, options.decimalPlaces)), share,
       item.amounts.ongoingSegmentCount ? `${item.amounts.ongoingSegmentCount} open` : 'No open records'];
-    row.height = Math.max(29, Math.ceil(item.employee.length / 32) * 16 + 8);
+    row.height = label.height;
     row.eachCell((cell, column) => { cell.font = { ...font, ...(column === 4 && item.amounts.ongoingSegmentCount ? { bold: true, color: { argb: amber } } : {}) }; cell.fill = fill(index % 2 ? paper : white); cell.alignment = { vertical: 'middle', wrapText: true, horizontal: column === 2 || column === 3 ? 'right' : 'left' }; });
     row.getCell(2).numFmt = amountFormat(options); row.getCell(3).numFmt = '0.0%'; row.commit();
   });
@@ -74,10 +80,11 @@ export function writePayrollPresentationSheets(book: ExcelJS.stream.xlsx.Workboo
   const end = 15 + Math.max(shown.length, 1);
   merged(overview, end, options.includeAudit ? 'Exact evidence included in Employees, Jobs, Totals, Source segments, Provenance and Source JSON. Presentation sheets are for review.' : 'Exact evidence is available by selecting Include audit sheets before an Excel download, or using the separate source-data exports.', 4, 48, 'note');
   overview.pageSetup.printArea = `A1:D${end}`; overview.commit();
+  }
 
   const width = table.columns.length, nameColumns = options.grouping === 'jobs' ? 3 : 1;
   const details = book.addWorksheet(options.grouping === 'jobs' ? 'Hours by job' : 'Employee hours', sheetOptions(blue, width, 6));
-  const columnWidths = table.columns.map((column, index) => index < nameColumns ? index === 0 ? 34 : 28 : Math.max(18, Math.min(25, column.label.length + 2)));
+  const columnWidths = table.columns.map((column, index) => reportSheetColumnWidth(column.label, table.rows.map(row => displayLabel(row[index])), index < nameColumns ? index === 0 ? 34 : 28 : 18, index < nameColumns ? 72 : 25));
   // A small selection should still use the printable page width instead of a narrow strip.
   columnWidths[0] += Math.max(0, 107 - columnWidths.reduce((sum, value) => sum + value, 0));
   details.columns = columnWidths.map(width => ({ width }));
@@ -87,8 +94,9 @@ export function writePayrollPresentationSheets(book: ExcelJS.stream.xlsx.Workboo
   merged(details, 4, `Prepared ${context.capturedAt} · Hours shown to ${options.decimalPlaces} decimal places`, width, width < 4 ? 42 : 28);
   header(details, 6, table.columns.map(column => column.label));
   table.rows.forEach((values, index) => {
-    const row = details.getRow(7 + index); row.values = values.map((value, column) => column < nameColumns ? xlsxText(value) : number(value));
-    row.height = Math.max(29, ...values.slice(0, nameColumns).map(value => Math.ceil(value.length / 26) * 16 + 8));
+    const layouts = values.slice(0, nameColumns).map((value, column) => textLayout(displayLabel(value), columnWidths[column], 11, 29));
+    const row = details.getRow(7 + index); row.values = values.map((value, column) => column < nameColumns ? xlsxText(layouts[column].text) : number(value));
+    row.height = Math.max(29, ...layouts.map(value => value.height));
     row.eachCell((cell, column) => { cell.font = font; cell.fill = fill(index % 2 ? paper : white); cell.border = { bottom: { style: 'hair', color: { argb: line } } }; cell.alignment = { vertical: 'middle', horizontal: column <= nameColumns ? 'left' : 'right', wrapText: true };
       if (column > nameColumns) cell.numFmt = table.columns[column - 1].key.endsWith('Hours') ? amountFormat(options) : '#,##0'; }); row.commit();
   });
@@ -99,5 +107,5 @@ export function writePayrollPresentationSheets(book: ExcelJS.stream.xlsx.Workboo
   const noteRow = totalRow + 2;
   merged(details, noteRow, payrollPresentationNotice, width, width < 4 ? 138 : 76, 'note');
   details.autoFilter = { from: { row: 6, column: 1 }, to: { row: 6 + table.rows.length, column: width } };
-  details.pageSetup.printTitlesRow = '1:6'; details.pageSetup.printArea = `A1:${details.getColumn(width).letter}${noteRow}`; details.commit();
+  details.pageSetup.printTitlesRow = '6:6'; details.pageSetup.printArea = `A1:${details.getColumn(width).letter}${noteRow}`; details.commit();
 }
