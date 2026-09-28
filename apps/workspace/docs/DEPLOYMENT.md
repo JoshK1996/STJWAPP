@@ -2,7 +2,13 @@
 
 Railway hosts the app and its separate PostgreSQL database independently of the reference applications. The root prototype is not a deployment source for `apps/workspace`.
 
-## Current administrator time-card release
+## Current shared-flags and simpler-workspace release
+
+Deployment `17cd26e7-fd05-4430-adbf-ebfc7b06acc1` is live, verified September 28, 2026 UTC. All 395 runtime source files in the web container match commit `86d2a44c0f5029c0b162fc6ddca2d5556a7edba8` and manifest SHA256 `4f8c04efb1cd278277628ba0bb13d9bc295a5575abb2206861b89c9730009272`. Build version `f843a4923ce75d849a29f44b2e7429e6784499e7ea2f1421ac994c8934a2952b`; entry SHA256 `d612da5c127c202a7a841061a95b83c0f9f45243abaeef8a212c0b136295e855`. Separate maintenance used the identical reviewed plan for rollback and commit, advancing schema 047 to 048 while preserving existing accounts, preferences and time records. Runtime readback confirmed `stjw_runtime`, all 32 protection flags and the new policy/history privileges. Public delivery checks verified health, the exact entry and assets, update discovery, anonymous policy denial and demonstration mode off. Temporary maintenance access was revoked.
+
+Open **Settings → Your setup** for the simple menu, favorite pages and appearance. Open **Settings → Organization → Shared flag rules** for administrator rules. Schedule saves personal filters; Payroll saves personal report layouts. Finish pending work, then use the update prompt or reload. Roll forward with schema 048-compatible source. See SIMPLE-WORKSPACE and ADR0014.
+
+## Previous administrator time-card release
 
 Deployment `c71500d7-90b2-444d-9118-6e85db516e2a` is live, verified September 25, 2026 UTC. Separate maintenance dry-run and commit passed with existing credentials, roles, active states and operational-record counts preserved. Schema 047 is deployed; migrations 001–047 are immutable. All 387 staged runtime files match source commit `afd83e97347cce8e842aada18e83f7f0f056a8d4`, manifest SHA256 `8e55e47df8ea0e5813b7024303c45b9f97f7c541bea4aba5339a26cc07369781`. Hosted public acceptance passed 36 checks, 12 exact asset comparisons and 106 anonymous protected-route denials, with zero unexpected errors. Actual web-container readback verified `stjw_runtime`, 32 protection flags, private archive denial, consistent credential policies and active required management roles. Temporary maintenance access was revoked. These hosted checks are separate from local authenticated synthetic workflows.
 
