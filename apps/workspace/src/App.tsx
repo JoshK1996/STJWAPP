@@ -69,6 +69,7 @@ import Reports from "./Reports";
 import WorkforceDashboard from "./WorkforceDashboard";
 import Payroll from "./Payroll";
 import "./workforce-shell.css";
+import "./personal-time.css";
 import {WorkspaceTools,type TeamBoardState} from "./WorkspaceTools";
 import "./experience-polish.css";
 import Settings from "./Settings";
@@ -82,6 +83,7 @@ const School = lazy(() => import("./School"));
 const Care = lazy(() => import("./Care"));
 const Dismissal = lazy(() => import("./Dismissal"));
 const TimeRecords = lazy(() => import("./TimeRecords"));
+const PersonalTime = lazy(() => import("./PersonalTime"));
 import type { TimeRecordsTarget } from "./TimeRecords";
 import SchedulePlanning, { type SchedulePlanningTarget } from "./SchedulePlanning";
 import ScheduleRequests from "./ScheduleRequests";
@@ -457,6 +459,7 @@ export default function App() {
   }
   const updateNotice = <InstallExperience compact={Boolean(me && compactClock && page === "clock")} experience={installExperience} update={appUpdate} onReload={reloadForUpdate} onCheckForUpdate={() => { void updateMonitor.current?.check(); }} reloadBlockedReason={updateBlockReason({ pendingWrites:pendingWrites+Number(timeCardPending), clockPending, unsavedChanges, busy, workflowOpen: false, formHasChanges: false, accountSetup: false })} />;
   function go(next: Page) {
+    if (me?.actor.mode === "pin" && next !== "clock" && next !== "time-records") return false;
     if (next === page) { if (mobile) setMobile(false); return true; }
     if (timeCardPendingRef.current) {
       notify("Resolve the time-card save using its retry control before leaving this screen.",true);
@@ -637,7 +640,7 @@ export default function App() {
     {
       overview: `Good ${day().hour < 12 ? "morning" : day().hour < 17 ? "afternoon" : "evening"}, ${firstName}.`,
       clock: "Your time. All in one place.",
-      "time-records": "Every hour, with its history.",
+      "time-records": me.actor.mode === "pin" ? "My hours" : "Every hour, with its history.",
       payroll: "Your payroll workspace.",
       staff: "Employees & jobs",
       schedule: "Plan job coverage, match employees, and review scheduled hours.",
@@ -662,7 +665,7 @@ export default function App() {
     overview: "Here’s what’s happening across your community today.",
     clock: "Clock in, take a break, or move seamlessly between your jobs.",
     "time-records":
-      "Review recorded shifts, correct times, and follow every change in the audit history.",
+      me.actor.mode === "pin" ? "Your work, breaks, and clock records in one place." : "Review recorded shifts, correct times, and follow every change in the audit history.",
     payroll: "Understand the hours, review the details, and prepare your accountant’s exports.",
     staff:
       "Add employees, choose their clock-in jobs, and manage account details.",
@@ -718,7 +721,7 @@ export default function App() {
           className="brand"
           aria-label={`${workspaceIdentity.shortName} overview`}
           title={`${workspaceIdentity.shortName} overview`}
-          onClick={() => go("overview")}
+          onClick={() => go(me.actor.mode === "pin" ? "clock" : "overview")}
         >
           <span className="brand-mark">
             <Church size={24} />
@@ -743,22 +746,22 @@ export default function App() {
           {nav
             .filter(
               ([id]) =>
-                !(me.actor.mode === "pin" && id !== "clock") &&
-                (preferences.workspaceMode === 'full' || moreTools || id === 'clock' || preferences.favoritePages.includes(id) || page === id) &&
+                !(me.actor.mode === "pin" && id !== "clock" && id !== "time-records") &&
+                (me.actor.mode === "pin" || preferences.workspaceMode === 'full' || moreTools || id === 'clock' || preferences.favoritePages.includes(id) || page === id) &&
                  !(["staff", "payroll"].includes(id) && !me.permissions.report),
              )
             .sort((a, b) => preferences.workspaceNavOrder.indexOf(a[0]) - preferences.workspaceNavOrder.indexOf(b[0]))
              .map(([id, label, Icon]) => (
               <button
                 key={id}
-                aria-label={label}
-                title={label}
+                aria-label={me.actor.mode === "pin" && id === "time-records" ? "My hours" : label}
+                title={me.actor.mode === "pin" && id === "time-records" ? "My hours" : label}
                 onClick={() => go(id)}
                 className={page === id ? "active" : ""}
                 aria-current={page === id ? "page" : undefined}
               >
                 <Icon size={19} />
-                <span>{label}</span>
+                <span>{me.actor.mode === "pin" && id === "time-records" ? "My hours" : label}</span>
                 {id === "requests" && pending.length > 0 && (
                   <span className="nav-count">{pending.length}</span>
                 )}
@@ -840,7 +843,7 @@ export default function App() {
             <span>Workspace</span>
             <ChevronRight size={14} />
             <strong className="breadcrumb-current">
-              {nav.find((x) => x[0] === page)?.[1] ??
+              {(me.actor.mode === "pin" && page === "time-records" ? "My hours" : nav.find((x) => x[0] === page)?.[1]) ??
                 (
                   {
                     workspace: "School & community",
@@ -1174,7 +1177,10 @@ export default function App() {
               />
               {compactClock && toastNotice}
               {compactClock && workforceNavigation}
-              {me.actor.mode === "pin" && <p className="panel-note" role="status"><ShieldCheck size={16} /> PIN session · Time clock only. Sign out and use Password to open your full workspace.</p>}
+              {me.actor.mode === "pin" && <div className="pin-history-entry">
+                <button type="button" className="button secondary" onClick={() => go("time-records")}><History size={18}/><span>My hours & clock records</span><ArrowRight size={18}/></button>
+                <p className="panel-note"><ShieldCheck size={16} /> PIN session · Your clock and personal hours. Use Password for your full workspace.</p>
+              </div>}
               {me.actor.mode !== "pin" && (
                 <div className="two-columns">
                   <Panel
@@ -1424,7 +1430,8 @@ export default function App() {
           {page === "reports" && (
             <Reports me={me} jobs={jobs} notify={notify} onChange={refresh} onDirty={workspaceDirty} />
           )}
-          {page === "time-records" && (
+          {page === "time-records" && me.actor.mode === "pin" && <PersonalTime key={me.actor.id+":"+workspaceEpoch} timezone={me.organization.timezone} onSessionExpired={sessionExpired} onBack={() => go("clock")}/>}
+          {page === "time-records" && me.actor.mode !== "pin" && (
             <TimeRecords key={me.actor.id+":"+workspaceEpoch} me={me} notify={notify} onChanged={refresh} onDirty={workspaceDirty} target={timeRecordsTarget} onTargetConsumed={consumeTimeRecordsTarget} onPendingChange={timeCardPendingChanged} onNavigatePayroll={me.permissions.report ? () => go("payroll") : undefined}/>
           )}
           {page === "payroll" && me.actor.mode !== "pin" && me.permissions.report && <Payroll key={me.actor.id+':'+workspaceEpoch} me={me} staff={staff} notify={notify} onDirty={workspaceDirty} onNavigateRecords={openTimeRecords} onSaveExportDefaults={value=>savePersonalDefaults({payrollExport:value})}/>}

@@ -119,7 +119,7 @@ export default function Auth({
               ? "Confirm it’s you with your authenticator app or a saved recovery code."
               : setupToken
                 ? "Choose your private password to finish setting up your account."
-                : mode === "pin" ? "Enter only your PIN to clock in, change jobs, take a break, or clock out."
+                : mode === "pin" ? "Enter only your PIN to use the clock and review your hours."
                   : "Use your email and password to open your workspace and management tools."}
           </p>
           {!setupToken && !challenge && !credentialChange && (
@@ -260,7 +260,7 @@ export default function Auth({
             {mode === "pin" && !setupToken ? (
               <>
                 <Clock3 size={17} />
-                PIN sign-in opens only your time clock for five minutes. Use Password for management access.
+                PIN sign-in opens your time clock and personal hours for five minutes. Use Password for management access.
                 If your account needs setup, use your email and password first.
               </>
             ) : (

@@ -2,7 +2,7 @@
 
 The application exposes its implemented workforce, school and accounting operations under `/api`. [openapi.json](openapi.json) is its machine-readable inventory; request definitions derive from the same Zod schemas as the service. Staff-directory, clock, workforce-report/overview, linked schedule-request, time-adjustment, retained report-snapshot, import evidence, workbook-conversion and accounting responses have explicit schemas; other response contracts still need expansion. Regenerate with `npx tsx scripts/api-contract.ts` after endpoint changes. The current inventory contains 327 paths and 383 operations, including 41 accounting paths and 47 accounting operations. Implementation inventory is separate from deployment status, which is tracked in STATUS.md.
 
-Browser credentials are private setup → password → expiring server session. Writes require the exact configured Origin, JSON content type, and `X-CSRF-Token` obtained from `/api/me`. A PIN session can only read its identity, read/mutate its own clock, and sign out. No role, organization, employee ID, or timestamp supplied by a caller overrides server identity.
+Browser credentials are private setup → password → expiring server session. Writes require the exact configured Origin, JSON content type, and `X-CSRF-Token` obtained from `/api/me`. A PIN session can read its identity, read/mutate its own clock, read its own history through `GET /clock/history`, and sign out. No role, organization, employee ID, or timestamp supplied by a caller overrides server identity.
 
 `PATCH /api/me/preferences` saves appearance and dashboard choices for the verified account. Partial updates retain unrelated choices; the strict schema is in `shared/preferences.ts`. Themes are light/dark/system with nine named accent palettes and a custom color. Dashboard order must contain all six known card IDs exactly once, and at least one card must remain visible. Preferences cannot grant a role or bypass data scope. PIN sessions cannot write preferences. Existing light/dark/compact/home clients remain supported.
 
@@ -24,6 +24,12 @@ Live in `7a2bdc29-ffc9-4f4d-8681-de457ef9df0c`: both direct report routes refres
 Clock commands require a fresh UUID `commandId`. Retry an uncertain response with the same ID and identical body; a different payload with that ID is rejected. Supported actions are `clock_in`, `clock_out`, `switch_job`, `start_break`, and `end_break`; only clock-in/job-switch need `jobId`. Switching jobs during a break requires ending the break first.
 
 Imports follow template → preview → human review → apply using the preview ID and source hash. Separate reviewed CSV workflows also cover students, enrollment, class rosters, assignment scores, compensation and financial reports; see their domain contracts. Multiple unit/job UUIDs use pipe characters (`|`) inside their fields. Accounts from an import remain unusable until a manager issues each private setup link. Jev advice receives column headings only and never commits a mapping or import.
+
+## Personal clock history
+
+`GET /api/clock/history` accepts `period=day|week|month|year|custom|all`, optional calendar `anchor`, custom inclusive `from`/`to`, and `offset` (default 0). It uses the actual password/PIN session identity; unknown query fields and user/organization overrides reject. Bearer tokens are denied. PIN access is GET-only and grants no management access.
+
+The strict response contains organization timezone, observation time, range, first/last recorded dates, whole-range work/break/total durations, days worked, sparse daily totals, day/month chart points, job/community breakdowns and pages of at most 25 current effective cards with detailed segments. Durations are integer microsecond strings; the client formats them for people. Open records stop at the observation time. Custom ranges allow 366 days; explicit 10,000-card, 20,000-segment and 50,000-day-slice bounds reject rather than truncate. Current session proof is validated again before publication. No database or customer-record mutation occurs. See [PERSONAL-HOURS](PERSONAL-HOURS.md).
 
 ## Employee account and job editing
 
@@ -110,7 +116,7 @@ Schema 026 adds `POST /auth/credentials/complete` and explicit temporary-onboard
 
 Schema027 time-adjustment endpoints are live in deployment `7a2bdc29-ffc9-4f4d-8681-de457ef9df0c`: reviewed missing shifts, open-shift closure, scoped discovery, immutable decisions and exact retained JSON/CSV evidence. These management endpoints require a current password session; PIN and bearer access are denied. See TIME-ADJUSTMENTS.md.
 
-Clock-session release `cb797de6-f702-4ac6-a676-161db3add614` now revalidates actual password/PIN proof under account-first locks and again before returning reads, new transitions or exact receipts. Current password MFA applies while PIN stays restricted to the clock. See CLOCK-SESSIONS.md for verification and remaining limits.
+Clock-session release `cb797de6-f702-4ac6-a676-161db3add614` now revalidates actual password/PIN proof under account-first locks and again before returning reads, new transitions or exact receipts. Current password MFA applies while PIN stays restricted to the clock and read-only personal time history. See CLOCK-SESSIONS.md for verification and remaining limits.
 
 
 Exact `/api/reports/v2` and CSV/full-JSON `/api/reports/v2/export` are live in deployment `8d62f2bd-5014-4eb7-892c-0a41936a6f17`, together with explicit precisionVersion2 library definitions and schemaVersion2 retained copies. Existing v1 contracts/bytes remain. The generated source contract has228 paths,269 operations and1,538 resolved local references. MCP version2 support is local connector code; no client/token/OAuth configuration is implied. See WORKFORCE-REPORT-V2.md.

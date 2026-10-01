@@ -1,5 +1,11 @@
 # Validation evidence
 
+## PIN personal hours - October 1, 2026
+
+Implemented for issue #27: PIN sign-in retains the clock as its first screen and adds My hours with day, week, month, year, custom and all-time review. Records are self-only regardless of role, with exact work/break totals, interactive period charts, job/community breakdowns and detailed paginated cards. Existing management routes require password sign-in. See PERSONAL-HOURS and ADR0015. No database migration or customer-record change.
+
+Changed-code verification: 16 service tests, 6 HTTP boundary tests and 6 date/display helper tests passed. The production build passed after correcting two type-only annotations. Synthetic browser acceptance, CI and live delivery are pending; this entry does not yet claim deployment.
+
 ## Shared attention and simpler daily use - September 27, 2026
 
 69 distinct focused changed-code tests passed: schedule-view 7, attention-policy 14, overview/export 17, Payroll/layout 18 plus directly affected snapshot 4, HTTP/OpenAPI 4, runtime/schema 2, preferences 3. Agents owned disjoint files and suites; root did not rerun their tests or older completed acceptance. Production TypeScript/Vite build passed. OpenAPI has 338 paths regenerated identically (SHA256 5233b9bf6a1fa5ef2ab05cc535506c4c3f35f10408684c72936b2f171c886aae). Final small visual corrections were verified through the changed browser phases and build; their commit skips automatic full-suite repetition under the owner's no-overlap instruction. The final implementation passed the GitHub check linked below.

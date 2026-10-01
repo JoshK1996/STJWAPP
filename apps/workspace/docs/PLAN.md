@@ -1,12 +1,16 @@
 # Delivery plan
 
-The active milestone is simple live employee timekeeping, staff roles and accountant-ready administrative reporting. The owner approved removing demonstration operational records while retaining three real accounts; synthetic data is now for isolated tests only. The school, parish and early-childhood programs share configurable organization structure. Managers require explicit subgroup assignments. PIN sessions provide the clock; passwords open the permitted workspace.
+The active milestone is simple live employee timekeeping, staff roles and accountant-ready administrative reporting. The owner approved removing demonstration operational records while retaining three real accounts; synthetic data is now for isolated tests only. The school, parish and early-childhood programs share configurable organization structure. Managers require explicit subgroup assignments. PIN sessions provide the clock and read-only personal time history; passwords open the permitted workspace.
 
 The visual direction is a colorful dimensional dashboard with interactive charts, useful indicators and illustrations. Responsive layouts, keyboard use, contrast and motion/depth preferences remain supported. Color and animation supplement text and shape.
 
 ## Current customer priority
 
 Focus the first screen on who is clocked in, their organization/job, elapsed time, worked versus scheduled hours and accrued over-schedule flags. Keep payroll and Employees & jobs direct; place broader tools behind More tools. Make account creation/recovery, pay-rate editing and employee/job/schedule bulk entry discoverable. Per-employee No early clock-in saves a durable start for the scheduled timestamp. Do not collect location. See WORKFORCE-DAILY-USE and ADR0009; STATUS distinguishes implemented, tested and deployed work.
+
+## PIN personal hours - October 1, 2026
+
+Current delivery: give PIN users read-only access to their own clock records and day/week/month/year/custom/all-time totals. Preserve immediate clock access, five-minute PIN sessions and password-only administration. See PERSONAL-HOURS and ADR0015; issue27 records ownership and changed-code checks.
 
 ## Sequence
 
