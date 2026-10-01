@@ -23,7 +23,7 @@
     "exceljs": "4.4.0",
     "express": "5.2.1",
     "helmet": "8.3.0",
-    "lucide-react": "1.47.0",
+    "lucide-react": "1.48.0",
     "luxon": "3.7.2",
     "pdfjs-dist": "6.3.289",
     "pg": "8.23.0",
