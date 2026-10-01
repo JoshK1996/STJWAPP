@@ -69,7 +69,7 @@ export default function Settings({
       });
       form.reset();
       notify(
-        "Your PIN is ready. Use Quick PIN at sign-in for time-clock-only access.",
+        "Your PIN is ready. Use Quick PIN at sign-in for your time clock and personal hours.",
       );
     });
   }

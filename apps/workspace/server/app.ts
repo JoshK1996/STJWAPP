@@ -35,6 +35,7 @@ import { installAuth, type AppRequest } from './auth';
 import { audit, canReport, digest, manages, opaqueToken, orgWide, Problem, requireCondition } from './security';
 import { listStaff, listRequests, createRequest, reviewAuthenticatedRequest } from './workforce';
 import { getAuthenticatedClock, applyAuthenticatedClockCommand } from './clock-session';
+import { listPersonalTime } from './personal-time';
 import { createStaffAccount } from './temporary-credentials';
 import { createManagedJob, updateManagedJob, managedJobHistory, updateStaffAccount, issueManagedStaffSetupLink } from './staff-authority';
 import { getAuthorizedWorkforceReport, exportAuthorizedWorkforceReport, type WorkforceReportProof } from './workforce-report-access';
@@ -101,6 +102,7 @@ export function createApp(db: Database, config: AppConfig) {
   installOrganizationBranding(app,db);
   app.get('/api/clock',async(req,res)=>res.set('Cache-Control','private, no-store').json(await getAuthenticatedClock(db,actorOf(req),(req as AppRequest).sessionHash!)));
   app.post('/api/clock',async(req,res)=>res.set('Cache-Control','private, no-store').json(await applyAuthenticatedClockCommand(db,actorOf(req),(req as AppRequest).sessionHash!,req.body)));
+  app.get('/api/clock/history',async(req,res)=>res.set('Cache-Control','private, no-store').json(await listPersonalTime(db,actorOf(req),(req as AppRequest).sessionHash!,req.query)));
   app.get('/api/board',async(req,res)=>res.json(await getWorkforceBoard(db,actorOf(req),reportProofOf(req))));
   app.get('/api/workforce/attention-policy',async(req,res)=>{
     requireCondition(actorOf(req).mode==='password',403,'Sign in with your password to view shared flag rules.');

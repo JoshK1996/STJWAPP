@@ -1,6 +1,6 @@
 # Mobile clock first
 
-Mobile staff should reach the clock without navigating through reports or decorative content. On initial session load, including sign-in and a full reload, STJW opens **My time clock** when the viewport is at most 720 CSS pixels wide or the browser reports a primary coarse pointer. Password sessions retain their permitted management pages. PIN sessions remain clock-only on every screen size. Desktop password sessions keep their saved homepage, or the overview when none is saved.
+Mobile staff should reach the clock without navigating through reports or decorative content. On initial session load, including sign-in and a full reload, STJW opens **My time clock** when the viewport is at most 720 CSS pixels wide or the browser reports a primary coarse pointer. Password sessions retain their permitted management pages. PIN sessions open the clock first and can review their own records through **My hours & clock records** or **My hours** in the menu. Management tools still require a password. Desktop password sessions keep their saved homepage, or the overview when none is saved.
 
 Successful sign-in also resets the page to the top so the login screen's scroll position cannot carry into the clock.
 

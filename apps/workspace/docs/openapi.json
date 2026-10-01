@@ -4631,7 +4631,7 @@
       "post": {
         "operationId": "post_auth_login",
         "summary": "Sign in with email and password, or only a PIN",
-        "description": "No public signup. PIN mode does not require email. An ambiguous shared PIN cannot select an account; use password sign-in to replace temporary credentials. Temporary credentials return a private ten-minute credential-change challenge without an app session. The challenge includes independent requirePasswordChange/requirePinChange flags; only the selected replacements are required before workspace access. PIN sessions last 5 minutes and only access /me, /clock, and logout, including for developers and owners. Password sign-in opens permitted management features and can require the optional authenticator challenge.",
+        "description": "No public signup. PIN mode does not require email. An ambiguous shared PIN cannot select an account; use password sign-in to replace temporary credentials. Temporary credentials return a private ten-minute credential-change challenge without an app session. The challenge includes independent requirePasswordChange/requirePinChange flags; only the selected replacements are required before workspace access. PIN sessions last 5 minutes and access /me, their own /clock actions, read-only GET /clock/history, and logout, including for developers and owners. Password sign-in opens permitted management features and can require the optional authenticator challenge.",
         "security": [],
         "responses": {
           "200": {
@@ -5679,7 +5679,7 @@
       "get": {
         "operationId": "get_clock",
         "summary": "Read own open shift and assigned jobs",
-        "description": "Current password or restricted PIN session; no employee identity override. Account, role, memberships and the actual session proof are refreshed under account-first locks. Password MFA is checked when enabled; PIN keeps its existing clock-only scope. Proof is checked again before publication. Includes current No early clock-in policy, pending/latest intent, matching schedules and organization timezone.",
+        "description": "Current password or restricted PIN session; no employee identity override. Account, role, memberships and the actual session proof are refreshed under account-first locks. Password MFA is checked when enabled; PIN is limited to own clock actions and read-only personal history. Proof is checked again before publication. Includes current No early clock-in policy, pending/latest intent, matching schedules and organization timezone.",
         "security": [
           {
             "Session": []
@@ -5847,6 +5847,147 @@
               "type": "string"
             },
             "description": "Session token from GET /me; API bearer tokens cannot write."
+          }
+        ]
+      }
+    },
+    "/clock/history": {
+      "get": {
+        "operationId": "get_clock_history",
+        "summary": "Review own clock records and period hours",
+        "description": "Current password or PIN session only; always the verified employee and organization, regardless of role. No caller identity override or bearer access. Day/week/month/year/custom/all periods use organization timezone and Monday weeks. Inclusive custom dates are limited to 366 days; queries reject above 10,000 cards, 20,000 segments or 50,000 calendar-day slices rather than truncating totals. Current effective revisions, exact integer microseconds and separate work/break totals; open segments end at observedAt. Totals and job/trend breakdowns cover the entire range; detail pages contain at most 25 cards. Account-first session validation occurs in the consistent source transaction and again before publication. Private no-store; no pay rates or writes.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalTimeReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, CSRF, scope, or role denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting state or duplicate record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid calendar range or history exceeds explicit limits; select a shorter period.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Attempt limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "week",
+              "type": "string",
+              "enum": [
+                "day",
+                "week",
+                "month",
+                "year",
+                "custom",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "anchor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            }
           }
         ]
       }
@@ -59126,6 +59267,451 @@
         "required": [
           "start",
           "end"
+        ],
+        "additionalProperties": false
+      },
+      "PersonalTimeQuery": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "period": {
+            "default": "week",
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "year",
+              "custom",
+              "all"
+            ]
+          },
+          "anchor": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "to": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "offset": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          }
+        },
+        "additionalProperties": false
+      },
+      "PersonalTimeReport": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string"
+          },
+          "observedAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{6}Z$"
+          },
+          "range": {
+            "type": "object",
+            "properties": {
+              "period": {
+                "type": "string",
+                "enum": [
+                  "day",
+                  "week",
+                  "month",
+                  "year",
+                  "custom",
+                  "all"
+                ]
+              },
+              "from": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "to": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "label": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "period",
+              "from",
+              "to",
+              "label"
+            ],
+            "additionalProperties": false
+          },
+          "history": {
+            "type": "object",
+            "properties": {
+              "firstDate": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "lastDate": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "firstDate",
+              "lastDate"
+            ],
+            "additionalProperties": false
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "workMicroseconds": {
+                "type": "string",
+                "pattern": "^\\d+$"
+              },
+              "breakMicroseconds": {
+                "type": "string",
+                "pattern": "^\\d+$"
+              },
+              "shiftCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "openCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "totalMicroseconds": {
+                "type": "string",
+                "pattern": "^\\d+$"
+              },
+              "daysWorked": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "workMicroseconds",
+              "breakMicroseconds",
+              "shiftCount",
+              "openCount",
+              "totalMicroseconds",
+              "daysWorked"
+            ],
+            "additionalProperties": false
+          },
+          "daily": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "workMicroseconds": {
+                  "type": "string",
+                  "pattern": "^\\d+$"
+                },
+                "breakMicroseconds": {
+                  "type": "string",
+                  "pattern": "^\\d+$"
+                }
+              },
+              "required": [
+                "date",
+                "workMicroseconds",
+                "breakMicroseconds"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "trend": {
+            "type": "object",
+            "properties": {
+              "group": {
+                "type": "string",
+                "enum": [
+                  "day",
+                  "month"
+                ]
+              },
+              "points": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "workMicroseconds": {
+                      "type": "string",
+                      "pattern": "^\\d+$"
+                    },
+                    "breakMicroseconds": {
+                      "type": "string",
+                      "pattern": "^\\d+$"
+                    }
+                  },
+                  "required": [
+                    "date",
+                    "workMicroseconds",
+                    "breakMicroseconds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "group",
+              "points"
+            ],
+            "additionalProperties": false
+          },
+          "jobs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "jobId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "unitId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "unitName": {
+                  "type": "string"
+                },
+                "workMicroseconds": {
+                  "type": "string",
+                  "pattern": "^\\d+$"
+                },
+                "breakMicroseconds": {
+                  "type": "string",
+                  "pattern": "^\\d+$"
+                }
+              },
+              "required": [
+                "jobId",
+                "title",
+                "unitId",
+                "unitName",
+                "workMicroseconds",
+                "breakMicroseconds"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "startedAt": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{6}Z$"
+                },
+                "endedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{6}Z$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "workMicroseconds": {
+                  "type": "string",
+                  "pattern": "^\\d+$"
+                },
+                "breakMicroseconds": {
+                  "type": "string",
+                  "pattern": "^\\d+$"
+                },
+                "periodWorkMicroseconds": {
+                  "type": "string",
+                  "pattern": "^\\d+$"
+                },
+                "periodBreakMicroseconds": {
+                  "type": "string",
+                  "pattern": "^\\d+$"
+                },
+                "segments": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "work",
+                          "break"
+                        ]
+                      },
+                      "jobId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "unitId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "unitName": {
+                        "type": "string"
+                      },
+                      "startedAt": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{6}Z$"
+                      },
+                      "endedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{6}Z$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "workMicroseconds": {
+                        "type": "string",
+                        "pattern": "^\\d+$"
+                      },
+                      "breakMicroseconds": {
+                        "type": "string",
+                        "pattern": "^\\d+$"
+                      },
+                      "periodWorkMicroseconds": {
+                        "type": "string",
+                        "pattern": "^\\d+$"
+                      },
+                      "periodBreakMicroseconds": {
+                        "type": "string",
+                        "pattern": "^\\d+$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "jobId",
+                      "title",
+                      "unitId",
+                      "unitName",
+                      "startedAt",
+                      "endedAt",
+                      "workMicroseconds",
+                      "breakMicroseconds",
+                      "periodWorkMicroseconds",
+                      "periodBreakMicroseconds"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "startedAt",
+                "endedAt",
+                "revision",
+                "workMicroseconds",
+                "breakMicroseconds",
+                "periodWorkMicroseconds",
+                "periodBreakMicroseconds",
+                "segments"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "nextOffset": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "timezone",
+          "observedAt",
+          "range",
+          "history",
+          "summary",
+          "daily",
+          "trend",
+          "jobs",
+          "rows",
+          "offset",
+          "hasMore",
+          "nextOffset"
         ],
         "additionalProperties": false
       },

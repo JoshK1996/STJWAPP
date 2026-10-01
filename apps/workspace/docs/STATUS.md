@@ -1,5 +1,11 @@
 # Implementation status
 
+## PIN personal hours - October 1, 2026
+
+Implemented for issue #27: PIN sign-in retains the clock as its first screen and adds My hours with day, week, month, year, custom and all-time review. Records are self-only regardless of role, with exact work/break totals, interactive period charts, job/community breakdowns and detailed paginated cards. Existing management routes require password sign-in. See PERSONAL-HOURS and ADR0015. No database migration or customer-record change.
+
+Changed-code verification: 16 service tests, 6 HTTP boundary tests and 6 date/display helper tests passed. The production build passed after correcting two type-only annotations. Synthetic browser acceptance, CI and live delivery are pending; this entry does not yet claim deployment.
+
 The live workspace was cleared of owner-confirmed demonstration operational records while retaining three initial real accounts and four basic communities/jobs. New live records must be preserved. The full school, early-childhood, parish and accounting request remains incomplete. This public status records capabilities; account receipts, private operational evidence and local machine configuration are not published.
 
 ## Shared flags and simpler daily use - September 27, 2026
