@@ -2,7 +2,13 @@
 
 Railway hosts the app and its separate PostgreSQL database independently of the reference applications. The root prototype is not a deployment source for `apps/workspace`.
 
-## Current shared-flags and simpler-workspace release
+## Current PIN personal-hours release
+
+Deployment `d734175a-f585-4a95-bb2a-e6fc5e1cc1e3` is live, verified October 1, 2026 UTC, after merging PR #28. All 400 runtime source files match commit `f36c95625dd46f4e49a8c004b3f43ea915f3b524` and manifest SHA256 `f1af026fde5f83b5fd3cb8d7c68d0c3068dc85d68e27e28f239e04e5e7396116`. Build version `3d49319ab82652f768f5e3dd65568fda4961273ce8363c83de02d3800d68857d`; entry SHA256 `0478e39a8f6f7bcf16a2ddf814e738e4b77d42cbb90919049cc4f33aaea6ec00`. Nine public delivery checks verified readiness, exact entry/four assets including the lazy hours view, update discovery, anonymous history denial and demonstration mode off. Runtime readback confirmed `stjw_runtime`. No schema migration, credential reset or customer-record mutation was performed; schema 048 remains the existing requirement. Temporary verification access was revoked.
+
+Finish any pending clock action, then accept the update prompt or reload. Sign in with Quick PIN and choose **My hours & clock records**; the menu also offers **My hours**. Calendar periods, custom dates, all time, charts and detailed personal cards are read-only. Password sign-in still opens permitted management tools. See PERSONAL-HOURS and ADR0015. This read-only feature needs no database maintenance.
+
+## Previous shared-flags and simpler-workspace release
 
 Deployment `17cd26e7-fd05-4430-adbf-ebfc7b06acc1` is live, verified September 28, 2026 UTC. All 395 runtime source files in the web container match commit `86d2a44c0f5029c0b162fc6ddca2d5556a7edba8` and manifest SHA256 `4f8c04efb1cd278277628ba0bb13d9bc295a5575abb2206861b89c9730009272`. Build version `f843a4923ce75d849a29f44b2e7429e6784499e7ea2f1421ac994c8934a2952b`; entry SHA256 `d612da5c127c202a7a841061a95b83c0f9f45243abaeef8a212c0b136295e855`. Separate maintenance used the identical reviewed plan for rollback and commit, advancing schema 047 to 048 while preserving existing accounts, preferences and time records. Runtime readback confirmed `stjw_runtime`, all 32 protection flags and the new policy/history privileges. Public delivery checks verified health, the exact entry and assets, update discovery, anonymous policy denial and demonstration mode off. Temporary maintenance access was revoked.
 
