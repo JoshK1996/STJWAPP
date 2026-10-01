@@ -10,11 +10,11 @@ Focus the first screen on who is clocked in, their organization/job, elapsed tim
 
 ## PIN personal hours - October 1, 2026
 
-Current delivery: give PIN users read-only access to their own clock records and day/week/month/year/custom/all-time totals. Preserve immediate clock access, five-minute PIN sessions and password-only administration. See PERSONAL-HOURS and ADR0015; issue27 records ownership and changed-code checks.
+Delivered live under PR #28: PIN users can review their own clock records and day/week/month/year/custom/all-time totals. Preserve immediate clock access, five-minute PIN sessions and password-only administration. See PERSONAL-HOURS and ADR0015; issue27 records ownership and changed-code checks.
 
 ## Sequence
 
-Current change: shared administrator attention rules, personal simple/full menus and saved filters, progressive disclosure on Schedule/Settings/Payroll, and better fitted Excel exports. See SIMPLE-WORKSPACE and ADR0014. Test only changed code and direct dependencies; do not repeat completed release baselines or other sessions' checks. Issue17 records ownership and exact results. Broader page-by-page simplification remains incremental; global navigation changes are not proof that every module has been redesigned.
+Delivered: shared administrator attention rules, personal simple/full menus and saved filters, progressive disclosure on Schedule/Settings/Payroll, and better fitted Excel exports. See SIMPLE-WORKSPACE and ADR0014. Test only changed code and direct dependencies; do not repeat completed release baselines or other sessions' checks. Issue17 records ownership and exact results. Broader page-by-page simplification remains incremental; global navigation changes are not proof that every module has been redesigned.
 
 Delivered: simplified administrator time-card review and editing. The owner selected immediate saving with audit history for another employee's time. Preserve self/scoped-manager independent review, original punches, exact retries and current source/session checks. Add whole-range search/totals, work/break separation and direct employee/Payroll/Overview entry. See TIME-CARDS and ADR0013; actual implementation and rollout must be recorded in STATUS/VALIDATION.
 
