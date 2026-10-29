@@ -55,7 +55,7 @@ async function queue(p:Proof){const command=clockIn();return {command,state:awai
 async function shiftCount(id:string){return Number((await db.query('SELECT count(*) AS count FROM shifts WHERE user_id=$1',[id])).rows[0].count);}
 
 test('per-employee policy defaults off; ordinary immediate clock retains its exact receipt and timestamp behavior',async()=>{
-  const p=await person();assert.deepEqual(await getEmployeeClockPolicy(db,owner,ownerProof,p.actor.id),{noEarlyClockIn:false,version:0});
+  const p=await person();assert.deepEqual(await getEmployeeClockPolicy(db,owner,ownerProof,p.actor.id),{noEarlyClockIn:false,rules:null,version:0});
   const command=clockIn(),first=await applyAuthenticatedClockCommand(db,p.actor,p.hash,command);
   assert.ok(first.shift);assert.equal(first.preclock.pending,null);assert.equal(first.preclock.policy.noEarlyClockIn,false);
   assert.deepEqual(await applyAuthenticatedClockCommand(db,p.actor,p.hash,command),JSON.parse(JSON.stringify(first)));
@@ -107,7 +107,7 @@ for(const change of ['schedule_cancelled','schedule_edited','job_archived','job_
 test('policy edits are versioned, cancel pending authorization immediately, and keep existing hours untouched',async()=>{
   const p=await person();await setup(p);const {state}=await queue(p);
   await assert.rejects(saveEmployeeClockPolicy(db,owner,ownerProof,p.actor.id,{noEarlyClockIn:false,expectedVersion:0}),{status:409});
-  const changed=await saveEmployeeClockPolicy(db,owner,ownerProof,p.actor.id,{noEarlyClockIn:false,expectedVersion:1});assert.deepEqual(changed,{noEarlyClockIn:false,version:2});
+  const changed=await saveEmployeeClockPolicy(db,owner,ownerProof,p.actor.id,{noEarlyClockIn:false,expectedVersion:1});assert.deepEqual(changed,{noEarlyClockIn:false,rules:null,version:2});
   assert.equal((await db.query('SELECT status FROM clock_intents WHERE id=$1',[state.preclock.pending.id])).rows[0].status,'cancelled');
   const current=await getAuthenticatedClock(db,p.actor,p.hash);assert.equal(current.preclock.pending,null);assert.equal(current.preclock.policy.noEarlyClockIn,false);
   await applyAuthenticatedClockCommand(db,p.actor,p.hash,clockIn());assert.equal(await shiftCount(p.actor.id),1);

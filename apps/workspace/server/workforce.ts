@@ -18,7 +18,7 @@ export async function clockState(db: Queryable, actor: Actor) {
 }
 /** Internal transition primitive. Caller holds the employee account lock.
  * Public HTTP callers must use clock-session.ts; no session is created here. */
-export async function clockTransition(tx: Queryable, actor: Actor, raw: z.infer<typeof clockInput>, injectedNow?: Date|string, scheduled?: {intentId:string;scheduleId:string;scheduleVersion:number;requestedAt:string;processedAt:string}, decorate?: (result:Awaited<ReturnType<typeof clockState>>)=>Promise<any>) {
+export async function clockTransition(tx: Queryable, actor: Actor, raw: z.infer<typeof clockInput>, injectedNow?: Date|string, scheduled?: Record<string,unknown>, decorate?: (result:Awaited<ReturnType<typeof clockState>>)=>Promise<any>) {
   const input = clockInput.parse(raw);
     const fingerprint = digest(JSON.stringify({ action: input.action, jobId: input.jobId ?? null }));
     const previous = (await tx.query('SELECT fingerprint,result FROM clock_commands WHERE user_id=$1 AND command_id=$2',[actor.id,input.commandId])).rows[0];

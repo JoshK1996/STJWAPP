@@ -5,7 +5,7 @@ import { clockTransition } from './workforce';
 import { timeTransaction } from './time-record-access';
 import {currentClockActor,recheckClockSession} from './clock-session-access';
 export {currentClockActor,recheckClockSession} from './clock-session-access';
-import {clockStateWithPreclock,interceptScheduledClockIn,readPreclockState} from './scheduled-clock';
+import {clockStateWithPreclock,interceptRuleClockOut,interceptScheduledClockIn,readPreclockState} from './scheduled-clock';
 
 /** Public read boundary: actual proof is mandatory, including for PIN. */
 export async function getAuthenticatedClock(db: Database, supplied: Actor, sessionHash: string) {
@@ -22,7 +22,7 @@ export async function applyAuthenticatedClockCommand(db: Database, supplied: Act
   const input=clockInput.parse(raw);
   return timeTransaction(db,async tx=>{
     const actor=await currentClockActor(tx,supplied,sessionHash,true);
-    const intercepted=await interceptScheduledClockIn(tx,actor,input);
+    const intercepted=await interceptScheduledClockIn(tx,actor,input)??await interceptRuleClockOut(tx,actor,input);
     const result=intercepted??await clockTransition(tx,actor,input,undefined,undefined,async state=>({...state,preclock:await readPreclockState(tx,actor)}));
     // Includes exact receipt replay. A lost response never restores old authority.
     await recheckClockSession(tx,actor,sessionHash);

@@ -132,7 +132,7 @@ test('runtime guards shared attention rules and their immutable history',async()
 });
 test("the restricted runtime identity can verify the schema without migration privileges", async () => {
   await runtime(async () => {
-    assert.equal(await verifySchema(db), 48);
+    assert.equal(await verifySchema(db), 50);
     const access = await assertRuntimeAccess(db);
     assert.equal(access.role, "stjw_runtime");
     assert.equal(access.login, "stjw_runtime");
