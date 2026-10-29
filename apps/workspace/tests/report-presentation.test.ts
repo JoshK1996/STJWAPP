@@ -11,10 +11,13 @@ test("display rounding stays exact above safe integer range and carries half-up 
   assert.equal(formatReportDecimal("not an amount"), "not an amount");
 });
 test("duration display aggregates no source records and rounds only the provided integer total", () => {
-  assert.equal(formatReportHours("3600000001"), "1.00");
-  assert.equal(formatReportHours("18000000"), "0.01");
-  assert.equal(formatReportHours("-17999999"), "0.00");
-  assert.equal(formatReportHours("9007199254740993"), "2,501,999.79");
+  assert.equal(formatReportHours("3600000001", 2, "exact"), "1.00");
+  assert.equal(formatReportHours("18000000", 2, "exact"), "0.01");
+  assert.equal(formatReportHours("-17999999", 2, "exact"), "0.00");
+  assert.equal(formatReportHours("9007199254740993", 2, "exact"), "2,501,999.79");
+  // Readers see quarter hours by default, rounded once from the same exact total.
+  assert.equal(formatReportHours("9007199254740993"), "2,501,999.75");
+  assert.equal(formatReportHours("18000000"), "0.00");
   assert.equal(formatReportValue("duration_ms", 3600001, { timezone: "UTC" }), "1.00");
 });
 test("readable dates distinguish fall DST offsets and do not shift date-only values", () => {

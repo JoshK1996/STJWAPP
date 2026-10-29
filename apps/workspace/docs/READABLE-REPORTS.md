@@ -37,3 +37,9 @@ This release does not establish a general ledger, bank reconciliation, accounts 
 Regression coverage exercises once-only rounding, large/negative amounts, duplicate names, formula-like input, column selection, empty data, styled Excel XML, worker limits, route authorization and expired/revoked access. Browser acceptance uses a disposable synthetic database and ordinary password authentication. Actual test, deployment and device evidence is recorded in STATUS; physical phones and customer accounting acceptance require their own checks.
 
 Agent evidence selection follows the progressive-disclosure pattern in [TypeSafe's skill-suggestion cookbook](https://docs.typesafe.ai/cookbooks/skill_suggestion); Jev findings are advisory and independently checked against source and deterministic tests.
+
+## Quarter-hour hours
+
+Hours shown for reading (Reports, dashboard totals, Payroll Excel/CSV presentation, allowance and payroll-review workbooks) are rounded to the nearest quarter hour (0.25), an exact half rounding up. The rounding is applied once, to a total that has already been added together from exact microseconds; no punch, segment or shift is ever rounded before it is summed, so three five-minute segments still total a quarter hour. Rounded rows may not add to a rounded total, and a very short total can show 0.00 h. Hover text and the Exact microseconds / audit views keep the unrounded values, and CSV/JSON evidence downloads are unchanged.
+
+In Payroll **Customize report & preview**, **Hours rounding** offers **Nearest quarter hour** (default) or **Exact hours**, which uses the chosen 2/3/4 decimal places as before. An older saved layout without the choice opens with the quarter-hour default. Recorded time, time cards and pay-rate or wage policy are not changed by this display setting; the app still does not calculate certified payroll.

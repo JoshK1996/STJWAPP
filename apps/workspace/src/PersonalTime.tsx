@@ -5,10 +5,9 @@ import {DateTime} from 'luxon';
 import {api,ApiError} from './api';
 import type {PersonalTimeReport} from '../shared/personal-time';
 import {personalTimeReportSchema} from '../shared/personal-time';
-import {movePersonalTimeAnchor,personalTimeCustomError,personalTimeDuration,personalTimeCommunities} from '../shared/personal-time-view';
+import {movePersonalTimeAnchor,personalTimeCustomError,personalTimeDuration,personalTimeExactDuration,personalTimeHours,personalTimeCommunities} from '../shared/personal-time-view';
 import type {PersonalTimeCalendarPeriod} from '../shared/personal-time-view';
 import {formatWorkforceDuration,workforceBarPercent} from '../shared/workforce-display';
-import {decimalWorkHours} from '../shared/workforce-visuals';
 import './personal-time.css';
 
 type Period=PersonalTimeCalendarPeriod|'custom'|'all';
@@ -24,7 +23,10 @@ function requestFor(selection:Selection){
  return `/clock/history?${query}`;
 }
 function Duration({value}:{value:string}){
- return <span title={formatWorkforceDuration(value,true)} aria-label={formatWorkforceDuration(value,true)}>{personalTimeDuration(value)}</span>;
+ return <span title={`Exact time ${formatWorkforceDuration(value,true)}`} aria-label={`${personalTimeDuration(value)}, rounded to the nearest quarter hour. Exact time ${formatWorkforceDuration(value,true)}.`}>{personalTimeDuration(value)}</span>;
+}
+function ExactDuration({value}:{value:string}){
+ return <span title={formatWorkforceDuration(value,true)} aria-label={formatWorkforceDuration(value,true)}>{personalTimeExactDuration(value)}</span>;
 }
 function Stamp({value,timezone,full=false}:{value:string;timezone:string;full?:boolean}){
  const local=DateTime.fromISO(value).setZone(timezone);
@@ -101,19 +103,19 @@ export default function PersonalTime({timezone,onSessionExpired,onBack}:{timezon
    {report&&<>
     <div className="pt-range-heading"><div><h3>{report.range.label}</h3><p className="pt-note">{report.timezone} · Weeks begin Monday</p></div><button className="pt-icon-button" aria-label="Refresh my hours" onClick={()=>setRefresh(value=>value+1)}><RefreshCw size={18} aria-hidden="true"/></button></div>
     <div className="pt-summary" aria-label="Totals for the entire selected period">
-     <div className="pt-stat pt-stat-work"><span><Clock3 size={18} aria-hidden="true"/>Worked</span><strong title={formatWorkforceDuration(report.summary.workMicroseconds,true)}>{decimalWorkHours(report.summary.workMicroseconds)}<small>h</small></strong><span><Duration value={report.summary.workMicroseconds}/></span></div>
+     <div className="pt-stat pt-stat-work"><span><Clock3 size={18} aria-hidden="true"/>Worked</span><strong title={formatWorkforceDuration(report.summary.workMicroseconds,true)}>{personalTimeHours(report.summary.workMicroseconds)}<small>h</small></strong><span>Nearest quarter hour</span></div>
      <div className="pt-stat pt-stat-break"><span><Coffee size={18} aria-hidden="true"/>Breaks</span><strong><Duration value={report.summary.breakMicroseconds}/></strong><span>Shown separately</span></div>
      <div className="pt-stat pt-stat-days"><span><CalendarDays size={18} aria-hidden="true"/>Days worked</span><strong>{report.summary.daysWorked.toLocaleString()}</strong><span>{report.summary.shiftCount.toLocaleString()} clock {report.summary.shiftCount===1?'record':'records'}{report.summary.openCount>0?' · clock running':''}</span></div>
     </div>
-    <p className="pt-note pt-observation">Updated <Stamp value={report.observedAt} timezone={report.timezone} full/>. {report.summary.openCount>0?'Your open record is included through this time. Refresh to update it.':'Hours reflect your current time cards.'} Display hours use two decimals; exact time is preserved.</p>
+    <p className="pt-note pt-observation">Updated <Stamp value={report.observedAt} timezone={report.timezone} full/>. {report.summary.openCount>0?'Your open record is included through this time. Refresh to update it.':'Hours reflect your current time cards.'} Hours are rounded to the nearest quarter hour (for example 7.25 h is 7 hours 15 minutes); exact time is preserved.</p>
     {report.summary.shiftCount===0?<div className="pt-empty"><History size={36} aria-hidden="true"/><h3>No clock records in this period</h3><p>Choose another date or All time to review your history.</p><button className="pt-button" onClick={()=>choosePeriod('all')}>View all time</button></div>:<>
      <section className="pt-panel pt-trend" aria-label="Hours chart">
       <div className="pt-section-heading"><h3><ChartColumn size={19} aria-hidden="true"/>Your hours over time</h3><div className="pt-legend"><span><i className="pt-work-dot"/>Work</span><span><i className="pt-break-dot"/>Break</span></div></div>
       <p className="pt-note">Worked hours appear above each bar. Select a bar to open that {report.trend.group==='month'?'month':'day'}. Only dates with recorded time are shown.{trend.length>7?' Scroll the chart to see more dates.':''}</p>
       <div className="pt-chart-scroll" tabIndex={0} role="group" aria-label="Scrollable hours chart">
        <div className="pt-chart" style={{'--pt-points':Math.max(trend.length,1)} as CSSProperties}>
-        {trend.map(point=>{const workHeight=workforceBarPercent(point.workMicroseconds,maximum),breakHeight=workforceBarPercent(point.breakMicroseconds,maximum);return <button key={point.date} className="pt-chart-column" aria-label={`${dateLabel(point.date,report.trend.group==='month'?'LLLL yyyy':'cccc, LLLL d, yyyy')}: ${formatWorkforceDuration(point.workMicroseconds,true)} worked, ${formatWorkforceDuration(point.breakMicroseconds,true)} break. Open ${report.trend.group==='month'?'month':'day'}.`} title={`${dateLabel(point.date)} · ${personalTimeDuration(point.workMicroseconds)} worked · ${personalTimeDuration(point.breakMicroseconds)} break`} onClick={()=>{setDateError('');setSelection(current=>({...current,period:report.trend.group==='month'?'month':'day',anchor:point.date,offset:0}));}}>
-         <span className="pt-bar-value" aria-hidden="true">{decimalWorkHours(point.workMicroseconds)}h</span><span className="pt-bar-space" aria-hidden="true"><span className="pt-bar-break" style={{height:`${breakHeight}%`}}/><span className="pt-bar-work" style={{height:`${workHeight}%`}}/></span>
+        {trend.map(point=>{const workHeight=workforceBarPercent(point.workMicroseconds,maximum),breakHeight=workforceBarPercent(point.breakMicroseconds,maximum);return <button key={point.date} className="pt-chart-column" aria-label={`${dateLabel(point.date,report.trend.group==='month'?'LLLL yyyy':'cccc, LLLL d, yyyy')}: ${personalTimeDuration(point.workMicroseconds)} worked, ${personalTimeDuration(point.breakMicroseconds)} break. Open ${report.trend.group==='month'?'month':'day'}.`} title={`${dateLabel(point.date)} · ${personalTimeDuration(point.workMicroseconds)} worked · ${personalTimeDuration(point.breakMicroseconds)} break`} onClick={()=>{setDateError('');setSelection(current=>({...current,period:report.trend.group==='month'?'month':'day',anchor:point.date,offset:0}));}}>
+         <span className="pt-bar-value" aria-hidden="true">{personalTimeHours(point.workMicroseconds)}h</span><span className="pt-bar-space" aria-hidden="true"><span className="pt-bar-break" style={{height:`${breakHeight}%`}}/><span className="pt-bar-work" style={{height:`${workHeight}%`}}/></span>
          <span className="pt-bar-label">{dateLabel(point.date,report.trend.group==='month'?'LLL yy':'LLL d')}</span>
         </button>;})}
        </div>
@@ -137,7 +139,7 @@ export default function PersonalTime({timezone,onSessionExpired,onBack}:{timezon
        {crossesRange&&<p className="pt-note">This record crosses the selected dates. Only time inside this period is included above. Whole record: <Duration value={row.workMicroseconds}/> worked · <Duration value={row.breakMicroseconds}/> on break.</p>}
        <ol className="pt-segments">{row.segments.map(segment=>{
         const isBreak=segment.kind==='break',periodDuration=isBreak?segment.periodBreakMicroseconds:segment.periodWorkMicroseconds,wholeDuration=isBreak?segment.breakMicroseconds:segment.workMicroseconds;
-        return <li key={segment.id} className={isBreak?'pt-segment-break':'pt-segment-work'}><span className="pt-segment-symbol" aria-hidden="true">{isBreak?<Coffee size={16}/>:<Clock3 size={16}/>}</span><div><div className="pt-segment-title"><strong>{isBreak?'Break':segment.title}</strong><span><Duration value={periodDuration}/></span></div><p>{isBreak?`${segment.title} · `:''}{segment.unitName}</p><p className="pt-segment-dates"><Stamp value={segment.startedAt} timezone={report.timezone} full/> <span>→</span> {segment.endedAt?<Stamp value={segment.endedAt} timezone={report.timezone} full/>:'Ongoing'}</p>{periodDuration!==wholeDuration&&<p className="pt-note">{periodDuration==='0'?'Outside this period. ':''}Full segment: <Duration value={wholeDuration}/></p>}</div></li>;
+        return <li key={segment.id} className={isBreak?'pt-segment-break':'pt-segment-work'}><span className="pt-segment-symbol" aria-hidden="true">{isBreak?<Coffee size={16}/>:<Clock3 size={16}/>}</span><div><div className="pt-segment-title"><strong>{isBreak?'Break':segment.title}</strong><span><ExactDuration value={periodDuration}/></span></div><p>{isBreak?`${segment.title} · `:''}{segment.unitName}</p><p className="pt-segment-dates"><Stamp value={segment.startedAt} timezone={report.timezone} full/> <span>→</span> {segment.endedAt?<Stamp value={segment.endedAt} timezone={report.timezone} full/>:'Ongoing'}</p>{periodDuration!==wholeDuration&&<p className="pt-note">{periodDuration==='0'?'Outside this period. ':''}Full segment: <ExactDuration value={wholeDuration}/></p>}</div></li>;
        })}</ol>
       </div></details>;
      })}</div>

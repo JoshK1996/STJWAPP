@@ -68,7 +68,7 @@ test("readable workbook opens with a styled hours report while exact source shee
   const input = fixture("workforce", true), found = await inspect(await serializeSnapshotXlsx(input), input);
   const sheetXml = await found.zip.file("xl/worksheets/sheet1.xml")!.async("string"), report = cells(sheetXml);
   assert.equal(report.get("A1")!.text, "Synthetic spreadsheet");
-  assert.equal(report.get("B7")!.text, "2,501,999.79");
+  assert.equal(report.get("B7")!.text, "2,501,999.75");
   assert.equal(report.get("C7")!.text, "—");
   assert.equal(found.data.get("B2")!.text, "9007199254740993");
   assert.match(sheetXml, /ySplit="6"/);
