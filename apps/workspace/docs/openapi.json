@@ -54516,7 +54516,7 @@
       "get": {
         "operationId": "get__staff__id__clock_policy",
         "summary": "Read a managed employee’s scheduled clock setting",
-        "description": "Actual current browser session in the same organization, completed onboarding and any required password MFA proof. API bearer tokens cannot use this operation. Password management role and existing staff hierarchy/scope. No self editing. Missing configuration reads noEarlyClockIn=false/version0.",
+        "description": "Actual current browser session in the same organization, completed onboarding and any required password MFA proof. API bearer tokens cannot use this operation. Password management role and existing staff hierarchy/scope. No self editing. Missing configuration reads noEarlyClockIn=false/rules=null/version0. rules holds optional per-weekday clock-in/clock-out limits (organization-local HH:MM; index0 is Monday).",
         "security": [
           {
             "Session": []
@@ -54638,8 +54638,8 @@
       },
       "put": {
         "operationId": "put__staff__id__clock_policy",
-        "summary": "Set No early clock-in for a managed employee",
-        "description": "Actual current browser session in the same organization, completed onboarding and any required password MFA proof. API bearer tokens cannot use this operation. Writes require exact configured Origin, application/json and X-CSRF-Token from /me. Password management role and existing staff hierarchy/scope. expectedVersion prevents lost edits; changed policy cancels any pending intent. Repeated unchanged existing policy returns the same version. This is an employee-specific clock rule, not a pay policy.",
+        "summary": "Set No early clock-in and clock rules for a managed employee",
+        "description": "Actual current browser session in the same organization, completed onboarding and any required password MFA proof. API bearer tokens cannot use this operation. Writes require exact configured Origin, application/json and X-CSRF-Token from /me. Password management role and existing staff hierarchy/scope. expectedVersion prevents lost edits; changed policy cancels any pending intent. Omit rules to keep the saved rules, send null or an all-open rule set to clear them. Rules can forbid clocking in on a weekday, set earliest/latest clock-in and earliest/latest clock-out times; an early clock-in saves a pending start that begins automatically at the earliest time, and an open shift is closed automatically at the latest clock-out time. Repeated unchanged existing policy returns the same version. This is an employee-specific clock rule, not a pay policy.",
         "security": [
           {
             "Session": []
@@ -113108,11 +113108,96 @@
         ],
         "additionalProperties": false
       },
+      "ClockRules": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "days": {
+            "minItems": 7,
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "allowed": {
+                  "type": "boolean"
+                },
+                "clockInEarliest": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "clockInLatest": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "clockOutEarliest": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "clockOutLatest": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "allowed",
+                "clockInEarliest",
+                "clockInLatest",
+                "clockOutEarliest",
+                "clockOutLatest"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "days"
+        ],
+        "additionalProperties": false
+      },
       "EmployeeClockPolicy": {
         "type": "object",
         "properties": {
           "noEarlyClockIn": {
             "type": "boolean"
+          },
+          "rules": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClockRules"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "version": {
             "type": "integer",
@@ -113121,6 +113206,7 @@
         },
         "required": [
           "noEarlyClockIn",
+          "rules",
           "version"
         ],
         "additionalProperties": false
@@ -113145,6 +113231,13 @@
               "blocked"
             ]
           },
+          "source": {
+            "type": "string",
+            "enum": [
+              "schedule",
+              "rule"
+            ]
+          },
           "jobId": {
             "type": "string",
             "format": "uuid"
@@ -113156,12 +113249,26 @@
             "type": "string"
           },
           "scheduleId": {
-            "type": "string",
-            "format": "uuid"
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "scheduleVersion": {
-            "type": "integer",
-            "minimum": 1
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "startsAt": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -113209,6 +113316,7 @@
           "id",
           "version",
           "status",
+          "source",
           "jobId",
           "jobTitle",
           "unitName",
@@ -113251,6 +113359,16 @@
           },
           "timezone": {
             "type": "string"
+          },
+          "todayRules": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "schedules": {
             "type": "array",
@@ -113305,6 +113423,7 @@
           "pending",
           "latest",
           "timezone",
+          "todayRules",
           "schedules"
         ],
         "additionalProperties": false
@@ -113473,6 +113592,87 @@
         "properties": {
           "noEarlyClockIn": {
             "type": "boolean"
+          },
+          "rules": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "days": {
+                    "minItems": 7,
+                    "maxItems": 7,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "allowed": {
+                          "type": "boolean"
+                        },
+                        "clockInEarliest": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "clockInLatest": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "clockOutEarliest": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "clockOutLatest": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "allowed",
+                        "clockInEarliest",
+                        "clockInLatest",
+                        "clockOutEarliest",
+                        "clockOutLatest"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "days"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "expectedVersion": {
             "type": "integer",

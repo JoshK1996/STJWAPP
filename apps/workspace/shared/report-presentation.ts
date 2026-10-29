@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { roundToQuarterHour, type HourRounding } from "./quarter-hour";
 
 export type ReportPresentation = { timezone: string; source?: string; currency?: unknown; row?: Record<string, unknown>; decimals?: 2 | 4 };
 export type PresentationColumn = { key: string; label: string };
@@ -14,9 +15,10 @@ export function formatReportDecimal(value: unknown, places: number = 2): string 
   return `${match[1] === "-" && magnitude !== 0n ? "-" : ""}${groupDigits(String(magnitude / scale))}${places ? "." + String(magnitude % scale).padStart(places, "0") : ""}`;
 }
 
-export function formatReportHours(microseconds: string, places: 2 | 4 = 2): string {
+/** Hours for reading. Defaults to the nearest quarter hour, applied to this already aggregated total only; exact microseconds stay available to callers. */
+export function formatReportHours(microseconds: string, places: 2 | 4 = 2, rounding: HourRounding = "quarter"): string {
   if (!/^-?\d+$/.test(microseconds)) return microseconds;
-  const amount = BigInt(microseconds), absolute = amount < 0n ? -amount : amount, scale = 10n ** BigInt(places);
+  const amount = rounding === "quarter" ? roundToQuarterHour(BigInt(microseconds)) : BigInt(microseconds), absolute = amount < 0n ? -amount : amount, scale = 10n ** BigInt(places);
   const rounded = (absolute * scale + 1_800_000_000n) / 3_600_000_000n;
   return `${amount < 0n && rounded > 0n ? "-" : ""}${groupDigits(String(rounded / scale))}.${String(rounded % scale).padStart(places, "0")}`;
 }

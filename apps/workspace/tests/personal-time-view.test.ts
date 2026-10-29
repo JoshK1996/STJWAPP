@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {movePersonalTimeAnchor,personalTimeCustomError,personalTimeDuration,personalTimeCommunities} from '../shared/personal-time-view';
+import {movePersonalTimeAnchor,personalTimeCustomError,personalTimeDuration,personalTimeExactDuration,personalTimeHours,personalTimeCommunities} from '../shared/personal-time-view';
 
 test('personal history navigation preserves calendar periods across short months and leap years',()=>{
  assert.equal(movePersonalTimeAnchor('2028-01-31','month',1),'2028-02-01');
@@ -29,15 +29,36 @@ test('personal navigation and custom dates stay within the server-supported cale
  assert.match(personalTimeCustomError('1899-12-31','1900-01-01'),/valid/);
  assert.match(personalTimeCustomError('9998-12-31','9999-01-01'),/valid/);
 });
-test('personal display labels stay readable without changing exact duration values',()=>{
- assert.equal(personalTimeDuration('0'),'0 min');
- assert.equal(personalTimeDuration('1'),'<1 min');
- assert.equal(personalTimeDuration('59999999'),'<1 min');
- assert.equal(personalTimeDuration('60000000'),'1m');
- assert.equal(personalTimeDuration('3660000000'),'1h 1m');
- assert.equal(personalTimeDuration('3660000001'),'≈ 1h 1m');
- assert.equal(personalTimeDuration('9007199254740993'),'≈ 2,501,999h 47m');
+test('personal hours show the nearest quarter hour, rounded once from the exact total',()=>{
+ const hours=(h:number,m=0,s=0)=>String(BigInt(h)*3_600_000_000n+BigInt(m)*60_000_000n+BigInt(s)*1_000_000n);
+ assert.equal(personalTimeDuration('0'),'0.00 h');
+ assert.equal(personalTimeDuration('1'),'0.00 h');
+ assert.equal(personalTimeDuration(hours(0,7,29)),'0.00 h');
+ assert.equal(personalTimeDuration(hours(0,7,30)),'0.25 h');
+ assert.equal(personalTimeDuration(hours(7,22,29)),'7.25 h');
+ assert.equal(personalTimeDuration(hours(7,22,30)),'7.50 h');
+ assert.equal(personalTimeDuration(hours(7,52,30)),'8.00 h');
+ assert.equal(personalTimeDuration(hours(40,14)),'40.25 h');
+ assert.equal(personalTimeHours(hours(7,37,30)),'7.75');
+ assert.equal(personalTimeDuration('9007199254740993'),'2,501,999.75 h');
  assert.throws(()=>personalTimeDuration('-1'),/nonnegative/);
+ assert.throws(()=>personalTimeHours('1.5'),/nonnegative/);
+});
+test('rounding the total once differs from rounding each piece, so totals are never built from rounded segments',()=>{
+ const piece=String(5n*60_000_000n);
+ assert.equal(personalTimeDuration(piece),'0.00 h','one five-minute segment alone rounds to nothing');
+ assert.equal(personalTimeDuration(String(3n*BigInt(piece))),'0.25 h','three of them add to a quarter hour before rounding');
+ assert.equal(personalTimeDuration(String(BigInt(piece)*3n+1n)),'0.25 h');
+});
+test('a single recorded segment keeps its exact minute-level elapsed time',()=>{
+ assert.equal(personalTimeExactDuration('0'),'0 min');
+ assert.equal(personalTimeExactDuration('1'),'<1 min');
+ assert.equal(personalTimeExactDuration('59999999'),'<1 min');
+ assert.equal(personalTimeExactDuration('60000000'),'1m');
+ assert.equal(personalTimeExactDuration('3660000000'),'1h 1m');
+ assert.equal(personalTimeExactDuration('3660000001'),'≈ 1h 1m');
+ assert.equal(personalTimeExactDuration('9007199254740993'),'≈ 2,501,999h 47m');
+ assert.throws(()=>personalTimeExactDuration('-1'),/nonnegative/);
 });
 test('personal community breakdown aggregates exact values across jobs with stable identities',()=>{
  const result=personalTimeCommunities([

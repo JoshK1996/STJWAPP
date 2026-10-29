@@ -4,6 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
 import { staffTemporaryCredentialsInput, staffTemporaryCredentialsResult } from '../shared/temporary-credentials';
 import { clockPolicyInput, cancelPreclockInput } from '../shared/scheduled-clock';
+import { clockRulesSchema } from '../shared/clock-rules';
 import { workforceUtcMicrosSchema } from '../shared/workforce-reports-v2';
 import { workforceOverviewQuerySchema, workforceOverviewSchema, allowanceSnapshotInput, allowanceSnapshotReceipt, allowanceSnapshotSchema, allowanceSnapshotListSchema } from '../shared/workforce-overview';
 import { workforceImportPreviewInput, workforceImportApplyInput, workforceImportDetail, workforceImportReceipt, workforceImportList } from '../shared/workforce-imports';
@@ -41,11 +42,11 @@ add('/staff/{id}/temporary-credentials', 'post', 'Reset a managed account to tem
   'Password developer/owner/administrator only, with the existing target hierarchy; no self reset or inactive target. Supply password, PIN, commandId, reason and optional independent requirePasswordChange/requirePinChange booleans (both default true). All four policies are supported; only selected credentials require replacement. A retained PIN must be unique. Email plus temporary password identifies the account; a shared temporary PIN cannot select a unique employee. Revokes target sessions, setup links, onboarding/MFA challenges and API tokens; preserves enabled MFA and all recorded hours. Credential values never appear in the response or audit. The command is actor/target/payload bound using a domain-separated HMAC. Retry the exact command after an uncertain response: a replay returns current requiresCredentialChange without overwriting later employee credentials. Limited to20 reset attempts per actor per15-minute bucket.',
   put('StaffTemporaryCredentialsResult', staffTemporaryCredentialsResult), put('StaffTemporaryCredentialsInput', staffTemporaryCredentialsInput, 'input'));
 
-schemas.EmployeeClockPolicy = object({ noEarlyClockIn: bool, version: { type: 'integer', minimum: 0 } });
+schemas.EmployeeClockPolicy = object({ noEarlyClockIn: bool, rules: nullable(put('ClockRules', clockRulesSchema)), version: { type: 'integer', minimum: 0 } });
 const exact = z.toJSONSchema(workforceUtcMicrosSchema);
-schemas.PreclockIntent = object({ id: uuid, version, status: { type: 'string', enum: ['pending', 'executed', 'cancelled', 'blocked'] }, jobId: uuid, jobTitle: str, unitName: str,
-  scheduleId: uuid, scheduleVersion: version, startsAt: exact, endsAt: exact, createdAt: exact, processedAt: nullable(exact), reason: str, shiftId: nullable(uuid) });
-schemas.PreclockState = object({ policy: ref('EmployeeClockPolicy'), pending: nullable(ref('PreclockIntent')), latest: nullable(ref('PreclockIntent')), timezone: str,
+schemas.PreclockIntent = object({ id: uuid, version, status: { type: 'string', enum: ['pending', 'executed', 'cancelled', 'blocked'] }, source: { type: 'string', enum: ['schedule', 'rule'] }, jobId: uuid, jobTitle: str, unitName: str,
+  scheduleId: nullable(uuid), scheduleVersion: nullable(version), startsAt: exact, endsAt: exact, createdAt: exact, processedAt: nullable(exact), reason: str, shiftId: nullable(uuid) });
+schemas.PreclockState = object({ policy: ref('EmployeeClockPolicy'), pending: nullable(ref('PreclockIntent')), latest: nullable(ref('PreclockIntent')), timezone: str, todayRules: nullable(str),
   schedules: array(object({ scheduleId: uuid, scheduleVersion: version, jobId: uuid, startsAt: exact, endsAt: exact, phase: { type: 'string', enum: ['current', 'upcoming'] } }), 100) });
 schemas.ClockOpenShift = object({ id: uuid, org_id: uuid, user_id: uuid, started_at: instant, ended_at: { type: 'null' }, revision: version,
   segment_id: uuid, kind: { type: 'string', enum: ['work', 'break'] }, segment_started_at: instant, job_id: uuid, job_title: str, unit_name: str });
@@ -59,8 +60,8 @@ doc.paths['/clock'].post.description += preclock; doc.paths['/clock'].get.descri
 add('/clock/preclock/{id}/cancel', 'post', 'Cancel your pending scheduled start',
   'Own pending intent only. version must match; commandId is an exact payload-bound retry receipt. A changed/executed intent returns409; refresh the clock and use ordinary clock_out for an active shift. Returns the complete clock state without changing recorded hours.',
   ref('ClockState'), put('CancelPreclockInput', cancelPreclockInput, 'input'), { pin: true });
-add('/staff/{id}/clock-policy', 'get', 'Read a managed employee’s scheduled clock setting', 'Password management role and existing staff hierarchy/scope. No self editing. Missing configuration reads noEarlyClockIn=false/version0.', ref('EmployeeClockPolicy'));
-add('/staff/{id}/clock-policy', 'put', 'Set No early clock-in for a managed employee', 'Password management role and existing staff hierarchy/scope. expectedVersion prevents lost edits; changed policy cancels any pending intent. Repeated unchanged existing policy returns the same version. This is an employee-specific clock rule, not a pay policy.', ref('EmployeeClockPolicy'), put('EmployeeClockPolicyInput', clockPolicyInput, 'input'));
+add('/staff/{id}/clock-policy', 'get', 'Read a managed employee’s scheduled clock setting', 'Password management role and existing staff hierarchy/scope. No self editing. Missing configuration reads noEarlyClockIn=false/rules=null/version0. rules holds optional per-weekday clock-in/clock-out limits (organization-local HH:MM; index0 is Monday).', ref('EmployeeClockPolicy'));
+add('/staff/{id}/clock-policy', 'put', 'Set No early clock-in and clock rules for a managed employee', 'Password management role and existing staff hierarchy/scope. expectedVersion prevents lost edits; changed policy cancels any pending intent. Omit rules to keep the saved rules, send null or an all-open rule set to clear them. Rules can forbid clocking in on a weekday, set earliest/latest clock-in and earliest/latest clock-out times; an early clock-in saves a pending start that begins automatically at the earliest time, and an open shift is closed automatically at the latest clock-out time. Repeated unchanged existing policy returns the same version. This is an employee-specific clock rule, not a pay policy.', ref('EmployeeClockPolicy'), put('EmployeeClockPolicyInput', clockPolicyInput, 'input'));
 
 add('/workforce/attention-policy','get','Read shared workforce flag rules',
   'Password reporting role only: developer, owner, administrator, finance or explicitly scoped manager. Returns organization rules and whether this account can edit. No saved policy returns both rules enabled with zero-minute thresholds and version0. PIN and bearer sessions are denied.',

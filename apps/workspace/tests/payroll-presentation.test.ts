@@ -29,13 +29,16 @@ async function workbook(payload: string, presentation = options) {
 }
 
 test('readable hours round directly from exact aggregates without six-decimal double rounding', () => {
-  assert.equal(payrollPresentationHours('17999999', 2), '0.00');
-  assert.equal(payrollPresentationHours('18000000', 2), '0.01');
-  assert.equal(payrollPresentationHours('1800000', 3), '0.001');
-  assert.equal(payrollPresentationHours('180000', 4), '0.0001');
-  assert.equal(payrollPresentationHours('999999999999999999999', 4), '277777777777.7778');
+  // Exact hours: the chosen decimal places round the already aggregated total directly. Quarter-hour rounding is the default and is covered in quarter-hour.test.ts.
+  assert.equal(payrollPresentationHours('17999999', 2, 'exact'), '0.00');
+  assert.equal(payrollPresentationHours('18000000', 2, 'exact'), '0.01');
+  assert.equal(payrollPresentationHours('1800000', 3, 'exact'), '0.001');
+  assert.equal(payrollPresentationHours('180000', 4, 'exact'), '0.0001');
+  assert.equal(payrollPresentationHours('999999999999999999999', 4, 'exact'), '277777777777.7778');
+  assert.equal(payrollPresentationHours('18000000', 2), '0.00');
   const value = report([segment(9_000_000n), segment(9_000_000n)]);
-  assert.equal(buildPayrollPresentationTable(value, options).rows[0][1], '0.01');
+  assert.equal(buildPayrollPresentationTable(value, { ...options, hourRounding: 'exact' }).rows[0][1], '0.01');
+  assert.equal(buildPayrollPresentationTable(value, options).rows[0][1], '0.00');
   assert.equal(value.totals.workMicroseconds, '18000000');
   for (const invalid of ['-1', '01', '1.2', '1e10', 'Infinity']) assert.throws(() => payrollPresentationHours(invalid));
 });
@@ -97,7 +100,7 @@ test('Excel has readable numeric cells, color hierarchy, data bars, frozen/filte
 
 test('custom titles and formula-like names are text cells; selection applies to detail columns', async () => {
   const value = report([segment(3_605_400_000n, { employee_name: '=Synthetic name' })]);
-  const selected = { ...options, title: '=Review, not a formula', decimalPlaces: 3 as const, columns: ['workHours' as const] };
+  const selected = { ...options, title: '=Review, not a formula', decimalPlaces: 3 as const, hourRounding: 'exact' as const, columns: ['workHours' as const] };
   const { book } = await workbook(JSON.stringify(value), selected), sheet = book.worksheets[1];
   assert.equal(sheet.getCell('A1').value, '=Review, not a formula'); assert.equal(sheet.getCell('A7').value, '=Synthetic name');
   assert.equal(sheet.getCell('B7').value, 1.002); assert.equal(sheet.getCell('B7').numFmt, '#,##0.000');

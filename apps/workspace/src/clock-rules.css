@@ -1,0 +1,7 @@
+.clock-rules{display:grid;gap:.6rem;min-width:0}
+.clock-rules-day{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem .75rem;margin:0;padding:.7rem .8rem;border:1px solid var(--border);border-radius:12px;min-width:0}
+.clock-rules-day legend{font-weight:700;padding:0 .35rem}.clock-rules-day.is-off{opacity:.7}
+.clock-rules-allowed{grid-column:1/-1;display:flex;align-items:center;gap:.5rem;min-height:2.75rem}
+.clock-rules-time{display:grid;gap:.2rem;font-size:.82rem;min-width:0}.clock-rules-time input{min-height:2.75rem;max-width:100%;font:inherit}
+.clock-rules-tools{display:flex;flex-wrap:wrap;gap:.5rem}
+@media(min-width:760px){.clock-rules-day{grid-template-columns:7rem repeat(4,minmax(0,1fr));align-items:end}.clock-rules-allowed{grid-column:auto}}

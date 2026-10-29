@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { PayrollHoursReport } from './payroll-hours';
+import { roundToQuarterHour, type HourRounding } from './quarter-hour';
 
 export const payrollPresentationColumns = ['workHours', 'breakHours', 'totalHours', 'shiftCount', 'ongoingSegmentCount'] as const;
 export const payrollPresentationLabels: Record<typeof payrollPresentationColumns[number], string> = {
@@ -9,6 +10,7 @@ export const payrollPresentationLabels: Record<typeof payrollPresentationColumns
 export const payrollPresentationOptionsSchema = z.object({
   title: z.string().trim().min(1).max(100).refine(value => !/[\u0000-\u001f\u007f]/.test(value), 'Use a single-line report title.').default('Employee hours report'),
   decimalPlaces: z.union([z.literal(2), z.literal(3), z.literal(4)]).default(2),
+  hourRounding: z.enum(['quarter', 'exact']).default('quarter'),
   grouping: z.enum(['employees', 'jobs']).default('employees'),
   sortBy: z.enum(['name', 'work_hours']).default('name'),
   columns: z.array(z.enum(payrollPresentationColumns)).min(1).max(payrollPresentationColumns.length)
@@ -22,16 +24,16 @@ export type PayrollPresentationOptions = z.infer<typeof payrollPresentationOptio
 export type PayrollPresentationColumn = typeof payrollPresentationColumns[number];
 export const defaultPayrollPresentationOptions: PayrollPresentationOptions = payrollPresentationOptionsSchema.parse({});
 
-/** Display rounding applies once to an already aggregated exact duration. */
-export function payrollPresentationHours(microseconds: string, decimalPlaces: 2 | 3 | 4 = 2): string {
+/** Display rounding applies once to an already aggregated exact duration: to the nearest quarter hour by default, or to the chosen decimal places when exact hours are selected. */
+export function payrollPresentationHours(microseconds: string, decimalPlaces: 2 | 3 | 4 = 2, rounding: HourRounding = 'quarter'): string {
   if (!/^(0|[1-9][0-9]{0,20})$/.test(microseconds) || ![2, 3, 4].includes(decimalPlaces)) throw new RangeError('Invalid hours presentation.');
-  const scale = 10n ** BigInt(decimalPlaces), units = (BigInt(microseconds) * scale + 1_800_000_000n) / 3_600_000_000n;
+  const scale = 10n ** BigInt(decimalPlaces), amount = rounding === 'quarter' ? roundToQuarterHour(BigInt(microseconds)) : BigInt(microseconds), units = (amount * scale + 1_800_000_000n) / 3_600_000_000n;
   return `${units / scale}.${String(units % scale).padStart(decimalPlaces, '0')}`;
 }
 type Amounts = Pick<PayrollHoursReport['totals'], 'workMicroseconds' | 'breakMicroseconds' | 'totalMicroseconds' | 'shiftCount' | 'ongoingSegmentCount'>;
-export function payrollPresentationValue(row: Amounts, column: PayrollPresentationColumn, options: Pick<PayrollPresentationOptions, 'decimalPlaces'>): string | number {
+export function payrollPresentationValue(row: Amounts, column: PayrollPresentationColumn, options: Pick<PayrollPresentationOptions, 'decimalPlaces' | 'hourRounding'>): string | number {
   if (column === 'shiftCount' || column === 'ongoingSegmentCount') return row[column];
-  return payrollPresentationHours(row[column === 'workHours' ? 'workMicroseconds' : column === 'breakHours' ? 'breakMicroseconds' : 'totalMicroseconds'], options.decimalPlaces);
+  return payrollPresentationHours(row[column === 'workHours' ? 'workMicroseconds' : column === 'breakHours' ? 'breakMicroseconds' : 'totalMicroseconds'], options.decimalPlaces, options.hourRounding);
 }
 export type PayrollPresentationRow = { employee: string; job?: string; department?: string; amounts: Amounts };
 /** The caller supplies the authorized immutable report, never a fresh identity lookup. */
@@ -63,4 +65,4 @@ export function buildPayrollPresentationTable(value: PayrollHoursReport, raw: Pa
     totals: ['All selected records', ...(options.grouping === 'jobs' ? ['', ''] : []), ...options.columns.map(key => String(payrollPresentationValue(value.totals, key, options)))],
   };
 }
-export const payrollPresentationNotice = 'Recorded hours for review, not calculated or approved payroll. Break pay, overtime, taxes and deductions are not calculated. Display values are rounded after exact aggregation; rounded rows may not sum to the rounded total. A shift shared by jobs is counted once in the overall total. Open time records have no recorded end. Same-name person numbers distinguish people only within this report.';
+export const payrollPresentationNotice = 'Recorded hours for review, not calculated or approved payroll. Break pay, overtime, taxes and deductions are not calculated. Display values are rounded after exact aggregation, to the nearest quarter hour unless exact hours are selected; rounded rows may not sum to the rounded total. A shift shared by jobs is counted once in the overall total. Open time records have no recorded end. Same-name person numbers distinguish people only within this report.';

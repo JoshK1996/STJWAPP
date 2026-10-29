@@ -1,4 +1,5 @@
 import {DateTime} from 'luxon';
+import {quarterHourDecimal} from './quarter-hour';
 
 export type PersonalTimeCalendarPeriod = 'day'|'week'|'month'|'year';
 
@@ -25,10 +26,21 @@ export function personalTimeCustomError(from:string,to:string):string{
  }catch{return 'Choose both a valid starting date and ending date.';}
 }
 
-/** A readable display only. Source values and aggregation remain whole microseconds. */
+const nonnegative=(value:string)=>{if(!/^(0|[1-9][0-9]*)$/.test(value))throw new RangeError('Expected a nonnegative duration.');return BigInt(value);};
+const grouped=(decimal:string)=>decimal.replace(/^\d+/,whole=>whole.replace(/\B(?=(\d{3})+(?!\d))/g,','));
+
+/** Decimal hours at the nearest quarter hour, such as "7.25". The owner's financial advisor requires employee hours at quarter-hour precision. Display only, applied once to an already aggregated total; source values and aggregation remain whole microseconds. */
+export function personalTimeHours(value:string):string{
+ return grouped(quarterHourDecimal(nonnegative(value)));
+}
+/** Quarter-hour label for an aggregated total, such as "7.25 h". Never use this to round an individual segment before it is added to a total. */
 export function personalTimeDuration(value:string):string{
- if(!/^(0|[1-9][0-9]*)$/.test(value))throw new RangeError('Expected a nonnegative duration.');
- const amount=BigInt(value),minute=60_000_000n,hour=3_600_000_000n;
+ return `${personalTimeHours(value)} h`;
+}
+
+/** Elapsed time to the minute, for a single recorded segment's own start-to-end span. Source values and aggregation remain whole microseconds. */
+export function personalTimeExactDuration(value:string):string{
+ const amount=nonnegative(value),minute=60_000_000n,hour=3_600_000_000n;
  if(amount===0n)return '0 min';
  if(amount<minute)return '<1 min';
  return `${amount%minute?'≈ ':''}${amount>=hour?`${(amount/hour).toLocaleString('en-US')}h `:''}${(amount%hour)/minute}m`;
