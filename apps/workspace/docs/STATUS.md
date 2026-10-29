@@ -2,7 +2,7 @@
 
 ## Clock rules, new communities and quarter-hour hours - October 29, 2026
 
-Implemented on branch `codex/clock-rules-communities-quarter-hour`; **not merged and not deployed**. The live app at the time of this change was still the October 1 PIN personal-hours release (build version and entry hash unchanged), so none of this is live until a reviewed release is staged, migrations 049-050 are run through the separate maintenance dry run and commit, and the exact source is deployed.
+Live and publicly verified: deployment `20b8e64d-de1f-4101-aee5-25c17a0faa25`, October 29, 2026 UTC, from `main` commit `f35bc34bbd43e9459e6c720c62e235fa384bacc6` (PR32, plus PR33 which raised zod, body-parser and qs to clear production audit advisories). Migrations 049-050 were committed through the separate maintenance path. See DEPLOYMENT for the build version, hashes and exactly what was and was not verified; the new features have not had authenticated hosted acceptance.
 
 - **Employee clock rules** (migration 049): per-employee weekday lock and earliest/latest clock-in and clock-out times. An early tap saves a pending start and tells the employee they will be clocked in automatically at the allowed time; an open shift is closed automatically at the latest clock-out time. Manager time-card corrections are not limited. See EMPLOYEE-CLOCK-RULES.
 - **Seven new communities** (migration 050): Teacher Aides, Cafeteria, Maintenance, Janitorial, Extended Care, Substitute Teachers and IT, each a department with one starter job (Teacher aide, Cafeteria staff, Maintenance technician, Custodian, Extended care staff, Substitute teacher, IT coordinator). Idempotent; existing communities, assignments and records are unchanged. Local demo seeding is unchanged.

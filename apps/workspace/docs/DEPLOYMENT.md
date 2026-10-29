@@ -2,7 +2,17 @@
 
 Railway hosts the app and its separate PostgreSQL database independently of the reference applications. The root prototype is not a deployment source for `apps/workspace`.
 
-## Current PIN personal-hours release
+## Current clock-rules, communities and quarter-hour release
+
+Deployment `20b8e64d-de1f-4101-aee5-25c17a0faa25` is live, verified October 29, 2026 UTC, from `main` commit `f35bc34bbd43e9459e6c720c62e235fa384bacc6` (PR32 and the dependency-advisory PR33). The staged runtime source is 405 files, manifest SHA256 `fd22a4f5cacd78a87242485361ec742abd3cc2499cf7599f3c840a640ee1ee4d`, every file hash-checked before use. Build version `6f4845ea86890041cc8760d5201ace7dbd31b0a7129a4b40320082dc4f421ec8`; entry SHA256 `0e12b7605bb59447a745563ea1fe408bcd9e19e30a1e7df4aa83d85d71fb2778`; entry assets `index-Bl_xdTIe.js`, `luxon-Cm3wXCUq.js` and `index-B80_nCzq.css`.
+
+Separate maintenance used the reviewed plan SHA256 `befb50cb0dda8ca11bcad7440e38077ae0bcc3d37cccfa826a7aced6ee2d7be7`. The dry run rolled back cleanly against schema 48; the owner then ran the same plan to commit migrations 049 and 050 and deployed the staged source. The maintenance commit output was not captured in this record; the new web container's successful startup, which verifies the schema, is the evidence that schema 050 is in place. Migrations 001-050 are immutable. No credential reset or customer-record change was made; migration 050 only adds missing communities and starter jobs.
+
+Public delivery checks verified health, the exact entry file and all three assets against the local production build, the new build version at `/app-version.json`, and anonymous denial of `/api/clock`, `/api/clock/history`, `/api/payroll/hours` and the new clock-policy route. The dependency audit reports zero production vulnerabilities (zod 4.6.7, body-parser 2.4.0, qs 6.17.1). GitHub CI passed on this commit. There was no authenticated hosted acceptance of the new features; they are covered by the local suite (1,339 tests) and a synthetic local browser check of the rules editor. The temporary maintenance SSH key is to be revoked by the owner.
+
+Finish pending clock actions, then accept the update prompt or reload. See EMPLOYEE-CLOCK-RULES, READABLE-REPORTS and PERSONAL-HOURS.
+
+## Previous PIN personal-hours release
 
 Deployment `d734175a-f585-4a95-bb2a-e6fc5e1cc1e3` is live, verified October 1, 2026 UTC, after merging PR #28. All 400 runtime source files match commit `f36c95625dd46f4e49a8c004b3f43ea915f3b524` and manifest SHA256 `f1af026fde5f83b5fd3cb8d7c68d0c3068dc85d68e27e28f239e04e5e7396116`. Build version `3d49319ab82652f768f5e3dd65568fda4961273ce8363c83de02d3800d68857d`; entry SHA256 `0478e39a8f6f7bcf16a2ddf814e738e4b77d42cbb90919049cc4f33aaea6ec00`. Nine public delivery checks verified readiness, exact entry/four assets including the lazy hours view, update discovery, anonymous history denial and demonstration mode off. Runtime readback confirmed `stjw_runtime`. No schema migration, credential reset or customer-record mutation was performed; schema 048 remains the existing requirement. Temporary verification access was revoked.
 
