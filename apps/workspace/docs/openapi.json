@@ -5563,6 +5563,14 @@
                           }
                         ]
                       },
+                      "hourRounding": {
+                        "default": "quarter",
+                        "type": "string",
+                        "enum": [
+                          "quarter",
+                          "exact"
+                        ]
+                      },
                       "grouping": {
                         "default": "employees",
                         "type": "string",
@@ -107539,6 +107547,14 @@
                 "type": "number",
                 "const": 4
               }
+            ]
+          },
+          "hourRounding": {
+            "default": "quarter",
+            "type": "string",
+            "enum": [
+              "quarter",
+              "exact"
             ]
           },
           "grouping": {
