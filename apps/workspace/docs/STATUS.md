@@ -1,5 +1,9 @@
 # Implementation status
 
+## Direct Overview time-card editing - November 2, 2026
+
+Implemented for issue #41; release verification is in progress. Authorized users can open the full editor directly from current activity, employee comparisons and an Overview-wide card picker, then stay on Overview after saving. Card lists support employee search, date ranges and pagination. Existing service authorization, independent review, source-conflict checks and app dirty/pending guards remain in force. No server/schema changes. Actual CI/deployment receipts will replace this pending note after delivery.
+
 ## Full open-card corrections - November 2, 2026
 
 Live and verified under PR #39 for [issue #38](https://github.com/JoshK1996/STJWAPP/issues/38): authorized users can edit both clock-in and clock-out dates/times on open as well as completed cards. Separate date and time controls remain readable on phones. The full editor offers Keep this shift open, so a corrected start does not require clocking the employee out. Open shifts has an Edit clock-in & clock-out entry; the optional clock-out-only shortcut remains available. Existing direct-administrator and independent-review rules are preserved. See TIME-CARDS and ADR0017.

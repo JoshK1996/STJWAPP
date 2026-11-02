@@ -1,6 +1,6 @@
 # Review and correct employee time cards
 
-Open **Time records**, or use **Time cards** on an employee in **Employees & jobs**. Payroll and the Overview employee detail also link to the selected employee/date range. Actual deployment and verification are recorded in STATUS and VALIDATION.
+Open **Time records**, or use **Time cards** on an employee in **Employees & jobs**. Authorized users can also edit directly on **Overview**: choose **Edit clock-in & clock-out** on a clocked-in employee, **Time cards & corrections** below an employee’s hours, or **Edit time cards** to search across employees. The full editor opens in place; saving refreshes Overview. The employee hours detail also opens the in-place card list. Finance readers keep their read-only link to Time records. Payroll links to the selected employee/date range. Actual deployment and verification are recorded in STATUS and VALIDATION.
 
 ## Find the right time
 
