@@ -6,7 +6,7 @@ The visual direction is a colorful dimensional dashboard with interactive charts
 
 ## Weekly clock-plan redesign - November 2, 2026
 
-Owner-assigned delivery under issue #35: make per-employee days, times and allowed jobs understandable, preserve safe service-layer writes, and publish/merge/deploy the verified result. Implementation uses a focused weekly editor and intersects weekly limits with an optional matching saved shift. See EMPLOYEE-CLOCK-RULES, ADR0016 and STATUS for actual validation/release state. Preserve existing saved plans and customer data.
+Delivered live under PR #36 (issue #35): make per-employee days, times and allowed jobs understandable, preserve safe service-layer writes, and publish/merge/deploy the verified result. Implementation uses a focused weekly editor and intersects weekly limits with an optional matching saved shift. See EMPLOYEE-CLOCK-RULES, ADR0016 and STATUS for actual validation/release state. Preserve existing saved plans and customer data.
 
 ## Current customer priority
 
