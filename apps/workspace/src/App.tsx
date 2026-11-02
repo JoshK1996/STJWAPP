@@ -958,7 +958,7 @@ export default function App() {
             />
           )}
           {page === "overview" && me.permissions.report && <>
-            <WorkforceDashboard key={me.actor.id} me={me} board={board} boardState={boardState} onNavigate={go} onRefresh={refresh} onNavigateRecords={openTimeRecords} onFlagSettings={()=>{if(go('settings'))setSettingsSection('organization');}}/>
+            <WorkforceDashboard key={me.actor.id} me={me} board={board} boardState={boardState} onNavigate={go} onRefresh={refresh} onNavigateRecords={openTimeRecords} onDirty={workspaceDirty} onPendingChange={timeCardPendingChanged} notify={notify} onFlagSettings={()=>{if(go('settings'))setSettingsSection('organization');}}/>
             <button className="workforce-personal-toggle" onClick={() => setShowPersonalCards(value => !value)} aria-expanded={showPersonalCards}><SlidersHorizontal size={17}/>{showPersonalCards ? "Hide personal workspace cards" : "Show personal workspace cards"}<ChevronDown size={17}/></button>
           </>}
           {page === "overview" && (!me.permissions.report || showPersonalCards) && (

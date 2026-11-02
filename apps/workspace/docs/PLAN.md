@@ -1,5 +1,9 @@
 # Delivery plan
 
+## Direct Overview time-card editing - November 2, 2026
+
+Implemented for issue #41; release verification is in progress. Authorized users can open the full editor directly from current activity, employee comparisons and an Overview-wide card picker, then stay on Overview after saving. Card lists support employee search, date ranges and pagination. Existing service authorization, independent review, source-conflict checks and app dirty/pending guards remain in force. No server/schema changes. Actual CI/deployment receipts will replace this pending note after delivery.
+
 The active milestone is simple live employee timekeeping, staff roles and accountant-ready administrative reporting. The owner approved removing demonstration operational records while retaining three real accounts; synthetic data is now for isolated tests only. The school, parish and early-childhood programs share configurable organization structure. Managers require explicit subgroup assignments. PIN sessions provide the clock and read-only personal time history; passwords open the permitted workspace.
 
 The visual direction is a colorful dimensional dashboard with interactive charts, useful indicators and illustrations. Responsive layouts, keyboard use, contrast and motion/depth preferences remain supported. Color and animation supplement text and shape.
