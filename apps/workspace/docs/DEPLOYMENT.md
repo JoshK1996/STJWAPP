@@ -2,7 +2,15 @@
 
 Railway hosts the app and its separate PostgreSQL database independently of the reference applications. The root prototype is not a deployment source for `apps/workspace`.
 
-## Current clock-rules, communities and quarter-hour release
+## Current weekly clock-plan release
+
+Deployment `4011eeab-1152-4d2f-a903-e0cead07a9cc` is live, verified November 2, 2026 UTC, after merging [PR #36](https://github.com/JoshK1996/STJWAPP/pull/36). All 407 runtime source files match commit `9eb2ff6f577b30d4921760ada7ca8ca63f44711f` and manifest SHA256 `fb455477fdbe548998c9c90a1e419c3c57f7548f7c618e76ed1bf7946b9edfdc`. Build version `f7e1c0d2e7d4112cbdf197a9ac0cc10758bb113d34d8375d1d98f2a737067f4b`; entry SHA256 `7b16ba20ef4b9908e6fc407778788e20aba5973aa44c933f5e5bf4299aeb34b4`. Separate maintenance used the identical reviewed dry-run/commit plan (SHA256 `befb50cb0dda8ca11bcad7440e38077ae0bcc3d37cccfa826a7aced6ee2d7be7`), retaining schema 050 without a new migration. Runtime readback confirmed `stjw_runtime` as runtime/login identity. 11 public checks verified health, exact entry/three assets, new editor delivery, update discovery, demonstration mode off and anonymous protected-route denials. Public delivery hashes match the actual container build; its entry differs from the local Windows build despite identical source/version, so the same 40 checks across eight layouts were also passed with the actual Railway-built entry/assets served in the isolated synthetic environment. No hosted customer-account sign-in was used. This release's temporary SSH registration was revoked; pre-existing registrations were left unchanged.
+
+[GitHub CI](https://github.com/JoshK1996/STJWAPP/actions/runs/41482094695) passed all 1,349 application tests, the production build, production dependency audit and 19 MCP bridge tests/build plus synthetic bridge acceptance. Local changed-code evidence: 55 distinct focused tests and 40 synthetic browser checks across eight layouts, including phone widths and persisted appearance preferences. The final combined-window display assertions also passed after the shared projection was introduced.
+
+Finish pending clock actions, then accept the update prompt or reload. Open **Employees & jobs â†’ employee â†’ Clock rules â†’ Set a weekly plan**. Choose a weekday, times and allowed jobs; use the copy controls and review the weekly preview before saving. A day has one set of time limits shared by its allowed jobs. Existing saved rules and recorded hours remain in place. Roll forward using a release that understands optional `rules.days[].jobIds`; older servers may reject that new JSON shape after a manager saves job selections.
+
+## Previous clock-rules, communities and quarter-hour release
 
 Deployment `20b8e64d-de1f-4101-aee5-25c17a0faa25` is live, verified October 29, 2026 UTC, from `main` commit `f35bc34bbd43e9459e6c720c62e235fa384bacc6` (PR32 and the dependency-advisory PR33). The staged runtime source is 405 files, manifest SHA256 `fd22a4f5cacd78a87242485361ec742abd3cc2499cf7599f3c840a640ee1ee4d`, every file hash-checked before use. Build version `6f4845ea86890041cc8760d5201ace7dbd31b0a7129a4b40320082dc4f421ec8`; entry SHA256 `0e12b7605bb59447a745563ea1fe408bcd9e19e30a1e7df4aa83d85d71fb2778`; entry assets `index-Bl_xdTIe.js`, `luxon-Cm3wXCUq.js` and `index-B80_nCzq.css`.
 
