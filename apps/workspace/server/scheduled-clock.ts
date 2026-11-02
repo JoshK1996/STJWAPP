@@ -20,6 +20,17 @@ async function policy(tx:Queryable,orgId:string,userId:string):Promise<ClockPoli
   return row?{noEarlyClockIn:row.no_early_clock_in,rules:row.rules?clockRulesSchema.parse(row.rules):null,version:row.version}:{noEarlyClockIn:false,rules:null,version:0};
 }
 const orgTimezone=async(tx:Queryable,orgId:string):Promise<string>=>(await tx.query('SELECT timezone FROM organizations WHERE id=$1',[orgId])).rows[0].timezone;
+/** One projection drives the employee's displayed start and the actual queued window. */
+function scheduleWindow(rules:ClockRules|null,timezone:string,now:string,row:Row){
+  if(!rules)return {startsAt:row.starts_at,endsAt:row.ends_at,phase:row.current?'current' as const:'upcoming' as const};
+  const decision=evaluateClockIn(rules,timezone,now);
+  if(decision.kind==='blocked'||!clockJobAllowed(rules,timezone,now,row.job_id))return null;
+  const candidate=row.current?now:row.starts_at;
+  const startsAt=decision.kind==='wait'&&timeMicroseconds(decision.startsAt)>timeMicroseconds(candidate)?decision.startsAt:candidate;
+  const cutoff=clockOutCutoff(rules,timezone,startsAt),endsAt=cutoff&&timeMicroseconds(cutoff)<timeMicroseconds(row.ends_at)?cutoff:row.ends_at;
+  if(timeMicroseconds(startsAt)>=timeMicroseconds(endsAt)||evaluateClockIn(rules,timezone,startsAt).kind!=='allow'||!clockJobAllowed(rules,timezone,startsAt,row.job_id))return null;
+  return {startsAt,endsAt,phase:timeMicroseconds(now)>=timeMicroseconds(startsAt)?'current' as const:'upcoming' as const};
+}
 /** The employee's open shift and its current segment start, both as exact instants. */
 async function openShift(tx:Queryable,orgId:string,userId:string){
   return (await tx.query(`SELECT s.id,${preciseTimeSql('s.started_at')} AS started_at,${preciseTimeSql('g.started_at')} AS segment_started_at
@@ -42,7 +53,7 @@ export async function readPreclockState(tx:Queryable,actor:Actor):Promise<Preclo
   const latest=(await tx.query(intentSelect+" WHERE org_id=$1 AND user_id=$2 AND status<>'pending' ORDER BY clock_intents.created_at DESC,id DESC LIMIT 1",[actor.org_id,actor.id])).rows[0];
   const schedules=settings.noEarlyClockIn?await matchingSchedules(tx,actor,now):[];
   const timezone=await orgTimezone(tx,actor.org_id);
-  return {policy:settings,pending:pending?intentView(pending):null,latest:latest?intentView(latest):null,timezone,todayRules:describeToday(settings.rules,timezone,now),schedules:schedules.map(row=>({scheduleId:row.id,scheduleVersion:row.version,jobId:row.job_id,startsAt:row.starts_at,endsAt:row.ends_at,phase:row.current?'current':'upcoming'}))};
+  return {policy:settings,pending:pending?intentView(pending):null,latest:latest?intentView(latest):null,timezone,todayRules:describeToday(settings.rules,timezone,now),schedules:schedules.flatMap(row=>{const window=scheduleWindow(settings.rules,timezone,now,row);return window?[{scheduleId:row.id,scheduleVersion:row.version,jobId:row.job_id,...window}]:[];})};
 }
 export async function clockStateWithPreclock(tx:Queryable,actor:Actor){return {...await clockState(tx,actor),preclock:await readPreclockState(tx,actor)};}
 async function event(tx:Queryable,actor:Actor,row:Row,action:'queued'|'executed'|'cancelled'|'blocked',detail:Record<string,unknown>={}){
@@ -97,12 +108,9 @@ export async function interceptScheduledClockIn(tx:Queryable,actor:Actor,input:z
   chosen=(await matchingSchedules(tx,actor,now)).find(row=>row.id===chosen!.id&&row.job_id===input.jobId);
   requireCondition(chosen,409,'Your job or scheduled shift changed. Refresh your clock before trying again.');
   // Intersect the saved shift and weekly window. Neither option bypasses the other.
-  const candidateStart=chosen.current?now:chosen.starts_at;
-  const startsAt=ruleDecision.kind==='wait'&&timeMicroseconds(ruleDecision.startsAt)>timeMicroseconds(candidateStart)?ruleDecision.startsAt:candidateStart;
-  const cutoff=clockOutCutoff(settings.rules,timezone,startsAt);
-  const endsAt=cutoff&&timeMicroseconds(cutoff)<timeMicroseconds(chosen.ends_at)?cutoff:chosen.ends_at;
-  const atStart=evaluateClockIn(settings.rules,timezone,startsAt);
-  requireCondition(timeMicroseconds(startsAt)<timeMicroseconds(endsAt)&&atStart.kind==='allow'&&clockJobAllowed(settings.rules,timezone,startsAt,input.jobId!),409,'The assigned shift does not overlap the allowed weekly clock window. Ask a manager to review the schedule or clock rules.');
+  const window=scheduleWindow(settings.rules,timezone,now,chosen);
+  requireCondition(window,409,'The assigned shift does not overlap the allowed weekly clock window. Ask a manager to review the schedule or clock rules.');
+  const {startsAt,endsAt}=window!;
   const pending=(await tx.query(intentSelect+" WHERE org_id=$1 AND user_id=$2 AND status='pending' FOR UPDATE",[actor.org_id,actor.id])).rows[0];
   if(timeMicroseconds(now)>=timeMicroseconds(startsAt)){if(pending)await finish(tx,actor,pending,'cancelled','You clocked in directly for a current scheduled shift.',now);return null;}
   if(pending)requireCondition(pending.schedule_id===chosen.id&&pending.schedule_version===chosen.version,409,'Cancel your pending start before selecting another scheduled shift.');

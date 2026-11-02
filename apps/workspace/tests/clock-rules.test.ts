@@ -9,7 +9,7 @@ import {createApp} from '../server/app';
 import {issueSetup,digest,type Actor} from '../server/security';
 import {createStaff} from '../server/workforce';
 import {createSchedule} from '../server/staff-scheduling';
-import {applyAuthenticatedClockCommand} from '../server/clock-session';
+import {applyAuthenticatedClockCommand,getAuthenticatedClock} from '../server/clock-session';
 import {getEmployeeClockPolicy,saveEmployeeClockPolicy,processPreclockIntent,processRuleClockOuts} from '../server/scheduled-clock';
 import {clockRulesSchema,clockOutCutoff,describeToday,evaluateClockIn,evaluateClockOut,normalizeClockRules,openRules,type ClockRules} from '../shared/clock-rules';
 
@@ -78,6 +78,9 @@ test('combined weekly and assigned-shift settings require a schedule and wait fo
   await assert.rejects(()=>applyAuthenticatedClockCommand(at(local(6,30)),p.actor,p.hash,clockIn()),/No matching shift/);
   assert.equal((await db.query("SELECT id FROM clock_intents WHERE user_id=$1",[p.actor.id])).rows.length,0);
   await createSchedule(db,owner,{userId:p.actor.id,jobId:job.id,startsAt:local(8),endsAt:local(16),reason:'Synthetic intersected plan',note:'',commandId:randomUUID()});
+  const visible=await getAuthenticatedClock(at(local(6,30)),p.actor,p.hash);
+  assert.equal(visible.preclock.schedules[0].startsAt.slice(0,19),local(9).slice(0,19),'employee button shows the actual permitted start');
+  assert.equal(visible.preclock.schedules[0].phase,'upcoming');
   const queued=await applyAuthenticatedClockCommand(at(local(6,30)),p.actor,p.hash,clockIn()),pending=queued.preclock.pending;
   assert.equal(pending.source,'schedule');assert.equal(pending.startsAt.slice(0,19),local(9).slice(0,19));assert.equal(pending.endsAt.slice(0,19),local(15).slice(0,19));
   assert.equal(await processPreclockIntent(at(local(8,30)),pending.id),'pending');assert.equal(await processPreclockIntent(at(local(9)),pending.id),'executed');
@@ -87,6 +90,7 @@ test('combined weekly and assigned-shift settings require a schedule and wait fo
 test('combined settings reject a scheduled start beyond the last clock-in and honor a later schedule start',async()=>{
   const p=await person();await saveRules(p,week(),0,true);
   await createSchedule(db,owner,{userId:p.actor.id,jobId:job.id,startsAt:local(11),endsAt:local(14),reason:'Synthetic nonoverlap',note:'',commandId:randomUUID()});
+  assert.equal((await getAuthenticatedClock(at(local(6,30)),p.actor,p.hash)).preclock.schedules.length,0,'non-overlapping schedules are not offered as usable starts');
   await assert.rejects(()=>applyAuthenticatedClockCommand(at(local(6,30)),p.actor,p.hash,clockIn()),/does not overlap/);
   const q=await person();await saveRules(q,week(),0,true);
   await createSchedule(db,owner,{userId:q.actor.id,jobId:job.id,startsAt:local(8),endsAt:local(14),reason:'Synthetic later schedule',note:'',commandId:randomUUID()});
