@@ -1,5 +1,15 @@
 # Validation evidence
 
+## Full open-card corrections - November 2, 2026
+
+Implemented for [issue #38](https://github.com/JoshK1996/STJWAPP/issues/38): authorized users can edit both clock-in and clock-out dates/times on open as well as completed cards. Separate date and time controls remain readable on phones. The full editor offers Keep this shift open, so a corrected start does not require clocking the employee out. Open shifts has an Edit clock-in & clock-out entry; the optional clock-out-only shortcut remains available. Existing direct-administrator and independent-review rules are preserved. See TIME-CARDS and ADR0017.
+
+Changed-code verification passed 50 distinct focused service/session/helper/schema tests across scoped runs. These cover both dated punches, ongoing clocks, current-revision reports/actions, exact retries, source conflicts at an unchanged revision, review, permissions, future/overlap/null-tail rules, rollback/concurrent saves, index constraints and DST. Production build and API generation passed.
+
+Normal synthetic Chromium acceptance passed 30 checks across seven desktop/tablet/phone layouts with zero runtime errors. Actual saves covered clock-in-only while open, both punches moved to another date, completed overnight edits, Open shifts entry, a real concurrent break and conflict reload, persisted dark/large-text/reduced-motion/flat preferences, and a manager proposal approved by a different user. This is local synthetic authentication and viewport emulation, not hosted customer-account or physical-device acceptance. Prior completed baselines were not manually repeated.
+
+Release state: awaiting publication/CI/merge and deployment. Migration 051 changes only the open-segment index to preserve historical open-ended source rows alongside an edited live revision. Existing rows and the one-open-shift-per-employee constraint are preserved; migrations 001–050 are unchanged. Production remains on the prior schema-050 release until separate maintenance and exact-source rollout succeed.
+
 ## Weekly clock-plan redesign - November 2, 2026
 
 Live and verified under PR #36 for [issue #35](https://github.com/JoshK1996/STJWAPP/issues/35): explicit flexible/weekly setup, a seven-day overview with a focused day editor, per-day allowed jobs and time limits, selected-day copying, named time zone, readable weekly preview and clear save/conflict wording. Existing saved rules are preserved. Matching assigned shifts and weekly limits now use their overlapping allowed window. No new migration or customer-record change. See EMPLOYEE-CLOCK-RULES and ADR0016.

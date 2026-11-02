@@ -6,7 +6,7 @@ import request from "supertest";
 import { connectDatabase, migrate, type Database, type Queryable } from "../server/db";
 import { initialize } from "../server/seed";
 import { createApp } from "../server/app";
-import { createStaff, clockCommand } from "../server/workforce";
+import { createStaff, clockCommand,clockState } from "../server/workforce";
 import { getReport } from "../server/reports";
 import { getAuthorizedPayrollHours } from '../server/payroll-hours';
 import { initialDefinition, reportDefinition } from '../shared/report-library';
@@ -163,6 +163,95 @@ const approval = {
   status: "approved" as const,
   note: "Reviewed against the synthetic employee record.",
 };
+
+async function openCard(unit=units[0]){
+  const p=await person('employee',unit),opened=await clockCommand(db,p.actor,{action:'clock_in',jobId:p.job.id,commandId:randomUUID()},new Date(at(0)));
+  const detail=await timeRecordDetail(db,owner,opened.shift.id);
+  const input={shiftId:opened.shift.id,sourceRevision:detail.shift.revision,sourceHash:detail.sourceHash,commandId:randomUUID(),reason:'Correct the synthetic employee clock-in and clock-out.',segments:[{jobId:p.job.id,kind:'work' as const,startedAt:at(-30),endedAt:null as string|null}]};
+  return {...p,shiftId:opened.shift.id,detail,input};
+}
+test('open cards allow clock-in edits, retain every old row, and normal clock actions use only the new revision',async()=>{
+  const f=await openCard(),auth=await session(owner),old=f.detail.segments[0];
+  assert.equal(f.detail.canAdjust,true);assert.equal(f.detail.canPropose,true);assert.match(f.detail.sourceHash,/^[a-f0-9]{64}$/);
+  const result=await adjustTimeRecord(db,owner,f.shiftId,f.input,auth.hash);assert.equal(result.resultRevision,2);
+  assert.equal(result.original.shift.endedAt,null);assert.equal(result.original.segments[0].endedAt,null);
+  let current=await timeRecordDetail(db,owner,f.shiftId);assert.equal(current.shift.started_at.slice(0,19),at(-30).slice(0,19));assert.equal(current.shift.ended_at,null);assert.equal(current.segments[0].ended_at,null);
+  assert.equal((await clockState(db,f.actor)).shift.revision,2);
+  await clockCommand(db,f.actor,{action:'start_break',commandId:randomUUID()},new Date(at(60)));
+  await clockCommand(db,f.actor,{action:'clock_out',commandId:randomUUID()},new Date(at(120)));
+  current=await timeRecordDetail(db,owner,f.shiftId);assert.equal(current.segments.length,2);assert.equal(current.segments[0].kind,'work');assert.equal(current.segments[1].kind,'break');
+  const retained=(await db.query('SELECT *,to_char(started_at AT TIME ZONE \'UTC\',\'YYYY-MM-DD"T"HH24:MI:SS\') AS exact_start FROM segments WHERE id=$1',[old.id])).rows[0];
+  assert.equal(retained.revision,1);assert.equal(retained.ended_at,null);assert.equal(retained.exact_start,at(0).slice(0,19));
+  const report=await getAuthorizedPayrollHours(db,owner,{mode:'password',hash:auth.hash},{start:base.toISODate()!,end:base.toISODate()!,userId:f.actor.id,group:'day'});
+  assert.equal(report.totals.workMicroseconds,String(90n*60000000n));assert.equal(report.totals.breakMicroseconds,String(60n*60000000n));
+});
+test('an unfinished card can correct both clock-in and clock-out dates in one save',async()=>{
+  const f=await openCard(),auth=await session(owner),startedAt=at(-1500),endedAt=at(-960);
+  await adjustTimeRecord(db,owner,f.shiftId,{...f.input,segments:[{...f.input.segments[0],startedAt,endedAt}]},auth.hash);
+  const detail=await timeRecordDetail(db,owner,f.shiftId);assert.equal(detail.shift.started_at.slice(0,19),startedAt.slice(0,19));assert.equal(detail.shift.ended_at.slice(0,19),endedAt.slice(0,19));assert.equal(detail.shift.revision,2);
+  assert.equal((await clockState(db,f.actor)).shift,null);assert.equal(detail.corrections[0].original.shift.endedAt,null);
+});
+test('open-card exact save retries retain their receipt after later edits and changed commands are rejected',async()=>{
+  const f=await openCard(),auth=await session(owner),first=await adjustTimeRecord(db,owner,f.shiftId,f.input,auth.hash),detail=await timeRecordDetail(db,owner,f.shiftId);
+  await adjustTimeRecord(db,owner,f.shiftId,{...f.input,sourceRevision:2,sourceHash:detail.sourceHash,commandId:randomUUID(),segments:[{...f.input.segments[0],startedAt:at(-45)}]},auth.hash);
+  const replay=await adjustTimeRecord(db,owner,f.shiftId,f.input,auth.hash);assert.equal(replay.id,first.id);assert.equal(replay.resultRevision,2);
+  await assert.rejects(()=>adjustTimeRecord(db,owner,f.shiftId,{...f.input,reason:'A different synthetic correction reason.'},auth.hash),/different correction/);
+  assert.equal((await timeRecordDetail(db,owner,f.shiftId)).shift.revision,3);
+});
+for(const action of ['start_break','clock_out'] as const)test(`an open-card draft detects a concurrent ${action} even when the shift revision does not change`,async()=>{
+  const f=await openCard(),auth=await session(owner);await clockCommand(db,f.actor,{action,commandId:randomUUID()},new Date(at(60)));
+  await assert.rejects(()=>adjustTimeRecord(db,owner,f.shiftId,f.input,auth.hash),(error:any)=>error.status===409&&/changed/.test(error.message));
+  assert.equal((await timeRecordDetail(db,owner,f.shiftId)).shift.revision,1);
+  assert.equal((await db.query('SELECT id FROM time_corrections WHERE shift_id=$1',[f.shiftId])).rows.length,0);
+});
+test('scoped-manager open-card proposals require a different reviewer and may keep the clock running',async()=>{
+  const f=await openCard(),manager=(await person('manager')).actor;
+  const auth=await session(manager);await assert.rejects(()=>adjustTimeRecord(db,manager,f.shiftId,f.input,auth.hash),/administrator/);
+  const proposed=await proposeCorrection(db,manager,f.input);assert.equal(proposed.original.shift.endedAt,null);
+  await assert.rejects(()=>reviewCorrection(db,manager,proposed.id,approval),/different manager/);
+  await reviewCorrection(db,owner,proposed.id,approval);
+  assert.equal((await timeRecordDetail(db,owner,f.shiftId)).shift.revision,2);assert.equal((await clockState(db,f.actor)).shift.revision,2);
+});
+test('an open-card proposal cannot undo clock actions recorded while it awaited review',async()=>{
+  const f=await openCard(),manager=(await person('manager')).actor,proposed=await proposeCorrection(db,manager,f.input);
+  await clockCommand(db,f.actor,{action:'clock_out',commandId:randomUUID()},new Date(at(60)));
+  await assert.rejects(()=>reviewCorrection(db,owner,proposed.id,approval),(error:any)=>error.status===409&&/changed/.test(error.message));
+  assert.equal((await timeRecordDetail(db,owner,f.shiftId)).corrections[0].status,'pending');assert.equal((await clockState(db,f.actor)).shift,null);
+});
+test('open-card writes require the captured source and reject future, discontiguous and overlapping time',async()=>{
+  const f=await openCard(),auth=await session(owner);
+  const {sourceHash,...missing}=f.input;await assert.rejects(()=>adjustTimeRecord(db,owner,f.shiftId,missing,auth.hash),/changed/);
+  await assert.rejects(()=>adjustTimeRecord(db,owner,f.shiftId,{...f.input,segments:[{...f.input.segments[0],startedAt:new Date(Date.now()+3600000).toISOString()}]},auth.hash),/future/);
+  await assert.rejects(()=>adjustTimeRecord(db,owner,f.shiftId,{...f.input,segments:[...f.input.segments,{...f.input.segments[0],startedAt:at(20)}]},auth.hash),/last entry|ordered/);
+  const prior=randomUUID();await db.query('INSERT INTO shifts(id,org_id,user_id,started_at,ended_at) VALUES($1,$2,$3,$4,$5)',[prior,owner.org_id,f.actor.id,at(-120),at(-60)]);
+  await assert.rejects(()=>adjustTimeRecord(db,owner,f.shiftId,{...f.input,segments:[{...f.input.segments[0],startedAt:at(-90)}]},auth.hash),/overlaps/);
+  assert.equal((await timeRecordDetail(db,owner,f.shiftId)).shift.revision,1);
+});
+test('completed cards cannot be reopened and employee/self or outside-scope actors cannot directly edit an open card',async()=>{
+  const closed=await fixture(),auth=await session(owner);
+  await assert.rejects(()=>adjustTimeRecord(db,owner,closed.shiftId,{...closed.input,segments:closed.input.segments.map((segment,index)=>index===2?{...segment,endedAt:null}:segment)},auth.hash),/cannot be reopened/);
+  const f=await openCard(),employeeAuth=await session(f.actor);await assert.rejects(()=>adjustTimeRecord(db,f.actor,f.shiftId,f.input,employeeAuth.hash),/administrator/);
+  const outsider=(await person('manager',units[1])).actor;await assert.rejects(()=>proposeCorrection(db,outsider,f.input),(error:any)=>[403,404].includes(error.status));
+});
+test('competing open-card corrections accept one source and a failed audit rolls the new revision back',async()=>{
+  const f=await openCard(),auth=await session(owner);
+  const broken:Database={...db,transaction:work=>db.transaction(tx=>work({query:async<T extends Record<string,any>>(sql:string,params:any[]=[])=>{if(sql.includes('INSERT INTO audit_events'))throw Error('Synthetic open-card audit rollback');return tx.query<T>(sql,params);}}))};
+  await assert.rejects(()=>adjustTimeRecord(broken,owner,f.shiftId,f.input,auth.hash),/audit rollback/);
+  assert.equal((await timeRecordDetail(db,owner,f.shiftId)).shift.revision,1);assert.equal((await db.query('SELECT id FROM segments WHERE shift_id=$1',[f.shiftId])).rows.length,1);
+  const results=await Promise.allSettled([adjustTimeRecord(db,owner,f.shiftId,f.input,auth.hash),adjustTimeRecord(db,owner,f.shiftId,{...f.input,commandId:randomUUID(),segments:[{...f.input.segments[0],startedAt:at(-40)}]},auth.hash)]);
+  assert.equal(results.filter(result=>result.status==='fulfilled').length,1);assert.equal((await timeRecordDetail(db,owner,f.shiftId)).shift.revision,2);
+});
+test('the open-segment constraint permits retained revisions but still refuses two open entries in one revision',async()=>{
+  const f=await openCard(),auth=await session(owner);await adjustTimeRecord(db,owner,f.shiftId,f.input,auth.hash);
+  assert.equal((await db.query('SELECT id FROM segments WHERE shift_id=$1 AND ended_at IS NULL',[f.shiftId])).rows.length,2);
+  await assert.rejects(()=>db.query("INSERT INTO segments(id,org_id,shift_id,job_id,kind,started_at,revision) VALUES($1,$2,$3,$4,'work',$5,2)",[randomUUID(),owner.org_id,f.shiftId,f.job.id,at(0)]),(error:any)=>error.code==='23505');
+});
+test('HTTP open-card editing accepts both dates for an administrator and denies revoked or PIN proof',async()=>{
+  const f=await openCard(),auth=await session(owner),detail=await request(app).get('/api/time-records/'+f.shiftId).set('Cookie',auth.cookie);assert.equal(detail.status,200);assert.equal(detail.body.canAdjust,true);assert.match(detail.body.sourceHash,/^[a-f0-9]{64}$/);
+  const denied=await session(owner,'pin');assert.equal((await post('/time-records/'+f.shiftId+'/adjust',f.input,denied)).status,403);
+  await db.query('DELETE FROM sessions WHERE token_hash=$1',[auth.hash]);assert.equal((await post('/time-records/'+f.shiftId+'/adjust',f.input,auth)).status,401);
+  const good=await session(owner);const response=await post('/time-records/'+f.shiftId+'/adjust',{...f.input,segments:[{...f.input.segments[0],startedAt:at(-1500),endedAt:at(-960)}]},good);assert.equal(response.status,200);assert.equal(response.body.resultRevision,2);
+});
 test("time corrections reject stale reviewer roles, units and inactive proposers", async () => {
   const f = await fixture(), manager = (await person('manager')).actor;
   const proposal = await proposeCorrection(db, f.actor, f.input);

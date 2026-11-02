@@ -8,6 +8,28 @@ const original: RecordedSegment[] = [
   { jobId: 'one', kind: 'break', startedAt: '2026-09-21T16:00:00.654321Z', endedAt: '2026-09-21T16:30:00.123456Z' },
   { jobId: 'two', kind: 'work', startedAt: '2026-09-21T16:30:00.123456Z', endedAt: '2026-09-21T20:00:00.123456Z' },
 ];
+test('an open card keeps its actual clock-in, has no invented clock-out, and can edit either date/time',()=>{
+  const source:RecordedSegment[]=[{jobId:'one',kind:'work',startedAt:'2026-10-31T12:00:00.123456Z',endedAt:null}];
+  const rows=editRecordRows(source,zone);assert.equal(rows[0].end,'');assert.equal(rows[0].rawEnd,undefined);
+  assert.deepEqual(proposedRecordSegments(rows,zone,true),source);
+  const earlier=updateRecordBoundary(rows,0,'start','2026-10-30T07:15:00.000');
+  assert.deepEqual(proposedRecordSegments(earlier,zone,true),[{...source[0],startedAt:'2026-10-30T11:15:00.000Z'}]);
+  const closed=proposedRecordSegments(updateRecordBoundary(earlier,0,'end','2026-10-30T15:45:00.000'),zone);
+  assert.equal(closed[0].endedAt,'2026-10-30T19:45:00.000Z');
+});
+test('moving an open card changes its date without inventing an end; only the final entry may stay open',()=>{
+  const rows=editRecordRows([{jobId:'one',kind:'work',startedAt:'2026-10-30T12:00:00.123456Z',endedAt:null}],zone);
+  const moved=moveRecordDate(rows,'2026-10-31');assert.equal(moved[0].end,'');assert.equal(proposedRecordSegments(moved,zone,true)[0].endedAt,null);
+  assert.throws(()=>proposedRecordSegments(rows,zone),/does not exist|valid date/);
+  assert.throws(()=>splitRecordEntry(rows,0,zone,'split'),/clock-out time/);
+  assert.throws(()=>proposedRecordSegments([...rows,{...rows[0],key:'two'}],zone,true),/Only the last entry/);
+});
+test('an open clock-in moved onto a repeated daylight-saving time requires its occurrence',()=>{
+  const rows=editRecordRows([{jobId:'one',kind:'work',startedAt:'2026-10-31T05:30:00.123456Z',endedAt:null}],zone);
+  const moved=moveRecordDate(rows,'2026-11-01');assert.throws(()=>proposedRecordSegments(moved,zone,true),/Choose the daylight/);
+  const selected=updateRecordBoundary(moved,0,'start',moved[0].start,-300),result=proposedRecordSegments(selected,zone,true);
+  assert.equal(result[0].startedAt,'2026-11-01T06:30:00.123Z');assert.equal(result[0].endedAt,null);
+});
 test('untouched and job-only edits retain each exact source timestamp', () => {
   const rows = editRecordRows(original, zone);
   assert.deepEqual(proposedRecordSegments(rows, zone), original);

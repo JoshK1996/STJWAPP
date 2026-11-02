@@ -6,7 +6,7 @@ import { Modal } from './components';
 import { editRecordRows, moveRecordDate, proposedRecordSegments, recordDuration, recordInstant, recordTotals, splitRecordEntry, updateRecordBoundary, type EditTimeSegment, type RecordedSegment } from './time-record-editor';
 
 const originalSegments = (detail: any): RecordedSegment[] => detail.segments.map((row: any) => ({ jobId: row.job_id, kind: row.kind, startedAt: row.started_at, endedAt: row.ended_at }));
-type Attempt = { path: string; body: { shiftId: string; sourceRevision: number; commandId: string; reason: string; segments: RecordedSegment[] } };
+type Attempt = { path: string; body: { shiftId: string; sourceRevision: number; sourceHash:string; commandId: string; reason: string; segments: RecordedSegment[] } };
 
 export default function TimeCardEditor({ detail, zone, authorityKey, onClose, onSaved, onReload, onDenied, onPendingChange }: {
   detail: any; zone: string; authorityKey: string; onClose(): void; onSaved(immediate: boolean): Promise<void>;
@@ -14,6 +14,7 @@ export default function TimeCardEditor({ detail, zone, authorityKey, onClose, on
   onPendingChange?(pending: boolean): void;
 }) {
   const [source, setSource] = useState(detail), [rows, setRows] = useState(() => editRecordRows(originalSegments(detail), zone));
+  const [keepOpen,setKeepOpen]=useState(!detail.shift.ended_at);
   const [reason, setReason] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [pending, setPending] = useState<Attempt | null>(null);
   const [stale, setStale] = useState(false), [advanced, setAdvanced] = useState(false), [moveDate, setMoveDate] = useState('');
   const mounted = useRef(true), currentAuthority = useRef(authorityKey), busyRef = useRef(false), attempt = useRef<Attempt | null>(null);
@@ -24,7 +25,7 @@ export default function TimeCardEditor({ detail, zone, authorityKey, onClose, on
   const immediate = source.canAdjust === true, locked = busy || Boolean(pending);
   const original = useMemo(() => originalSegments(source), [source]);
   const before = useMemo(() => recordTotals(original), [original]);
-  const preview = useMemo(() => { try { const segments = proposedRecordSegments(rows, zone); return { segments, totals: recordTotals(segments), error: '' }; } catch (cause) { return { segments: null, totals: null, error: (cause as Error).message }; } }, [rows, zone]);
+  const preview = useMemo(() => { try { const segments = proposedRecordSegments(rows, zone,keepOpen); return { segments, totals: recordTotals(segments), error: '' }; } catch (cause) { return { segments: null, totals: null, error: (cause as Error).message }; } }, [rows, zone,keepOpen]);
   const altered = Boolean(reason || JSON.stringify(rows) !== JSON.stringify(editRecordRows(original, zone)));
 
   function close() {
@@ -41,7 +42,7 @@ export default function TimeCardEditor({ detail, zone, authorityKey, onClose, on
   async function reload() {
     if (busyRef.current || attempt.current || !window.confirm('Load the current time card and replace your unsaved times? Your reason will be kept.')) return;
     const key = authorityKey; busyRef.current = true; setBusy(true); setError('');
-    try { const next = await onReload(); if (!current(key)) return; setSource(next); setRows(editRecordRows(originalSegments(next), zone)); setStale(false); setMoveDate(''); }
+    try { const next = await onReload(); if (!current(key)) return; setSource(next); setRows(editRecordRows(originalSegments(next), zone));setKeepOpen(!next.shift.ended_at); setStale(false); setMoveDate(''); }
     catch (cause) { if (current(key)) { onDenied(cause); setError((cause as Error).message); } }
     finally { if (current(key)) { busyRef.current = false; setBusy(false); } }
   }
@@ -52,11 +53,11 @@ export default function TimeCardEditor({ detail, zone, authorityKey, onClose, on
     let request = attempt.current;
     try {
       if (!request) {
-        const segments = proposedRecordSegments(rows, zone);
+        const segments = proposedRecordSegments(rows, zone,keepOpen);
         if (reason.trim().length < 10) throw Error('Add a reason of at least 10 characters so the history explains this change.');
-        const unchanged = segments.length === original.length && segments.every((row, index) => row.jobId === original[index].jobId && row.kind === original[index].kind && recordInstant(row.startedAt) === recordInstant(original[index].startedAt) && recordInstant(row.endedAt!) === recordInstant(original[index].endedAt!));
+        const unchanged = segments.length === original.length && segments.every((row, index) => row.jobId === original[index].jobId && row.kind === original[index].kind && recordInstant(row.startedAt) === recordInstant(original[index].startedAt) && (row.endedAt===null||original[index].endedAt===null?row.endedAt===original[index].endedAt:recordInstant(row.endedAt)===recordInstant(original[index].endedAt!)));
         if (unchanged) throw Error('Change a time, job or break before saving.');
-        request = { path: immediate ? `/time-records/${source.shift.id}/adjust` : '/time-corrections', body: { shiftId: source.shift.id, sourceRevision: source.shift.revision, commandId: crypto.randomUUID(), reason: reason.trim(), segments } };
+        request = { path: immediate ? `/time-records/${source.shift.id}/adjust` : '/time-corrections', body: { shiftId: source.shift.id, sourceRevision: source.shift.revision,sourceHash:source.sourceHash, commandId: crypto.randomUUID(), reason: reason.trim(), segments } };
         attempt.current = request; setPending(request);
       }
       busyRef.current = true; setBusy(true); setError('');
@@ -82,8 +83,10 @@ export default function TimeCardEditor({ detail, zone, authorityKey, onClose, on
       <p className="time-card-help">Dates and times use <strong>{zone.replaceAll('_', ' ')}</strong>. Work excludes recorded breaks.</p>
       <fieldset className="time-card-basic" disabled={locked}>
         <RecordTimeField name="Clock-in date and time" value={rows[0].start} offset={rows[0].startOffset} zone={zone} change={(value, offset) => boundary(0, 'start', value, offset)} />
-        <RecordTimeField name="Clock-out date and time" value={rows.at(-1)!.end} offset={rows.at(-1)!.endOffset} zone={zone} change={(value, offset) => boundary(rows.length - 1, 'end', value, offset)} />
+        {!source.shift.ended_at&&<label className="time-card-keep-open"><input type="checkbox" checked={keepOpen} onChange={event=>{setKeepOpen(event.target.checked);if(event.target.checked)boundary(rows.length-1,'end','');}}/><span><strong>Keep this shift open</strong><small>Change the clock-in without clocking the employee out. Clear this to enter a missed clock-out.</small></span></label>}
+        {!keepOpen&&<RecordTimeField name="Clock-out date and time" value={rows.at(-1)!.end} offset={rows.at(-1)!.endOffset} zone={zone} change={(value, offset) => boundary(rows.length - 1, 'end', value, offset)} />}
       </fieldset>
+      {keepOpen&&<p className="time-card-warning" role="status">This employee will remain on the clock after saving. Totals below include finished entries only; the running entry is not totaled.</p>}
       <div className="time-card-before-after" aria-label="Before and after totals" aria-live="polite">
         <div><span>Work before</span><strong>{recordDuration(before.work)}</strong></div><ArrowRight aria-hidden="true" size={20}/><div><span>Work after</span><strong>{preview.totals ? recordDuration(preview.totals.work) : 'Check times'}</strong></div>
         <p><Coffee size={16}/><span>Breaks: {recordDuration(before.break)} → {preview.totals ? recordDuration(preview.totals.break) : 'Check times'}</span></p>
@@ -99,7 +102,7 @@ export default function TimeCardEditor({ detail, zone, authorityKey, onClose, on
             <label>Job and community<select aria-label={`Entry ${index + 1} job`} value={row.jobId} onChange={event => change(rows.map((item, at) => at === index ? { ...item, jobId: event.target.value } : item))}>{source.jobs.map((job: any) => <option key={job.id} value={job.id}>{job.title} · {job.unit_name}{job.active === false ? ' (inactive)' : ''}</option>)}</select></label>
           </div>
           <RecordTimeField name={`Entry ${index + 1} start`} value={row.start} offset={row.startOffset} zone={zone} change={(value, offset) => boundary(index, 'start', value, offset)}/>
-          <RecordTimeField name={`Entry ${index + 1} end`} value={row.end} offset={row.endOffset} zone={zone} change={(value, offset) => boundary(index, 'end', value, offset)}/>
+          {keepOpen&&index===rows.length-1?<p className="time-card-help">This last entry stays open.</p>:<RecordTimeField name={`Entry ${index + 1} end`} value={row.end} offset={row.endOffset} zone={zone} change={(value, offset) => boundary(index, 'end', value, offset)}/>}
           <div className="time-edit-actions"><button type="button" className="button secondary" disabled={rows.length >= 200} onClick={() => split(index)}><Scissors size={16}/>Split entry</button>{rows.length > 1 && <button type="button" className="button secondary" onClick={() => { const next = rows.filter((_, at) => at !== index); if (index > 0) next[index - 1] = { ...next[index - 1], end: row.end, endOffset: row.endOffset, rawEnd: row.rawEnd }; else next[0] = { ...next[0], start: row.start, startOffset: row.startOffset, rawStart: row.rawStart }; change(next); }}><Trash2 size={16}/>Merge into {index ? 'previous' : 'next'}</button>}</div>
         </fieldset>)}</div>
       </details>
@@ -116,5 +119,8 @@ export default function TimeCardEditor({ detail, zone, authorityKey, onClose, on
 
 export function RecordTimeField({ name, value, offset, zone, change }: { name: string; value: string; offset: number; zone: string; change(value: string, offset?: number): void }) {
   const time = DateTime.fromISO(value, { zone }), options = time.isValid ? time.getPossibleOffsets() : [];
-  return <div className="time-edit-time"><label>{name}<input type="datetime-local" step="0.001" required value={value} onChange={event => change(event.target.value)}/></label>{options.length > 1 && <label>Repeated clock time<select aria-label={`${name} occurrence`} value={options.some(item => item.offset === offset) ? offset : ''} onChange={event => change(value, Number(event.target.value))}><option value="" disabled>Choose occurrence</option>{options.map(item => <option key={item.offset} value={item.offset}>{item.toFormat('ZZZZ (ZZ)')}</option>)}</select></label>}</div>;
+  const [date='',clock='']=value.split('T'),label=name.replace(' date and time','');
+  // Keep partial input while the other field is being entered. Unchanged source
+  // boundaries still use rawStart/rawEnd; date edits retain the displayed time.
+  return <div className="time-edit-time" role="group" aria-label={name}><strong className="time-edit-time-title">{name}</strong><div className="time-card-date-clock"><label>Date<input aria-label={`${label} date`} type="date" required value={date} onChange={event=>change(`${event.target.value}T${clock}`)}/></label><label>Time<input aria-label={`${label} time`} type="time" step="0.001" required value={clock} onChange={event=>change(`${date}T${event.target.value}`)}/></label></div>{options.length > 1 && <label>Repeated clock time<select aria-label={`${name} occurrence`} value={options.some(item => item.offset === offset) ? offset : ''} onChange={event => change(value, Number(event.target.value))}><option value="" disabled>Choose occurrence</option>{options.map(item => <option key={item.offset} value={item.offset}>{item.toFormat('ZZZZ (ZZ)')}</option>)}</select></label>}</div>;
 }
