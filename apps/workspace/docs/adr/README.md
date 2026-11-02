@@ -31,3 +31,5 @@ For a new decision, add the next numbered file with date, status, context, decis
 - [0014: Shared attention rules and personal simplicity](0014-shared-attention-and-personal-simplicity.md)
 
 - [0016: Weekly employee clock plans](0016-weekly-clock-plan-editor.md)
+
+- [0017: Full corrections for open employee time cards](0017-full-open-time-card-corrections.md)

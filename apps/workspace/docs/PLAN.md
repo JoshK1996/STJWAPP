@@ -8,6 +8,10 @@ The visual direction is a colorful dimensional dashboard with interactive charts
 
 Delivered live under PR #36 (issue #35): make per-employee days, times and allowed jobs understandable, preserve safe service-layer writes, and publish/merge/deploy the verified result. Implementation uses a focused weekly editor and intersects weekly limits with an optional matching saved shift. See EMPLOYEE-CLOCK-RULES, ADR0016 and STATUS for actual validation/release state. Preserve existing saved plans and customer data.
 
+## Full open-card corrections - November 2, 2026
+
+Owner-assigned issue #38 extends full date/time editing to open time cards without forcing a clock-out. Preserve existing administrator/self/scoped-manager authorization and independent review, guard the complete current clock source, retain original segments and verify the changed workflow before live delivery. Migration 051 retains one open segment per revision without changing existing rows. See TIME-CARDS, ADR0017 and STATUS for actual release state.
+
 ## Current customer priority
 
 Focus the first screen on who is clocked in, their organization/job, elapsed time, worked versus scheduled hours and accrued over-schedule flags. Keep payroll and Employees & jobs direct; place broader tools behind More tools. Make account creation/recovery, pay-rate editing and employee/job/schedule bulk entry discoverable. Per-employee No early clock-in saves a durable start for the scheduled timestamp. Do not collect location. See WORKFORCE-DAILY-USE and ADR0009; STATUS distinguishes implemented, tested and deployed work.

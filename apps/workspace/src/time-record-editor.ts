@@ -37,10 +37,10 @@ export function resolveRecordTime(value: string, zone: string, offset: number) {
 }
 export function editRecordRows(segments: RecordedSegment[], zone: string): EditTimeSegment[] {
   return segments.map((row, index) => ({ key: `source-${index}`, jobId: row.jobId, kind: row.kind,
-    start: localTime(row.startedAt, zone), end: localTime(row.endedAt!, zone),
+    start: localTime(row.startedAt, zone), end: row.endedAt===null?'':localTime(row.endedAt, zone),
     startOffset: DateTime.fromISO(row.startedAt).setZone(zone).offset,
-    endOffset: DateTime.fromISO(row.endedAt!).setZone(zone).offset,
-    rawStart: row.startedAt, rawEnd: row.endedAt! }));
+    endOffset: row.endedAt===null?NaN:DateTime.fromISO(row.endedAt).setZone(zone).offset,
+    rawStart: row.startedAt, rawEnd: row.endedAt??undefined }));
 }
 export function updateRecordBoundary(rows: EditTimeSegment[], index: number, edge: 'start' | 'end', value: string, offset?: number) {
   const original = rows[index];
@@ -58,21 +58,24 @@ export function updateRecordBoundary(rows: EditTimeSegment[], index: number, edg
     return next;
   });
 }
-export function proposedRecordSegments(rows: EditTimeSegment[], zone: string): Required<RecordedSegment>[] {
+export function proposedRecordSegments(rows: EditTimeSegment[], zone: string,keepOpen=false): RecordedSegment[] {
   if (!rows.length || rows.length > 200) throw Error('A time card needs between 1 and 200 entries.');
   const segments = rows.map(row => ({ jobId: row.jobId, kind: row.kind,
     startedAt: row.rawStart ?? resolveRecordTime(row.start, zone, row.startOffset),
-    endedAt: row.rawEnd ?? resolveRecordTime(row.end, zone, row.endOffset) }));
+    endedAt: keepOpen&&!row.end?null:row.rawEnd ?? resolveRecordTime(row.end, zone, row.endOffset) }));
   for (const [index, row] of segments.entries()) {
     if (!row.jobId || !['work', 'break'].includes(row.kind)) throw Error(`Choose a job and type for entry ${index + 1}.`);
-    if (recordInstant(row.endedAt) < recordInstant(row.startedAt)) throw Error(`Entry ${index + 1} must end at or after it starts. For an overnight shift, choose the following date.`);
-    if (index && recordInstant(row.startedAt) !== recordInstant(segments[index - 1].endedAt)) throw Error(`Entries ${index} and ${index + 1} must meet without a gap or overlap.`);
+    if(row.endedAt===null&&index!==segments.length-1)throw Error('Only the last entry can stay open. Enter an end for each earlier work or break entry.');
+    if (row.endedAt!==null&&recordInstant(row.endedAt) < recordInstant(row.startedAt)) throw Error(`Entry ${index + 1} must end at or after it starts. For an overnight shift, choose the following date.`);
+    if (index && (segments[index-1].endedAt===null||recordInstant(row.startedAt) !== recordInstant(segments[index - 1].endedAt!))) throw Error(`Entries ${index} and ${index + 1} must meet without a gap or overlap.`);
   }
   return segments;
 }
 export function splitRecordEntry(rows: EditTimeSegment[], index: number, zone: string, key: string) {
   if (rows.length >= 200) throw Error('A time card can have at most 200 entries.');
-  const row = rows[index], start = recordInstant(row.rawStart ?? resolveRecordTime(row.start, zone, row.startOffset)), end = recordInstant(row.rawEnd ?? resolveRecordTime(row.end, zone, row.endOffset));
+  const row = rows[index];
+  if(!row.end)throw Error('Enter a clock-out time before splitting this entry. You can keep the last entry open afterwards.');
+  const start = recordInstant(row.rawStart ?? resolveRecordTime(row.start, zone, row.startOffset)), end = recordInstant(row.rawEnd ?? resolveRecordTime(row.end, zone, row.endOffset));
   // A new boundary has millisecond precision; existing outside boundaries stay exact.
   const middle = ((start + end) / 2n / 1000n) * 1000n;
   if (middle <= start || middle >= end) throw Error('Choose a longer entry before splitting it.');
@@ -89,7 +92,7 @@ export function moveRecordDate(rows: EditTimeSegment[], date: string) {
   if (days === 0) return rows;
   return rows.map(row => ({ ...row,
     start: DateTime.fromISO(row.start, { zone: 'UTC' }).plus({ days }).toFormat(localTimeFormat),
-    end: DateTime.fromISO(row.end, { zone: 'UTC' }).plus({ days }).toFormat(localTimeFormat),
+    end: row.end?DateTime.fromISO(row.end, { zone: 'UTC' }).plus({ days }).toFormat(localTimeFormat):'',
     startOffset: NaN, endOffset: NaN, rawStart: undefined, rawEnd: undefined,
   }));
 }

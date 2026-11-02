@@ -320,3 +320,7 @@
  .time-records-module .panel-heading>.button{width:100%;white-space:normal;overflow-wrap:normal}
  .time-records-module .records-local-tools>label:has(select[aria-label="Time-card employee"]){grid-column:1/-1}
 }
+
+.time-card-editor .time-card-keep-open{display:flex;flex-direction:row;align-items:flex-start;gap:10px;grid-column:1/-1;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}.time-card-keep-open input{width:20px;min-width:20px;height:20px;margin:2px 0}.time-card-keep-open strong,.time-card-keep-open small{display:block}.time-card-keep-open small{margin-top:5px;line-height:1.6}
+dialog:has(.time-card-editor){width:min(740px,calc(100vw - 28px));padding:24px}.community-form.time-card-editor{padding:0}.time-card-basic{grid-template-columns:1fr}.time-edit-time-title{font-size:13px;font-weight:650;line-height:1.5}.time-card-date-clock{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0}.time-card-date-clock label{min-width:0}.time-card-date-clock input{font-variant-numeric:tabular-nums}
+@media(max-width:520px){dialog:has(.time-card-editor){padding:16px;width:calc(100vw - 20px)}.time-card-date-clock{grid-template-columns:1fr;gap:8px}.time-card-editor .time-edit-time{gap:8px}dialog:has(.time-card-editor) .dialog-heading{gap:12px}dialog:has(.time-card-editor) .dialog-heading h2{font-size:1.12rem}}

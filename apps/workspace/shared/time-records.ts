@@ -8,13 +8,15 @@ export const timeSegmentInput = z
     // Higher precision is only accepted by the service when it exactly matches
     // a boundary in the locked original source. Edited values use milliseconds.
     startedAt: recordedTimeInstant,
-    endedAt: recordedTimeInstant,
+    endedAt: recordedTimeInstant.nullable(),
   })
   .strict();
 export const correctionInput = z
   .object({
     shiftId: z.uuid(),
     sourceRevision: z.number().int().positive(),
+    // Open shifts can change through clock actions without advancing revision.
+    sourceHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     commandId: z.uuid(),
     reason: z.string().trim().min(10).max(2000),
     segments: z.array(timeSegmentInput).min(1).max(200),

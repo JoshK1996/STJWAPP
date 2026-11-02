@@ -21,7 +21,7 @@ import {
 import { currentTimeActor, preciseTimeSql, timeMicroseconds, timeNow, timeTransaction, timeJobs } from "./time-record-access";
 import { recheckReportSession } from "./report-source-access";
 type Segment = z.infer<typeof timeSegmentInput>;
-const canonicalBoundary = (value: string) => timeMicroseconds(value) % 1000n === 0n ? new Date(value).toISOString() : value.replace(/(?:\.(\d+))?Z$/, (_,digits = "") => "."+digits.padEnd(6,"0")+"Z");
+const canonicalBoundary = (value: string|null):string|null => value===null?null:timeMicroseconds(value) % 1000n === 0n ? new Date(value).toISOString() : value.replace(/(?:\.(\d+))?Z$/, (_,digits = "") => "."+digits.padEnd(6,"0")+"Z");
 const password = (req: Request) => {
   const actor = (req as AppRequest).actor;
   requireCondition(
@@ -32,15 +32,23 @@ const password = (req: Request) => {
   return actor;
 };
 const session = (req: Request) => (req as AppRequest).sessionHash!;
-const inst = (value: any) => typeof value === "string" ? value : new Date(value).toISOString();
+const inst = (value: any):string|null => value===null?null:typeof value === "string" ? value : new Date(value).toISOString();
 function normalized(rows: Row[]): Segment[] {
   return rows.map((row) => ({
     jobId: row.job_id,
     kind: row.kind,
-    startedAt: inst(row.started_at),
+    startedAt: inst(row.started_at)!,
     endedAt: inst(row.ended_at),
   }));
 }
+function sourceHash(record:{shift:Row;rows:Row[]}){
+  return digest(JSON.stringify({shift:{id:record.shift.id,revision:record.shift.revision,startedAt:inst(record.shift.started_at),endedAt:inst(record.shift.ended_at)},
+    segments:record.rows.map(row=>({id:row.id,jobId:row.job_id,kind:row.kind,startedAt:inst(row.started_at),endedAt:inst(row.ended_at)}))}));
+}
+function checkSource(record:{shift:Row;rows:Row[]},hash:string|undefined){
+  requireCondition((!!record.shift.ended_at&&!hash)||hash===sourceHash(record),409,'This time card changed. Reload the current clock-in, clock-out, jobs and breaks before saving.');
+}
+const comparableSegments=(values:Segment[])=>values.map(s=>[s.jobId,s.kind,timeMicroseconds(s.startedAt).toString(),s.endedAt===null?null:timeMicroseconds(s.endedAt).toString()]);
 function reviewer(actor: Actor) {
   return manages(actor);
 }
@@ -168,9 +176,10 @@ export async function timeRecordDetail(
     segments: rows,
     corrections: visible,
     jobs: choices,
+    sourceHash:sourceHash({shift,rows}),
     canPropose:
-      !!shift.ended_at && (shift.user_id === actor.id || reviewer(actor)),
-    canAdjust: !!shift.ended_at && shift.user_id !== actor.id && directAdministrator(actor),
+      shift.user_id === actor.id || reviewer(actor),
+    canAdjust: shift.user_id !== actor.id && directAdministrator(actor),
   };
  });
 }
@@ -181,11 +190,7 @@ async function validateProposal(
   segments: Segment[],
 ) {
   const { shift, rows } = record;
-  requireCondition(
-    shift.ended_at,
-    409,
-    "Clock out before requesting a correction to this shift.",
-  );
+  requireCondition(!shift.ended_at||segments.at(-1)!.endedAt!==null,400,'A completed time card must have a clock-out. It cannot be reopened here.');
   const jobs = await jobsFor(
       tx,
       actor,
@@ -213,22 +218,22 @@ async function validateProposal(
     403,
     "A manager must have access to every original and proposed unit.",
   );
-  const sourceBounds = new Set(rows.flatMap(row => [row.started_at,row.ended_at]).map(value => timeMicroseconds(value).toString()));
+  const sourceBounds = new Set(rows.flatMap(row => [row.started_at,row.ended_at]).filter(value=>value!==null).map(value => timeMicroseconds(value).toString()));
   const now = timeMicroseconds(await timeNow(tx));
-  for (const segment of segments) for (const value of [segment.startedAt,segment.endedAt])
+  for (const segment of segments) for (const value of [segment.startedAt,segment.endedAt].filter((value):value is string=>value!==null))
     requireCondition(timeMicroseconds(value) % 1000n === 0n || sourceBounds.has(timeMicroseconds(value).toString()),400,'A sub-millisecond timestamp must exactly preserve a boundary in this recorded shift. Enter changed times with millisecond precision.');
   for (let index = 0; index < segments.length; index++) {
     const segment = segments[index],
       start = timeMicroseconds(segment.startedAt),
-      end = timeMicroseconds(segment.endedAt);
+      end = segment.endedAt===null?null:timeMicroseconds(segment.endedAt);
     requireCondition(
-      end >= start && end <= now,
+      start<=now&&(end===null?index===segments.length-1&&!shift.ended_at:end>=start&&end<=now),
       400,
-      "Use valid completed time ranges without future timestamps.",
+      "Use ordered times without future timestamps. Only the last entry of an open shift may have no clock-out.",
     );
     if (index)
       requireCondition(
-        start === timeMicroseconds(segments[index - 1].endedAt),
+        segments[index-1].endedAt!==null&&start === timeMicroseconds(segments[index - 1].endedAt!),
         400,
         "Segments must be ordered and contiguous, with no gaps or overlaps.",
       );
@@ -238,7 +243,7 @@ async function validateProposal(
   requireCondition(
     !(
       await tx.query(
-        "SELECT id FROM shifts WHERE org_id=$1 AND user_id=$2 AND id<>$3 AND started_at<$5 AND coalesce(ended_at,'infinity'::timestamptz)>$4",
+        "SELECT id FROM shifts WHERE org_id=$1 AND user_id=$2 AND id<>$3 AND started_at<coalesce($5::timestamptz,'infinity'::timestamptz) AND coalesce(ended_at,'infinity'::timestamptz)>$4",
         [actor.org_id, shift.user_id, shift.id, start, end],
       )
     ).rows.length,
@@ -262,6 +267,7 @@ export async function proposeCorrection(
       JSON.stringify({
         shiftId: input.shiftId,
         sourceRevision: input.sourceRevision,
+        ...(input.sourceHash?{sourceHash:input.sourceHash}:{}),
         reason: input.reason,
         segments: input.segments.map(segment => ({...segment, startedAt: canonicalBoundary(segment.startedAt), endedAt: canonicalBoundary(segment.endedAt)})),
       }),
@@ -295,10 +301,10 @@ export async function proposeCorrection(
       409,
       "Time record changed. Reload before proposing a correction.",
     );
+    checkSource(record,input.sourceHash);
     const bounds = await validateProposal(tx, actor, record, input.segments);
-    const comparable = (values: Segment[]) => values.map(s => [s.jobId,s.kind,timeMicroseconds(s.startedAt).toString(),timeMicroseconds(s.endedAt).toString()]);
     requireCondition(
-      JSON.stringify(comparable(normalized(record.rows))) !== JSON.stringify(comparable(input.segments)),
+      JSON.stringify(comparableSegments(normalized(record.rows))) !== JSON.stringify(comparableSegments(input.segments)),
       400,
       "Change at least one time, job or segment before submitting.",
     );
@@ -315,6 +321,7 @@ export async function proposeCorrection(
           fingerprint,
           input.sourceRevision,
           JSON.stringify({
+            sourceHash:sourceHash(record),
             shift: {
               id: record.shift.id,
               startedAt: inst(record.shift.started_at),
@@ -337,7 +344,7 @@ export async function proposeCorrection(
     return row;
   });
 }
-/** Explicit administrator action; the proposal/independent-review API is unchanged. */
+/** Explicit administrator action; self and scoped-manager edits retain independent review. */
 export async function adjustTimeRecord(
   db: Database,
   suppliedActor: Actor,
@@ -352,7 +359,7 @@ export async function adjustTimeRecord(
     requireCondition(identity,404,'Time record not found.');
     const actor = await currentTimeActor(tx,suppliedActor,sessionHash,identity.user_id,true);
     requireCondition(directAdministrator(actor) && actor.id !== identity.user_id,403,'An administrator may directly adjust another employee\'s time card. Your own corrections require independent review.');
-    const fingerprint = digest(JSON.stringify({action:'administrative_adjustment',shiftId,inputRevision:input.sourceRevision,reason:input.reason,
+    const fingerprint = digest(JSON.stringify({action:'administrative_adjustment',shiftId,inputRevision:input.sourceRevision,reason:input.reason,...(input.sourceHash?{sourceHash:input.sourceHash}:{}),
       segments:input.segments.map(segment=>({...segment,startedAt:canonicalBoundary(segment.startedAt),endedAt:canonicalBoundary(segment.endedAt)}))}));
     const previous = (await tx.query('SELECT * FROM time_corrections WHERE org_id=$1 AND proposed_by=$2 AND command_id=$3',[actor.org_id,actor.id,input.commandId])).rows[0];
     if(previous) {
@@ -363,15 +370,15 @@ export async function adjustTimeRecord(
     }
     const record = await shiftRecord(tx,actor,shiftId,true);
     requireCondition(record.shift.revision === input.sourceRevision,409,'This time card changed. Reload the latest card before saving your adjustment.');
+    checkSource(record,input.sourceHash);
     const bounds = await validateProposal(tx,actor,record,input.segments);
-    const comparable = (values:Segment[])=>values.map(s=>[s.jobId,s.kind,timeMicroseconds(s.startedAt).toString(),timeMicroseconds(s.endedAt).toString()]);
-    requireCondition(JSON.stringify(comparable(normalized(record.rows))) !== JSON.stringify(comparable(input.segments)),400,'Change at least one time, job or segment before saving.');
+    requireCondition(JSON.stringify(comparableSegments(normalized(record.rows))) !== JSON.stringify(comparableSegments(input.segments)),400,'Change at least one time, job or segment before saving.');
     const resultRevision=record.shift.revision+1, segmentIds=input.segments.map(()=>randomUUID()).sort();
     for(const [index,segment] of input.segments.entries()) await tx.query(
       'INSERT INTO segments(id,org_id,shift_id,job_id,kind,started_at,ended_at,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
       [segmentIds[index],actor.org_id,shiftId,segment.jobId,segment.kind,segment.startedAt,segment.endedAt,resultRevision]);
     await tx.query('UPDATE shifts SET started_at=$1,ended_at=$2,revision=$3 WHERE id=$4',[bounds.start,bounds.end,resultRevision,shiftId]);
-    const original={action:'administrative_adjustment',resultRevision,employee:{id:record.shift.user_id,name:record.shift.employee_name},editor:{id:actor.id,name:actor.name},
+    const original={action:'administrative_adjustment',sourceHash:sourceHash(record),resultRevision,employee:{id:record.shift.user_id,name:record.shift.employee_name},editor:{id:actor.id,name:actor.name},
       shift:{id:record.shift.id,startedAt:inst(record.shift.started_at),endedAt:inst(record.shift.ended_at),revision:record.shift.revision},
       segments:normalized(record.rows),scope:{unitIds:bounds.unitIds}};
     const row=(await tx.query(`INSERT INTO time_corrections(id,org_id,shift_id,user_id,proposed_by,command_id,fingerprint,source_revision,original,proposed,reason,status,version,reviewed_by,review_note,reviewed_at)
@@ -438,6 +445,7 @@ export async function reviewCorrection(
         409,
         "Another correction changed this shift. Decline this proposal and request a fresh one.",
       );
+      checkSource(record,row.original.sourceHash);
       const bounds = await validateProposal(tx, actor, record, row.proposed),
         nextRevision = record.shift.revision + 1;
       const segmentIds: string[] = row.proposed.map(() => randomUUID()).sort();

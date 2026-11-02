@@ -78,7 +78,7 @@ export async function listTimeRecords(db: Database, supplied: Actor, sessionHash
         started_at: shift.started_at, ended_at: shift.ended_at, revision: shift.revision, pending_corrections: shift.pending_corrections,
         pending_adjustments: shift.pending_adjustments, pending_count: shift.pending_corrections + shift.pending_adjustments,
         ...durations(total), periodWorkMicroseconds: period.work.toString(), periodBreakMicroseconds: period.rest.toString(), jobs: breakdown,
-        canAdjust: !!shift.ended_at && shift.user_id !== actor.id && directRole(actor)};
+        canAdjust: shift.user_id !== actor.id && directRole(actor)};
     });
     const options = {
       employees: [...new Map(shifts.map(row => [row.user_id, {id: row.user_id, name: row.employee_name, active: row.employee_active}])).values()].sort((a,b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)),
