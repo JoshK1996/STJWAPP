@@ -1,6 +1,6 @@
 # Employee clock rules
 
-An authorized manager can limit when an individual employee may clock in and out. Open **Employees & jobs**, choose the employee, open **Clock setting**, and turn on **Limit clock-in and clock-out times**. Rules are per employee. An employee with no rules behaves exactly as before.
+An authorized manager can limit when an individual employee may clock in and out. Open **Employees & jobs**, choose the employee’s **Clock rules**, and select **Set a weekly plan**. Rules are per employee. An employee with no rules behaves exactly as before.
 
 ## What a rule can say
 
@@ -14,7 +14,18 @@ Each weekday (Monday to Sunday) has:
 | Clock out from | Earliest time the employee can clock out. Earlier clock-outs are refused. |
 | Clock out by | The employee can never be on the clock past this time. An open shift is closed automatically at exactly this time. |
 
-Leave a time blank for no limit. Times are 24-hour, entered in the organization's time zone, and must stay within one calendar day: earliest not after latest, and the latest clock-in before the latest clock-out. Overnight windows are not supported. **Copy Monday to Tuesday–Friday** and **Clear all limits** speed up weekly setup. Rules save with the existing employee clock setting and its revision, so a stale form is rejected instead of overwriting a newer change. A rule set with no restriction is stored as no rules.
+Leave a time blank for no limit. The editor uses the device’s time-input display and shows readable AM/PM previews; all times follow the organization’s named time zone. Windows must stay within one calendar day: earliest not after latest, and the latest clock-in before the latest clock-out. Overnight windows are not supported.
+
+## Set up a week
+
+1. Choose **Flexible days & times** or **Set a weekly plan**. Nothing changes until **Save clock rules**. New weekly drafts allow Monday–Friday and block weekends, without inventing time limits; existing plans retain their saved days and times.
+2. Select a weekday. **Allow clock-in on [day]** controls whether a new shift may begin. Each day has its own **Earliest start**, **Last clock-in**, **Earliest clock-out** and **Automatic clock-out** fields, with an explanation beside each.
+3. Choose **All assigned jobs** (including future job assignments), or **Choose specific jobs** for that day. At least one selected job is required. These are clock-in job assignments, not account permissions. Use **Manage jobs** on the employee card to change assignments. A single day’s time limits apply to all jobs allowed that day; separate time windows for different jobs on the same day are not provided.
+4. **Copy [day] to…** lets you pick the exact destination days. It replaces their allowed/blocked status, times and job choices. The weekly preview shows the resulting plan, including blocked days, job names, clock-in deadlines and automatic ends.
+5. Optionally open **Also require an assigned shift**. This requires a matching saved shift in Schedule. When both options are enabled, the app uses their overlapping window: the later start, the earlier end, and an allowed day/job. A missing shift or a non-overlapping window is refused.
+6. Save. Invalid days are identified by name even when another day is open. A conflicting revision preserves the draft and requires an explicit **Reload saved rules**; unsaved changes remain guarded when closing. Switching to flexible clocking removes weekly limits only after saving and leaves the separate assigned-shift requirement as selected.
+
+The same layout stacks on phones; weekday buttons wrap into two rows at narrow widths. Keyboard controls, organization appearance settings and large text remain supported. Rules save with the existing employee policy revision, so stale forms cannot overwrite newer changes. An entirely unrestricted plan is stored as no rules.
 
 ## What the employee sees
 
@@ -26,6 +37,7 @@ Leave a time blank for no limit. Times are 24-hour, entered in the organization'
 
 ## Boundaries
 
+- Selected jobs must currently be assigned, active and in the employee’s communities. The server checks these again when saving, clocking in, changing jobs and executing a pending start. Job choices do not assign jobs or grant management permissions.
 - Clock-out rules follow the weekday on which the shift began. A "Can work" off day blocks only clocking in; it never traps someone who is already on the clock.
 - If a rule is changed so its clock-out limit falls before the current segment began, the shift is not backdated; the employee clocks out normally and a manager can review it.
 - Manager time-card corrections, missed clock-out fixes and approved adjustments are **not** limited by these rules. They are the way to correct a shift the rules ended early or to record legitimately different hours. The audit trail records every automatic start, automatic clock-out and rule change (`clock.preclock_*`, `clock.rule_auto_clock_out`, `staff.clock_policy_changed` with before and after).
@@ -35,7 +47,7 @@ Leave a time blank for no limit. Times are 24-hour, entered in the organization'
 
 ## API
 
-`GET/PUT /api/staff/:id/clock-policy` now carries `rules`. `PUT` accepts `{noEarlyClockIn, rules?, expectedVersion}`: omit `rules` to keep the saved rules, send `null` to clear them. `GET /api/clock` adds `preclock.todayRules` (plain-language summary or `null`), and pending-start records gain `source` (`schedule` or `rule`) with nullable schedule fields. See `docs/openapi.json`.
+`GET/PUT /api/staff/:id/clock-policy` carries `rules`. Each day may include `jobIds`: omitted/null means all assigned jobs; an explicit selection must be nonempty, unique UUIDs (maximum 100). `PUT` accepts `{noEarlyClockIn, rules?, expectedVersion}`: omit `rules` to keep the saved rules, send `null` to clear them. `GET /api/clock` adds `preclock.todayRules` (plain-language summary or `null`), and pending-start records gain `source` (`schedule` or `rule`) with nullable schedule fields. See `docs/openapi.json`.
 
 ## Data
 
@@ -44,3 +56,8 @@ Migration 049 adds nullable `clock_employee_policies.rules` (jsonb, seven-day st
 ## Verification
 
 `tests/clock-rules.test.ts` covers rule validation; clock-in and clock-out decisions in organization-local time; revisioned saving, omission and clearing; early tap, replay, idempotent processing and the exact start time; cancellation and blocked execution after a rule change; refusals outside the allowed day or window; clock-out refusal and exact-limit capping, including a forgotten shift discovered the next day; and the background sweep closing only shifts that have rules with a clock-out limit. These use isolated PGlite databases with a deterministic database-time fixture. They do not establish multi-connection PostgreSQL behavior, physical-device behavior or hosted acceptance.
+
+
+## November 2 redesign verification
+
+Focused service/session/helper checks cover assigned active job validation, scope and revoked proof, stale/competing policy saves, allowed job entry/switches, safe clock-out, organization-local dates/DST, copy behavior and combined scheduled/weekly pending windows. Synthetic browser acceptance exercises the real setup/login/service path, days/times/jobs, save/reload/conflicts and responsive appearance. Exact counts and release state are in STATUS and VALIDATION. No new database migration is needed; the existing JSON rules column accepts the optional per-day job selection.

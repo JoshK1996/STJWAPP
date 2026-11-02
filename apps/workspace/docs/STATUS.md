@@ -1,5 +1,13 @@
 # Implementation status
 
+## Weekly clock-plan redesign - November 2, 2026
+
+Implemented for [issue #35](https://github.com/JoshK1996/STJWAPP/issues/35): explicit flexible/weekly setup, a seven-day overview with a focused day editor, per-day allowed jobs and time limits, selected-day copying, named time zone, readable weekly preview and clear save/conflict wording. Existing saved rules are preserved. Matching assigned shifts and weekly limits now use their overlapping allowed window. No new migration or customer-record change. See EMPLOYEE-CLOCK-RULES and ADR0016.
+
+Changed-code verification passed 55 distinct service/session/helper tests (54 focused checks plus the added competing-save/revoked-proof regression). Synthetic local Chromium acceptance passed 40 checks across eight layouts, including 320/390/768/1380 widths and persisted dark/large-text/reduced-motion/flat preferences, with zero runtime errors. The checks cover real setup/login, day/time/job editing, copying, invalid hidden days, empty job choices, persisted saves, stale conflicts and explicit reload. These are local synthetic checks, not hosted customer-account or physical-device acceptance. Production build and API generation passed; publication and CI results will be recorded on the PR. Prior completed baselines were not manually repeated.
+
+Release state at implementation: awaiting PR/CI/merge and deployment. Railway sign-in has been restored by the owner. The existing October 29 deployment remains live until exact-source maintenance/deployment and public readback succeed.
+
 ## Clock rules, new communities and quarter-hour hours - October 29, 2026
 
 Live and publicly verified: deployment `20b8e64d-de1f-4101-aee5-25c17a0faa25`, October 29, 2026 UTC, from `main` commit `f35bc34bbd43e9459e6c720c62e235fa384bacc6` (PR32, plus PR33 which raised zod, body-parser and qs to clear production audit advisories). Migrations 049-050 were committed through the separate maintenance path. See DEPLOYMENT for the build version, hashes and exactly what was and was not verified; the new features have not had authenticated hosted acceptance.

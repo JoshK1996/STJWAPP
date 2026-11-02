@@ -2,7 +2,7 @@ import WorkforceImport from "./WorkforceImport";
 import StaffCredentials from "./StaffCredentials";
 import { EmployeeForm } from "./EmployeeForm";
 import EmployeeJobsEditor from "./EmployeeJobsEditor";
-import { EmployeeClockPolicy } from "./ScheduledClock";
+import { EmployeeClockPolicy } from "./EmployeeClockPolicy";
 import StaffImport from "./StaffImport";
 import Compensation from "./Compensation";
 import { JobManagement, JobForm } from "./JobManagement";
@@ -1579,7 +1579,7 @@ export default function App() {
         <div className="staff-tool-content">
           {(staffTool.kind === 'jobs-import' || staffTool.kind === 'schedules-import') && <WorkforceImport key={me.actor.id+staffTool.kind} kind={staffTool.kind === 'jobs-import' ? 'jobs' : 'schedules'} scheduleContext={staffTool.kind==='schedules-import'?{staff,jobs,units:me.units,timezone:zone}:undefined} onChange={refresh} notify={notify} onDirty={workspaceDirty} isSessionCurrent={isSessionCurrent} onSessionExpired={sessionExpired}/>}
           {staffTool.kind === 'rates' && <Compensation key={staffTool.person.id} initialUserId={staffTool.person.id} notify={notify} onDirty={workspaceDirty}/>}
-          {staffTool.kind === 'clock' && <EmployeeClockPolicy key={staffTool.person.id} userId={staffTool.person.id} notify={notify} onDirty={workspaceDirty}/>}
+          {staffTool.kind === 'clock' && <EmployeeClockPolicy key={staffTool.person.id} userId={staffTool.person.id} employeeName={staffTool.person.name} timezone={zone} jobs={jobs.filter((job:any)=>staffTool.person.job_ids.includes(job.id)&&job.active)} notify={notify} onDirty={workspaceDirty}/>}
           {staffTool.kind === 'import' && <StaffImport me={me} jobs={jobs} notify={notify} onChange={refresh} onDirty={workspaceDirty}/>}
         </div>
       </Modal>}

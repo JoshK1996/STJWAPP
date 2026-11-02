@@ -9,7 +9,7 @@ import {currentClockActor,recheckClockSession} from './clock-session-access';
 import {currentTimeActor,noTimeOverlap,preciseTimeSql,timeMicroseconds,timeNow,timeTransaction} from './time-record-access';
 import {recheckReportSession} from './report-source-access';
 import {clockPolicyInput,cancelPreclockInput,type ClockPolicy,type PreclockIntent,type PreclockState} from '../shared/scheduled-clock';
-import {clockRulesEqual,clockRulesSchema,clockOutCutoff,describeToday,evaluateClockIn,evaluateClockOut,normalizeClockRules,type ClockRules} from '../shared/clock-rules';
+import {clockJobAllowed,clockRulesEqual,clockRulesSchema,clockOutCutoff,describeToday,evaluateClockIn,evaluateClockOut,normalizeClockRules,type ClockRules} from '../shared/clock-rules';
 import type {clockInput} from '../shared/contracts';
 
 const instantColumns=`${preciseTimeSql('starts_at')} AS starts_at,${preciseTimeSql('ends_at')} AS ends_at,${preciseTimeSql('created_at')} AS created_at,${preciseTimeSql('processed_at')} AS processed_at`;
@@ -56,6 +56,8 @@ async function finish(tx:Queryable,actor:Actor,row:Row,status:'executed'|'cancel
 /** Employee clock rules for a clock-in. Account already locked. Blocks outside the allowed days/times, or saves a pending start when the employee is early. */
 async function interceptRuleClockIn(tx:Queryable,actor:Actor,input:z.infer<typeof clockInput>,settings:ClockPolicy,fingerprint:string){
   const now=await timeNow(tx),decision=evaluateClockIn(settings.rules,await orgTimezone(tx,actor.org_id),now);
+  requireCondition(decision.kind!=='blocked',409,decision.kind==='blocked'?decision.message:'');
+  requireCondition(input.jobId&&clockJobAllowed(settings.rules,await orgTimezone(tx,actor.org_id),now,input.jobId),409,'This job is not allowed in your weekly clock plan today. Choose an allowed job or ask a manager.');
   if(decision.kind==='allow')return null;
   requireCondition(decision.kind==='wait',409,(decision as {message:string}).message);
   const wait=decision as Extract<typeof decision,{kind:'wait'}>;
@@ -81,23 +83,33 @@ export async function interceptScheduledClockIn(tx:Queryable,actor:Actor,input:z
   const receipt=(await tx.query('SELECT fingerprint,result FROM clock_commands WHERE user_id=$1 AND command_id=$2',[actor.id,input.commandId])).rows[0];
   if(receipt){requireCondition(receipt.fingerprint===fingerprint,409,'This command identifier was already used for another action.');return receipt.result;}
   const settings=await policy(tx,actor.org_id,actor.id);
-  if(settings.rules){const ruled=await interceptRuleClockIn(tx,actor,input,settings,fingerprint);if(ruled)return ruled;}
+  if(settings.rules&&!settings.noEarlyClockIn){const ruled=await interceptRuleClockIn(tx,actor,input,settings,fingerprint);if(ruled)return ruled;}
   if(!settings.noEarlyClockIn)return null;
   const now=await timeNow(tx),state=await clockState(tx,actor);requireCondition(!state.shift,409,'You are already clocked in.');
   requireCondition(input.jobId&&state.jobs.some(job=>job.id===input.jobId),403,'Choose one of your assigned jobs.');
+  const timezone=await orgTimezone(tx,actor.org_id),ruleDecision=evaluateClockIn(settings.rules,timezone,now);
+  requireCondition(ruleDecision.kind!=='blocked',409,ruleDecision.kind==='blocked'?ruleDecision.message:'');
+  requireCondition(clockJobAllowed(settings.rules,timezone,now,input.jobId!),409,'This job is not allowed in your weekly clock plan today. Choose an allowed job or ask a manager.');
   let chosen=(await matchingSchedules(tx,actor,now)).find(row=>row.job_id===input.jobId);
   requireCondition(chosen,409,'No matching shift is scheduled for this job today. Ask a manager to update your schedule or your No early clock-in setting.');
   await tx.query('SELECT id FROM schedules WHERE org_id=$1 AND id=$2 FOR SHARE',[actor.org_id,chosen.id]);
   await tx.query('SELECT id FROM jobs WHERE org_id=$1 AND id=$2 FOR SHARE',[actor.org_id,input.jobId]);
   chosen=(await matchingSchedules(tx,actor,now)).find(row=>row.id===chosen!.id&&row.job_id===input.jobId);
   requireCondition(chosen,409,'Your job or scheduled shift changed. Refresh your clock before trying again.');
+  // Intersect the saved shift and weekly window. Neither option bypasses the other.
+  const candidateStart=chosen.current?now:chosen.starts_at;
+  const startsAt=ruleDecision.kind==='wait'&&timeMicroseconds(ruleDecision.startsAt)>timeMicroseconds(candidateStart)?ruleDecision.startsAt:candidateStart;
+  const cutoff=clockOutCutoff(settings.rules,timezone,startsAt);
+  const endsAt=cutoff&&timeMicroseconds(cutoff)<timeMicroseconds(chosen.ends_at)?cutoff:chosen.ends_at;
+  const atStart=evaluateClockIn(settings.rules,timezone,startsAt);
+  requireCondition(timeMicroseconds(startsAt)<timeMicroseconds(endsAt)&&atStart.kind==='allow'&&clockJobAllowed(settings.rules,timezone,startsAt,input.jobId!),409,'The assigned shift does not overlap the allowed weekly clock window. Ask a manager to review the schedule or clock rules.');
   const pending=(await tx.query(intentSelect+" WHERE org_id=$1 AND user_id=$2 AND status='pending' FOR UPDATE",[actor.org_id,actor.id])).rows[0];
-  if(chosen.current){if(pending)await finish(tx,actor,pending,'cancelled','You clocked in directly for a current scheduled shift.',now);return null;}
+  if(timeMicroseconds(now)>=timeMicroseconds(startsAt)){if(pending)await finish(tx,actor,pending,'cancelled','You clocked in directly for a current scheduled shift.',now);return null;}
   if(pending)requireCondition(pending.schedule_id===chosen.id&&pending.schedule_version===chosen.version,409,'Cancel your pending start before selecting another scheduled shift.');
   if(!pending){
     const authority=(await tx.query('SELECT clock_authority_version FROM users WHERE org_id=$1 AND id=$2',[actor.org_id,actor.id])).rows[0].clock_authority_version;
     const created=(await tx.query(`INSERT INTO clock_intents(id,org_id,user_id,schedule_id,schedule_version,job_id,unit_id,job_title,unit_name,starts_at,ends_at,policy_version,authority_version,authentication,execution_command_id,created_at,checked_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$16) RETURNING *,${instantColumns}`,[randomUUID(),actor.org_id,actor.id,chosen.id,chosen.version,chosen.job_id,chosen.unit_id,chosen.job_title,chosen.unit_name,chosen.starts_at,chosen.ends_at,settings.version,authority,actor.mode,randomUUID(),now])).rows[0];
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$16) RETURNING *,${instantColumns}`,[randomUUID(),actor.org_id,actor.id,chosen.id,chosen.version,chosen.job_id,chosen.unit_id,chosen.job_title,chosen.unit_name,startsAt,endsAt,settings.version,authority,actor.mode,randomUUID(),now])).rows[0];
     await event(tx,actor,created,'queued',{authentication:actor.mode});
   }
   const result=await clockStateWithPreclock(tx,actor);await tx.query('INSERT INTO clock_commands(org_id,user_id,command_id,fingerprint,result) VALUES($1,$2,$3,$4,$5)',[actor.org_id,actor.id,input.commandId,fingerprint,JSON.stringify(result)]);return result;
@@ -105,9 +117,13 @@ export async function interceptScheduledClockIn(tx:Queryable,actor:Actor,input:z
 /** Employee clock rules for actions on an open shift. Account already locked. Returns null to continue normally. */
 export async function interceptRuleClockOut(tx:Queryable,actor:Actor,input:z.infer<typeof clockInput>){
   if(input.action==='clock_in')return null;
+  const fingerprint=digest(JSON.stringify({action:input.action,jobId:input.jobId??null}));
+  const receipt=(await tx.query('SELECT fingerprint,result FROM clock_commands WHERE user_id=$1 AND command_id=$2',[actor.id,input.commandId])).rows[0];
+  if(receipt){requireCondition(receipt.fingerprint===fingerprint,409,'This command identifier was already used for another action.');return receipt.result;}
   const settings=await policy(tx,actor.org_id,actor.id);if(!settings.rules)return null;
   const shift=await openShift(tx,actor.org_id,actor.id);if(!shift)return null;
   const now=await timeNow(tx),decision=evaluateClockOut(settings.rules,await orgTimezone(tx,actor.org_id),shift.started_at,now);
+  if(input.action==='switch_job')requireCondition(input.jobId&&clockJobAllowed(settings.rules,await orgTimezone(tx,actor.org_id),now,input.jobId),409,'This job is not allowed in your weekly clock plan today. Choose an allowed job or ask a manager.');
   if(decision.kind==='allow')return null;
   if(decision.kind==='blocked'){requireCondition(input.action!=='clock_out',409,decision.message);return null;}
   // A rule changed after the current segment began; do not backdate before it.
@@ -137,6 +153,12 @@ export async function saveEmployeeClockPolicy(db:Database,supplied:Actor,session
     const actor=await currentTimeActor(tx,supplied,sessionHash,userId,true);await assertManagePerson(tx,actor,userId);
     const before=await policy(tx,actor.org_id,userId);requireCondition(before.version===input.expectedVersion,409,'This clock setting changed. Reload it before saving.');
     const rules:ClockRules|null=input.rules===undefined?before.rules:normalizeClockRules(input.rules);
+    const selectedJobs=[...new Set(rules?.days.filter(day=>day.allowed).flatMap(day=>day.jobIds??[])??[])];
+    if(selectedJobs.length){
+      const available=(await tx.query(`SELECT j.id FROM user_jobs uj JOIN jobs j ON j.org_id=uj.org_id AND j.id=uj.job_id
+        WHERE uj.org_id=$1 AND uj.user_id=$2 AND j.active AND j.unit_id=ANY($3::uuid[]) AND j.id=ANY($4::uuid[]) ORDER BY j.id FOR SHARE OF j`,[actor.org_id,userId,(await tx.query('SELECT unit_id FROM user_units WHERE org_id=$1 AND user_id=$2',[actor.org_id,userId])).rows.map(row=>row.unit_id),selectedJobs])).rows;
+      requireCondition(available.length===selectedJobs.length,409,'A selected job is no longer assigned or available. Review this employee’s jobs and reload the clock rules.');
+    }
     if(before.version&&before.noEarlyClockIn===input.noEarlyClockIn&&clockRulesEqual(before.rules,rules)){await recheckReportSession(tx,actor,sessionHash);return before;}
     const row=(await tx.query(`INSERT INTO clock_employee_policies(org_id,user_id,no_early_clock_in,rules,updated_by) VALUES($1,$2,$3,$4,$5)
       ON CONFLICT(user_id) DO UPDATE SET no_early_clock_in=excluded.no_early_clock_in,rules=excluded.rules,version=clock_employee_policies.version+1,updated_by=excluded.updated_by,updated_at=clock_timestamp() RETURNING version`,[actor.org_id,userId,input.noEarlyClockIn,rules?JSON.stringify(rules):null,actor.id])).rows[0];
@@ -162,9 +184,10 @@ export async function processPreclockIntent(db:Database,id:string){
     if(!user.active||user.requires_credential_change||String(user.clock_authority_version)!==String(row.authority_version))reason='Your account or sign-in credentials changed before this start. Sign in again and review your clock.';
     else if(byRule&&(!settings.rules||settings.version!==row.policy_version))reason='Your clock rules changed. Review your clock before starting.';
     else if(!byRule&&(!settings.noEarlyClockIn||settings.version!==row.policy_version))reason='Your No early clock-in setting changed. Review your clock before starting.';
-    else if(!byRule&&(!schedule||schedule.user_id!==user.id||schedule.status!=='scheduled'||schedule.version!==row.schedule_version||schedule.job_id!==row.job_id||schedule.starts_at!==row.starts_at||schedule.ends_at!==row.ends_at))reason='Your scheduled shift changed or was cancelled. Review the updated schedule and clock in again.';
+    else if(!byRule&&(!schedule||schedule.user_id!==user.id||schedule.status!=='scheduled'||schedule.version!==row.schedule_version||schedule.job_id!==row.job_id||timeMicroseconds(schedule.starts_at)>timeMicroseconds(row.starts_at)||timeMicroseconds(schedule.ends_at)<timeMicroseconds(row.ends_at)))reason='Your scheduled shift changed or was cancelled. Review the updated schedule and clock in again.';
     else if(!job?.active||job.unit_id!==row.unit_id||!actor.unit_ids.includes(row.unit_id)||!(await tx.query('SELECT job_id FROM user_jobs WHERE org_id=$1 AND user_id=$2 AND job_id=$3',[actor.org_id,actor.id,row.job_id])).rows.length)reason='This job or community is no longer assigned and available to you. Ask a manager to review it.';
     else if(timeMicroseconds(now)>=timeMicroseconds(row.ends_at))reason=byRule?'Your work day ended before this start could be processed. No shift was created; ask a manager to review your time record.':'The scheduled shift ended before this start could be processed. No shift was created; ask a manager to review your time record.';
+    else if(evaluateClockIn(settings.rules,await orgTimezone(tx,user.org_id),row.starts_at).kind!=='allow'||!clockJobAllowed(settings.rules,await orgTimezone(tx,user.org_id),row.starts_at,row.job_id))reason='This start is outside your weekly clock plan. Ask a manager to review your days, times and jobs.';
     else if((await clockState(tx,actor)).shift)reason='You already have an open time record. This pending start was not applied.';
     else if(timeMicroseconds(now)>=timeMicroseconds(row.starts_at)&&!await noTimeOverlap(tx,actor.org_id,actor.id,row.starts_at,null))reason='Another recorded shift overlaps this scheduled start. No new shift was created; ask a manager to review your time record.';
     if(reason){await finish(tx,actor,row,'blocked',reason,now);return 'blocked';}
