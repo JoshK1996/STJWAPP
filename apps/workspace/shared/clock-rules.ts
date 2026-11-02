@@ -5,11 +5,14 @@ import {DateTime} from 'luxon';
 const clockTime=z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/,'Use a 24-hour time such as 07:30.');
 export const clockDayRule=z.object({
   allowed:z.boolean(),
+  /** Omitted/null means every assigned job. A selection limits entry and job changes on this weekday. */
+  jobIds:z.array(z.uuid()).min(1,'Choose at least one job, or allow all assigned jobs.').max(100).refine(ids=>new Set(ids).size===ids.length,'Choose each job only once.').nullable().optional(),
   clockInEarliest:clockTime.nullable(),
   clockInLatest:clockTime.nullable(),
   clockOutEarliest:clockTime.nullable(),
   clockOutLatest:clockTime.nullable(),
 }).strict().superRefine((day,ctx)=>{
+  if(!day.allowed)return;
   const fail=(message:string)=>ctx.addIssue({code:'custom',message});
   if(day.clockInEarliest&&day.clockInLatest&&day.clockInEarliest>day.clockInLatest)fail('Earliest clock-in must not be after the latest clock-in.');
   if(day.clockOutEarliest&&day.clockOutLatest&&day.clockOutEarliest>day.clockOutLatest)fail('Earliest clock-out must not be after the latest clock-out.');
@@ -23,13 +26,18 @@ export const weekdayNames=['Monday','Tuesday','Wednesday','Thursday','Friday','S
 
 export const openDay=():ClockDayRule=>({allowed:true,clockInEarliest:null,clockInLatest:null,clockOutEarliest:null,clockOutLatest:null});
 export const openRules=():ClockRules=>({days:Array.from({length:7},openDay)});
-const isOpen=(day:ClockDayRule)=>day.allowed&&!day.clockInEarliest&&!day.clockInLatest&&!day.clockOutEarliest&&!day.clockOutLatest;
+const isOpen=(day:ClockDayRule)=>day.allowed&&!day.jobIds&&!day.clockInEarliest&&!day.clockInLatest&&!day.clockOutEarliest&&!day.clockOutLatest;
 /** A rule set with no restriction is stored as no rules, so employees without limits behave exactly as before. */
 export function normalizeClockRules(rules:ClockRules|null|undefined):ClockRules|null{
   if(!rules||rules.days.every(isOpen))return null;
   return rules;
 }
 export const clockRulesEqual=(a:ClockRules|null|undefined,b:ClockRules|null|undefined)=>JSON.stringify(normalizeClockRules(a)??null)===JSON.stringify(normalizeClockRules(b)??null);
+
+export function clockJobAllowed(rules:ClockRules|null|undefined,timezone:string,nowIso:string,jobId:string):boolean{
+  const rule=rules?.days[DateTime.fromISO(nowIso,{zone:timezone}).weekday-1];
+  return !rule||rule.allowed&&(!rule.jobIds||rule.jobIds.includes(jobId));
+}
 
 const at=(day:DateTime,time:string)=>{const [hour,minute]=time.split(':').map(Number);return day.startOf('day').set({hour,minute,second:0,millisecond:0});};
 const shown=(day:DateTime,time:string)=>at(day,time).setLocale('en-US').toFormat('h:mm a');

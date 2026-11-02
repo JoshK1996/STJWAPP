@@ -1,5 +1,13 @@
 # Validation evidence
 
+## Weekly clock-plan redesign - November 2, 2026
+
+Implemented for [issue #35](https://github.com/JoshK1996/STJWAPP/issues/35): explicit flexible/weekly setup, a seven-day overview with a focused day editor, per-day allowed jobs and time limits, selected-day copying, named time zone, readable weekly preview and clear save/conflict wording. Existing saved rules are preserved. Matching assigned shifts and weekly limits now use their overlapping allowed window. No new migration or customer-record change. See EMPLOYEE-CLOCK-RULES and ADR0016.
+
+Changed-code verification passed 55 distinct service/session/helper tests (54 focused checks plus the added competing-save/revoked-proof regression). Synthetic local Chromium acceptance passed 40 checks across eight layouts, including 320/390/768/1380 widths and persisted dark/large-text/reduced-motion/flat preferences, with zero runtime errors. The checks cover real setup/login, day/time/job editing, copying, invalid hidden days, empty job choices, persisted saves, stale conflicts and explicit reload. These are local synthetic checks, not hosted customer-account or physical-device acceptance. Production build and API generation passed; publication and CI results will be recorded on the PR. Prior completed baselines were not manually repeated.
+
+Release state at implementation: awaiting PR/CI/merge and deployment. Railway sign-in has been restored by the owner. The existing October 29 deployment remains live until exact-source maintenance/deployment and public readback succeed.
+
 ## PIN personal hours - October 1, 2026
 
 Implemented for issue #27: PIN sign-in retains the clock as its first screen and adds My hours with day, week, month, year, custom and all-time review. Records are self-only regardless of role, with exact work/break totals, interactive period charts, job/community breakdowns and detailed paginated cards. Existing management routes require password sign-in. See PERSONAL-HOURS and ADR0015. No database migration or customer-record change.

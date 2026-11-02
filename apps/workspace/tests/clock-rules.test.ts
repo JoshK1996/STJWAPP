@@ -8,7 +8,8 @@ import {initialize} from '../server/seed';
 import {createApp} from '../server/app';
 import {issueSetup,digest,type Actor} from '../server/security';
 import {createStaff} from '../server/workforce';
-import {applyAuthenticatedClockCommand} from '../server/clock-session';
+import {createSchedule} from '../server/staff-scheduling';
+import {applyAuthenticatedClockCommand,getAuthenticatedClock} from '../server/clock-session';
 import {getEmployeeClockPolicy,saveEmployeeClockPolicy,processPreclockIntent,processRuleClockOuts} from '../server/scheduled-clock';
 import {clockRulesSchema,clockOutCutoff,describeToday,evaluateClockIn,evaluateClockOut,normalizeClockRules,openRules,type ClockRules} from '../shared/clock-rules';
 
@@ -55,6 +56,66 @@ async function seedOpenShift(userId:string,startedAt:string){
   await db.query("INSERT INTO segments(id,org_id,shift_id,job_id,kind,started_at) VALUES($1,$2,$3,$4,'work',$5)",[randomUUID(),owner.org_id,id,job.id,startedAt]);
   return id;
 }
+
+test('job restrictions save only assigned active jobs and enforce clock-in and job changes without trapping clock-out',async()=>{
+  const p=await person(),otherId=randomUUID();
+  await db.query('INSERT INTO jobs(id,org_id,unit_id,title) VALUES($1,$2,$3,$4)',[otherId,owner.org_id,job.unit_id,'Synthetic second job']);
+  const rules=week({jobIds:[job.id],clockOutLatest:null,clockOutEarliest:null,clockInLatest:null,clockInEarliest:null});
+  await saveRules(p,rules,0);
+  await assert.rejects(()=>saveRules(p,week({jobIds:[otherId]}),1),/no longer assigned/);
+  assert.equal((await getEmployeeClockPolicy(db,owner,ownerProof,p.actor.id)).version,1,'failed assignment validation is atomic');
+  await db.query('INSERT INTO user_jobs(org_id,user_id,job_id) VALUES($1,$2,$3)',[owner.org_id,p.actor.id,otherId]);
+  await assert.rejects(()=>applyAuthenticatedClockCommand(at(local(8)),p.actor,p.hash,{...clockIn(),jobId:otherId}),/job is not allowed/);
+  const entered=await applyAuthenticatedClockCommand(at(local(8)),p.actor,p.hash,clockIn());assert.ok(entered.shift);
+  await assert.rejects(()=>applyAuthenticatedClockCommand(at(local(8)),p.actor,p.hash,{action:'switch_job',jobId:otherId,commandId:randomUUID()}),/job is not allowed/);
+  const closed=await applyAuthenticatedClockCommand(db,p.actor,p.hash,{action:'clock_out',commandId:randomUUID()});assert.equal(closed.shift,null);
+  await db.query('UPDATE jobs SET active=false WHERE id=$1',[otherId]);
+  await assert.rejects(()=>saveRules(p,week({jobIds:[otherId]}),1),/no longer assigned or available/);
+});
+
+test('combined weekly and assigned-shift settings require a schedule and wait for the later permitted start',async()=>{
+  const p=await person();await saveRules(p,week({clockInEarliest:'09:00',clockInLatest:'11:00'}),0,true);
+  await assert.rejects(()=>applyAuthenticatedClockCommand(at(local(6,30)),p.actor,p.hash,clockIn()),/No matching shift/);
+  assert.equal((await db.query("SELECT id FROM clock_intents WHERE user_id=$1",[p.actor.id])).rows.length,0);
+  await createSchedule(db,owner,{userId:p.actor.id,jobId:job.id,startsAt:local(8),endsAt:local(16),reason:'Synthetic intersected plan',note:'',commandId:randomUUID()});
+  const visible=await getAuthenticatedClock(at(local(6,30)),p.actor,p.hash);
+  assert.equal(visible.preclock.schedules[0].startsAt.slice(0,19),local(9).slice(0,19),'employee button shows the actual permitted start');
+  assert.equal(visible.preclock.schedules[0].phase,'upcoming');
+  const queued=await applyAuthenticatedClockCommand(at(local(6,30)),p.actor,p.hash,clockIn()),pending=queued.preclock.pending;
+  assert.equal(pending.source,'schedule');assert.equal(pending.startsAt.slice(0,19),local(9).slice(0,19));assert.equal(pending.endsAt.slice(0,19),local(15).slice(0,19));
+  assert.equal(await processPreclockIntent(at(local(8,30)),pending.id),'pending');assert.equal(await processPreclockIntent(at(local(9)),pending.id),'executed');
+  assert.equal(await shiftCount(p.actor.id),1);
+});
+
+test('combined settings reject a scheduled start beyond the last clock-in and honor a later schedule start',async()=>{
+  const p=await person();await saveRules(p,week(),0,true);
+  await createSchedule(db,owner,{userId:p.actor.id,jobId:job.id,startsAt:local(11),endsAt:local(14),reason:'Synthetic nonoverlap',note:'',commandId:randomUUID()});
+  assert.equal((await getAuthenticatedClock(at(local(6,30)),p.actor,p.hash)).preclock.schedules.length,0,'non-overlapping schedules are not offered as usable starts');
+  await assert.rejects(()=>applyAuthenticatedClockCommand(at(local(6,30)),p.actor,p.hash,clockIn()),/does not overlap/);
+  const q=await person();await saveRules(q,week(),0,true);
+  await createSchedule(db,owner,{userId:q.actor.id,jobId:job.id,startsAt:local(8),endsAt:local(14),reason:'Synthetic later schedule',note:'',commandId:randomUUID()});
+  const pending=(await applyAuthenticatedClockCommand(at(local(6,30)),q.actor,q.hash,clockIn())).preclock.pending;
+  assert.equal(pending.startsAt.slice(0,19),local(8).slice(0,19));assert.equal(pending.endsAt.slice(0,19),local(14).slice(0,19));
+});
+
+test('a scoped manager cannot set job rules outside the employee scope and stale job drafts cannot overwrite',async()=>{
+  const p=await person(),manager=await person();await db.query("UPDATE users SET role='manager' WHERE id=$1",[manager.actor.id]);
+  const managerActor={...manager.actor,role:'manager'};await saveEmployeeClockPolicy(db,managerActor,manager.hash,p.actor.id,{noEarlyClockIn:false,rules:week({jobIds:[job.id]}),expectedVersion:0});
+  const otherUnit=randomUUID();await db.query("INSERT INTO units(id,org_id,name,kind) VALUES($1,$2,'Synthetic unscoped','department')",[otherUnit,owner.org_id]);await db.query('INSERT INTO user_units(org_id,user_id,unit_id) VALUES($1,$2,$3)',[owner.org_id,p.actor.id,otherUnit]);
+  await assert.rejects(()=>saveEmployeeClockPolicy(db,managerActor,manager.hash,p.actor.id,{noEarlyClockIn:false,rules:week({jobIds:[job.id]}),expectedVersion:1}),/outside your management scope/);
+  await assert.rejects(()=>saveRules(p,week({jobIds:[job.id]}),0),/changed/);
+});
+
+test('competing job-plan saves accept only one revision and denied sessions cannot persist a selection',async()=>{
+  const p=await person(),first=week({jobIds:[job.id]}),second=week({jobIds:[job.id],clockInEarliest:'07:30'});
+  const results=await Promise.allSettled([saveRules(p,first,0),saveRules(p,second,0)]);
+  assert.equal(results.filter(result=>result.status==='fulfilled').length,1);assert.equal(results.filter(result=>result.status==='rejected').length,1);
+  assert.equal((await getEmployeeClockPolicy(db,owner,ownerProof,p.actor.id)).version,1);
+  assert.equal((await db.query("SELECT id FROM audit_events WHERE action='staff.clock_policy_changed' AND target_id=$1",[p.actor.id])).rows.length,1);
+  const manager=await person();await db.query("UPDATE users SET role='manager' WHERE id=$1",[manager.actor.id]);await db.query('DELETE FROM sessions WHERE user_id=$1',[manager.actor.id]);
+  await assert.rejects(()=>saveEmployeeClockPolicy(db,{...manager.actor,role:'manager'},manager.hash,p.actor.id,{noEarlyClockIn:false,rules:second,expectedVersion:1}),/session|Sign in/i);
+  assert.equal((await getEmployeeClockPolicy(db,owner,ownerProof,p.actor.id)).version,1);
+});
 
 test('rule validation rejects impossible windows and an all-open rule set is stored as no rules',()=>{
   assert.equal(clockRulesSchema.safeParse(week()).success,true);

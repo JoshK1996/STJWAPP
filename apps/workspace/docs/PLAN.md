@@ -4,6 +4,10 @@ The active milestone is simple live employee timekeeping, staff roles and accoun
 
 The visual direction is a colorful dimensional dashboard with interactive charts, useful indicators and illustrations. Responsive layouts, keyboard use, contrast and motion/depth preferences remain supported. Color and animation supplement text and shape.
 
+## Weekly clock-plan redesign - November 2, 2026
+
+Owner-assigned delivery under issue #35: make per-employee days, times and allowed jobs understandable, preserve safe service-layer writes, and publish/merge/deploy the verified result. Implementation uses a focused weekly editor and intersects weekly limits with an optional matching saved shift. See EMPLOYEE-CLOCK-RULES, ADR0016 and STATUS for actual validation/release state. Preserve existing saved plans and customer data.
+
 ## Current customer priority
 
 Focus the first screen on who is clocked in, their organization/job, elapsed time, worked versus scheduled hours and accrued over-schedule flags. Keep payroll and Employees & jobs direct; place broader tools behind More tools. Make account creation/recovery, pay-rate editing and employee/job/schedule bulk entry discoverable. Per-employee No early clock-in saves a durable start for the scheduled timestamp. Do not collect location. See WORKFORCE-DAILY-USE and ADR0009; STATUS distinguishes implemented, tested and deployed work.
