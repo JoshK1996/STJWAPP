@@ -10,7 +10,7 @@ Delivered live under PR #36 (issue #35): make per-employee days, times and allow
 
 ## Full open-card corrections - November 2, 2026
 
-Owner-assigned issue #38 extends full date/time editing to open time cards without forcing a clock-out. Preserve existing administrator/self/scoped-manager authorization and independent review, guard the complete current clock source, retain original segments and verify the changed workflow before live delivery. Migration 051 retains one open segment per revision without changing existing rows. See TIME-CARDS, ADR0017 and STATUS for actual release state.
+Delivered live under PR #39 (issue #38): extend full date/time editing to open time cards without forcing a clock-out. Preserve existing administrator/self/scoped-manager authorization and independent review, guard the complete current clock source, retain original segments and verify the changed workflow before live delivery. Migration 051 retains one open segment per revision without changing existing rows. See TIME-CARDS, ADR0017 and STATUS for actual release state.
 
 ## Current customer priority
 
