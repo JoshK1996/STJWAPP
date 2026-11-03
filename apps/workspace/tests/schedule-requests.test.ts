@@ -88,7 +88,7 @@ test("own requests, password sessions, exact unit scope, current roles, self-rev
   const targetJob = await job(f.employee, units[1]);
   assert.equal(f.proposal.action, "update");
   const created = await createScheduleRequest(db, f.employee, { ...f.proposal, action: "update", proposal: { jobId: targetJob, startsAt: f.input.startsAt, endsAt: f.input.endsAt } });
-  await assert.rejects(reviewScheduleRequest(db, f.employee, created.id, review(created)), /own schedule request/);
+  await assert.rejects(reviewScheduleRequest(db, f.employee, created.id, review(created)), /different manager/);
   await assert.rejects(reviewScheduleRequest(db, finance, created.id, review(created)), /management access/);
   const sourceManager = await person("manager", [units[0]]), targetManager = await person("manager", [units[1]]), full = await person("manager", [units[0], units[1]]);
   await assert.rejects(getScheduleRequest(db, sourceManager, created.id), /outside your access/);

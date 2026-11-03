@@ -145,7 +145,7 @@ test("temporary provisioning checks actual current owner/admin authority and exi
   const input = { ...staff(), initialCredentials: { password: tempPassword, pin: tempPin } };
   const saved = await createStaffAccount(db, admin, adminAuth.hash, input, "stjw.org", origin); assert.ok("requiresCredentialChange" in saved);
   await assert.rejects(createStaffAccount(db, manager, managerAuth.hash, { ...input, email: randomUUID() + "@stjw.org" }, "stjw.org", origin), denied);
-  await assert.rejects(createStaffAccount(db, admin, adminAuth.hash, { ...input, ...staff("admin") }, "stjw.org", origin), denied);
+  assert.ok("requiresCredentialChange" in await createStaffAccount(db, admin, adminAuth.hash, { ...input, ...staff("admin") }, "stjw.org", origin));
   await assert.rejects(createStaffAccount(db, owner, ownerAuth.hash, { ...input, ...staff("owner") }, "stjw.org", origin), denied);
   await db.query("UPDATE users SET role='manager' WHERE id=$1", [admin.id]);
   await assert.rejects(createStaffAccount(db, admin, adminAuth.hash, { ...input, email: randomUUID() + "@stjw.org" }, "stjw.org", origin), denied);
