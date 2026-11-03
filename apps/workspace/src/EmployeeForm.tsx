@@ -55,9 +55,9 @@ export function EmployeeForm({ me, jobs, person, busy }: { me: any; jobs: any[];
   const [onboarding, setOnboarding] = useState('temporary');
   const [role, setRole] = useState(person?.role ?? 'employee');
   const roleLabels: Record<string, string> = { employee: 'Employee', manager: 'Manager', finance: 'Finance', admin: 'Administrator', owner: 'Owner', developer: 'Developer' };
-  const roles = isOwnerRole(me.actor.role)
-    ? ['employee', 'manager', 'finance', 'admin', ...(me.actor.role === 'developer' && person?.role === 'owner' ? ['owner'] : []), ...(me.actor.role === 'developer' && person?.role === 'developer' ? ['developer'] : [])]
-    : me.actor.role === 'admin' ? ['employee', 'manager', 'finance'] : ['employee'];
+  const roles = me.actor.role==='developer' ? ['employee','manager','finance','admin','owner','developer'] : isOwnerRole(me.actor.role)
+    ? ['employee', 'manager', 'finance', 'admin', ...(person?.role === 'owner' ? ['owner'] : []), ...(me.actor.role === 'developer' && person?.role === 'developer' ? ['developer'] : [])]
+    : me.actor.role === 'admin' ? ['employee', 'manager', 'finance','admin'] : ['employee'];
   const descriptions: Record<string, string> = {
     employee: 'Personal time clock, schedule and requests.', manager: 'Employee and workforce management within explicitly assigned communities.',
     finance: 'Financial and payroll tools; employee pay rates.', admin: 'Organization administration, employee management and financial tools.',
@@ -71,7 +71,7 @@ export function EmployeeForm({ me, jobs, person, busy }: { me: any; jobs: any[];
     <fieldset className="employee-fieldset"><legend><ShieldCheck size={17}/>Account access</legend>
       <label>Access role<select name="role" value={role} onChange={event => setRole(event.target.value)}>{roles.map(value => <option value={value} key={value}>{roleLabels[value]}</option>)}</select><small>{descriptions[role]}</small></label>
       {person && <label className="check-label employee-active"><input name="active" type="checkbox" defaultChecked={person.active}/>Account active</label>}
-      {person && <p className="employee-help">Saving account details signs out this employee’s existing sessions. They must clock out before changing account details; use Manage jobs to add assignments during a shift.</p>}
+      {person && <p className="employee-help">Saving account details signs out this employee’s other sessions. They must clock out before changing account details; use Manage jobs to add assignments during a shift.</p>}
     </fieldset>
     <EmployeeAssignmentFields units={me.units} jobs={jobs.filter(job => job.active || person?.job_ids?.includes(job.id)).map(job => ({ id: job.id, title: job.title, unitId: job.unit_id, active: job.active }))} selection={selection} onChange={setSelection} disabled={busy}/>
     {!person && ['developer', 'owner', 'admin'].includes(me.actor.role) && <fieldset className="employee-fieldset temporary-staff-onboarding" disabled={busy}>

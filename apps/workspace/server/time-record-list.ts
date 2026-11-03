@@ -1,5 +1,5 @@
 import type { Database, Row } from './db';
-import { canReport, orgWide, requireCondition, type Actor } from './security';
+import { canReport, orgWide, canAdminister, requireCondition, type Actor } from './security';
 import { reportBounds } from './reports';
 import { timeRecordsQuery } from '../shared/time-records';
 import { canonicalTimeJson, currentTimeActor, preciseTimeSql, timeJobs, timeMicroseconds, timeNow, timeTransaction } from './time-record-access';
@@ -19,7 +19,7 @@ const pendingAdjustmentVisible = `(r.user_id=$4 OR ($5::boolean AND ($6::boolean
  NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text(r.scope_snapshot->'unitIds') u(id) WHERE NOT u.id::uuid=ANY($7::uuid[]))
  AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text(r.scope_snapshot->'jobIds') ref(id) LEFT JOIN jobs j ON j.org_id=r.org_id AND j.id=ref.id::uuid WHERE j.id IS NULL OR NOT j.unit_id=ANY($7::uuid[]))))))`;
 const unique = (values: string[]) => [...new Set(values)].sort();
-const directRole = (actor: Actor) => ['developer', 'owner', 'admin'].includes(actor.role);
+const directRole = canAdminister;
 type Total = {work: bigint; rest: bigint};
 const zero = (): Total => ({work: 0n, rest: 0n});
 const durations = (total: Total) => ({workMicroseconds: total.work.toString(), breakMicroseconds: total.rest.toString()});
@@ -78,7 +78,7 @@ export async function listTimeRecords(db: Database, supplied: Actor, sessionHash
         started_at: shift.started_at, ended_at: shift.ended_at, revision: shift.revision, pending_corrections: shift.pending_corrections,
         pending_adjustments: shift.pending_adjustments, pending_count: shift.pending_corrections + shift.pending_adjustments,
         ...durations(total), periodWorkMicroseconds: period.work.toString(), periodBreakMicroseconds: period.rest.toString(), jobs: breakdown,
-        canAdjust: shift.user_id !== actor.id && directRole(actor)};
+        canAdjust: directRole(actor)};
     });
     const options = {
       employees: [...new Map(shifts.map(row => [row.user_id, {id: row.user_id, name: row.employee_name, active: row.employee_active}])).values()].sort((a,b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)),

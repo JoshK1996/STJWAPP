@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Express, Request } from 'express';
 import type { AppRequest } from './auth';
 import type { Database, Queryable, Row } from './db';
-import { audit,digest,manages,canReport,orgWide,requireCondition,Problem,type Actor } from './security';
+import { audit,digest,canAdminister,manages,canReport,orgWide,requireCondition,Problem,type Actor } from './security';
 import { recheckReportSession } from './report-source-access';
 import { reportBounds } from './reports';
 import { allowsTimeScope,canonicalTimeJson,currentTimeActor,noTimeOverlap,preciseTimeSql,timeJobs,timeMicroseconds,timeNow,timeTransaction } from './time-record-access';
@@ -14,7 +14,8 @@ import { proposeTimeAdjustmentInput,reviewTimeAdjustmentInput,cancelTimeAdjustme
 
 const unique=(values:string[])=>[...new Set(values)].sort();
 const identity=(actor:Actor)=>({id:actor.id,name:actor.name});
-const mayApplyDirect=(actor:Actor,employeeId:string)=>actor.id!==employeeId&&['admin','owner','developer'].includes(actor.role);
+const mayApplyDirect=(actor:Actor,_employeeId:string)=>canAdminister(actor);
+const mayReview=(actor:Actor,employeeId:string,proposerId:string)=>canAdminister(actor)||(manages(actor)&&actor.id!==employeeId&&actor.id!==proposerId);
 const requestProjection=`r.*,${preciseTimeSql('r.created_at')} AS created_at,${preciseTimeSql('r.resolved_at')} AS resolved_at`;
 const historyProjection=`h.*,encode(convert_to(h.snapshot_text,'UTF8'),'base64') AS snapshot_base64,encode(convert_to(h.json_text,'UTF8'),'base64') AS json_base64,encode(convert_to(h.csv_text,'UTF8'),'base64') AS csv_base64`;
 const unavailable=()=>new Problem(404,'Time adjustment not found under your current access.');
@@ -87,7 +88,7 @@ async function replay(tx:Queryable,actor:Actor,sessionHash:string,command:Row,fi
   const history=await historyAt(tx,actor,command.request_id,command.result_version);
   await authorizeEvidence(tx,actor,history.entry.snapshot,action!=='read');
   const request=history.entry.snapshot.request;
-  requireCondition(action==='direct'?mayApplyDirect(actor,request.employee.id):action==='propose'?request.employee.id===actor.id||manages(actor):action==='review'?manages(actor)&&request.employee.id!==actor.id&&request.proposedBy.id!==actor.id:request.proposedBy.id===actor.id&&(request.employee.id===actor.id||manages(actor)),403,'Current management or employee authority is required for this command.');
+  requireCondition(action==='direct'?mayApplyDirect(actor,request.employee.id):action==='propose'?request.employee.id===actor.id||manages(actor):action==='review'?mayReview(actor,request.employee.id,request.proposedBy.id):request.proposedBy.id===actor.id&&(request.employee.id===actor.id||manages(actor)),403,'Current management or employee authority is required for this command.');
   requireCondition(command.action===action && command.fingerprint===fingerprint,409,'This command identifier was used for a different time adjustment.');
   requireCondition(digest(command.result_text)===command.result_hash,422,'Retained command evidence failed its integrity check.');
   const result=timeAdjustmentReceiptSchema.parse(JSON.parse(command.result_text));
@@ -118,7 +119,7 @@ async function createTimeAdjustment(db:Database,supplied:Actor,sessionHash:strin
     const employeeId=command?(await requestRow(tx,supplied,command.request_id)).user_id:input.kind==='missing_shift'?input.employeeId:await shiftEmployee(tx,supplied,input.shiftId);
     const actor=await currentTimeActor(tx,supplied,sessionHash,employeeId,true);
     if(command)return replay(tx,actor,sessionHash,command,fingerprint,action);
-    requireCondition(action==='direct'?mayApplyDirect(actor,employeeId):employeeId===actor.id || manages(actor),403,action==='direct'?'Only an administrator, owner or developer may directly adjust another employee’s time. Use a review request for your own time.':'Only the employee or a scoped manager may propose time adjustments.');
+    requireCondition(action==='direct'?mayApplyDirect(actor,employeeId):employeeId===actor.id || manages(actor),403,action==='direct'?'Administrator, owner or developer access is required to save time directly.':'Only the employee or a scoped manager may propose time adjustments.');
     let source:TimeSnapshot|null=null,proposed:TimeSnapshot;
     if(input.kind==='close_open_shift') {
       source=await sourceFor(tx,actor,input.shiftId,true);
@@ -186,7 +187,7 @@ async function resolveTimeAdjustment(db:Database,supplied:Actor,sessionHash:stri
     const actor=await currentTimeActor(tx,supplied,sessionHash,observed.user_id,true);
     if(command)return replay(tx,actor,sessionHash,command,fingerprint,action);
     const row=await requestRow(tx,actor,id,true),envelope=envelopeFor(row),request=envelope.request;
-    if(action==='review')requireCondition(manages(actor) && actor.id!==request.employee.id && actor.id!==request.proposedBy.id,403,'A different scoped manager must review this request.');
+    if(action==='review')requireCondition(mayReview(actor,request.employee.id,request.proposedBy.id),403,'A different scoped manager must review this request.');
     else requireCondition(actor.id===request.proposedBy.id && (actor.id===request.employee.id || manages(actor)),403,'Only the currently authorized proposer may cancel this request.');
     await authorizeEvidence(tx,actor,envelope,true);
     requireCondition(request.status==='pending' && request.version===input.version && envelope.requestHash===input.requestHash,409,'This request was already resolved or changed. Refresh the review.');
@@ -225,7 +226,7 @@ async function readRequest<T>(db:Database,supplied:Actor,sessionHash:string,id:s
   });
 }
 export const getTimeAdjustment=(db:Database,actor:Actor,sessionHash:string,id:string)=>readRequest(db,actor,sessionHash,id,async(tx,current,envelope)=>{
-  const state=await readiness(tx,current,envelope),request=envelope.request,pending=request.status==='pending',reviewer=manages(current)&&current.id!==request.employee.id&&current.id!==request.proposedBy.id;
+  const state=await readiness(tx,current,envelope),request=envelope.request,pending=request.status==='pending',reviewer=mayReview(current,request.employee.id,request.proposedBy.id);
   return timeAdjustmentDetailSchema.parse({...envelope,readiness:state,allowedActions:{approve:pending&&reviewer&&state.state==='ready',decline:pending&&reviewer,cancel:pending&&request.proposedBy.id===current.id&&(request.employee.id===current.id||manages(current))}});
 });
 export const getTimeAdjustmentHistory=(db:Database,actor:Actor,sessionHash:string,id:string)=>readRequest(db,actor,sessionHash,id,async(tx,current,envelope)=>{

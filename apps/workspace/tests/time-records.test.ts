@@ -666,7 +666,7 @@ test('pending correction source and command evidence cannot be rewritten or dele
   assert.equal((await db.query('SELECT status FROM time_corrections WHERE id=$1',[proposal.id])).rows[0].status,'approved');
 });
 
-test('direct corrections enforce current administrator role, password session, other-employee access and path identity',async()=>{
+test('direct corrections enforce current administrator role, password session, self access and path identity',async()=>{
   const f=await fixture(), admin=(await person('admin')).actor, auth=await session(admin);
   const own=(await detailService(db,f.actor,f.shiftId,await hashFor(f.actor))); assert.equal(own.canAdjust,false);
   assert.equal((await detailService(db,admin,f.shiftId,auth.hash)).canAdjust,true);
@@ -675,7 +675,7 @@ test('direct corrections enforce current administrator role, password session, o
     await assert.rejects(adjustTimeRecord(db,actor,f.shiftId,f.input,await hashFor(actor)),(e:any)=>e.status===403);
   }
   await db.query("UPDATE users SET role='admin' WHERE id=$1",[f.actor.id]);
-  await assert.rejects(adjustTimeRecord(db,{...f.actor,role:'admin'},f.shiftId,f.input,await hashFor(f.actor)),/own corrections/);
+  assert.equal((await detailService(db,{...f.actor,role:'admin'},f.shiftId,await hashFor(f.actor))).canAdjust,true);
   await assert.rejects(adjustTimeRecord(db,admin,randomUUID(),f.input,auth.hash),/must match/);
   await assert.rejects(adjustTimeRecord(db,{...admin,mode:'pin'},f.shiftId,f.input,auth.hash),(e:any)=>e.status===403);
   const result=await adjustTimeRecord(db,admin,f.shiftId,f.input,auth.hash);

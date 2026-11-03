@@ -1,3 +1,4 @@
+import { canAdminister } from './security';
 import { randomUUID } from "node:crypto";
 import type { Express, Request } from "express";
 import { z } from "zod";
@@ -134,7 +135,7 @@ async function decide(db: Database, suppliedActor: Actor, id: string, input: Sch
     requireRead(context, row);
     if (withdrawal) requireCondition(actor.id === row.requester_id, 403, "Only the employee who submitted this request may withdraw it.");
     else {
-      requireCondition(actor.id !== row.requester_id, 403, "You cannot review your own schedule request.");
+      requireCondition(canAdminister(actor) || actor.id !== row.requester_id, 403, "A different manager must review your schedule request.");
       requireCondition(managerScope(context, row), 403, "Current management access to every source and target unit is required.");
     }
     const previous = await receipt(tx, actor, input.commandId, fingerprint);
@@ -168,7 +169,7 @@ export async function getScheduleRequest(db: Database, suppliedActor: Actor, id:
     const context = await contextFor(tx, suppliedActor, initial, false), row = await requestRow(tx, context.actor.org_id, id, "SHARE");
     requireRead(context, row);
     const invalid = row.status === "pending" ? await blockers(tx, context, row) : [];
-    const reviewer = context.actor.id !== row.requester_id && managerScope(context, row), pending = row.status === "pending";
+    const reviewer = (canAdminister(context.actor) || context.actor.id !== row.requester_id) && managerScope(context, row), pending = row.status === "pending";
     return { ...summary(row), reason: row.reason, proposalHash: row.proposal_hash, current: context.before!,
       decision: row.decided_at ? { actor: { id: row.decided_by, nameSnapshot: row.decided_name }, note: row.decided_note, at: iso(row.decided_at) } : null,
       allowedActions: { approve: pending && reviewer && !invalid.length, decline: pending && reviewer, withdraw: pending && context.actor.id === row.requester_id }, blockers: invalid };

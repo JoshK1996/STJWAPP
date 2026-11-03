@@ -9,7 +9,7 @@ import { staffImportColumns, staffImportDetailSchema, staffImportListSchema, sta
   type StaffImportDetail, type StaffImportReceipt, type StaffImportSummary } from '../shared/staff-imports';
 import './staff-import.css';
 
-const roles: Record<string, string> = { owner: 'Owner', admin: 'Administrator', manager: 'Manager', finance: 'Finance', employee: 'Employee' };
+const roles: Record<string, string> = { developer: 'Developer', owner: 'Owner', admin: 'Administrator', manager: 'Manager', finance: 'Finance', employee: 'Employee' };
 const when = (value: string) => DateTime.fromISO(value).toLocaleString(DateTime.DATETIME_MED);
 const connectionMessage = (e: unknown) => e instanceof ApiError ? e.message : 'The connection was interrupted. Try again.';
 

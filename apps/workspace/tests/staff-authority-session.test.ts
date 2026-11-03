@@ -116,10 +116,10 @@ test('managed writes preserve owner/admin/manager rules and explicit subgroup as
   assert.equal((await send(db, f.auth, '/staff/' + f.target.id, bodyFor(f.target, { role: 'manager' }), 'patch')).status, 403);
   for (const suffix of ['', '/setup-link']) assert.equal((await send(db, f.auth, '/staff/' + child.id + suffix, suffix ? {} : bodyFor(child), suffix ? 'post' : 'patch')).status, 403);
   assert.equal((await send(db, f.auth, '/jobs', { unitId: childId, title: 'Synthetic inaccessible descendant' })).status, 403);
-  assert.equal((await send(db, adminAuth, '/staff/' + admin.id + '/setup-link', {})).status, 403);
-  assert.equal((await send(db, adminAuth, '/staff/' + f.user.id, bodyFor(f.user, { role: 'admin' }), 'patch')).status, 403);
+  assert.equal((await send(db, adminAuth, '/staff/' + admin.id + '/setup-link', {})).status, 200);
+  assert.equal((await send(db, adminAuth, '/staff/' + f.user.id, bodyFor(f.user, { role: 'manager' }), 'patch')).status, 200);
   assert.equal((await send(db, adminAuth, '/staff/' + child.id + '/setup-link', {})).status, 200);
-  assert.equal((await send(db, ownerAuth, '/staff/' + owner.id + '/setup-link', {})).status, 403);
+  assert.equal((await send(db, ownerAuth, '/staff/' + owner.id + '/setup-link', {})).status, 200);
   await changeStaff(f.user, { unitIds: [unitId, childId] }); const current = await signIn(f.user);
   assert.equal((await send(db, current, '/staff/' + child.id + '/setup-link', {})).status, 200);
   assert.equal((await send(db, current, '/jobs', { unitId: childId, title: 'Synthetic explicitly assigned job' })).status, 201);

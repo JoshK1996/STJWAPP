@@ -496,9 +496,9 @@ export default function App() {
   const visibleStaff = includedStaff.filter((person) =>
     `${person.name} ${person.email} ${person.role} ${jobs.filter(job => person.job_ids.includes(job.id)).map(job => job.title).join(" ")} ${me?.units.filter((unit: any) => person.unit_ids.includes(unit.id)).map((unit: any) => unit.name).join(" ")}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
-  const canManagePerson = (person: any) => me?.permissions.manage && person.id !== me.actor.id &&
-    (me.actor.role === 'developer' || (me.actor.role === 'owner' && !['developer','owner'].includes(person.role)) ||
-     (me.actor.role === 'admin' && !['developer','owner','admin'].includes(person.role)) ||
+  const canManagePerson = (person: any) => me?.permissions.manage && (person.id !== me.actor.id || ['developer','owner','admin'].includes(me.actor.role)) &&
+    (me.actor.role === 'developer' || (me.actor.role === 'owner' && person.role!=='developer' && (person.role!=='owner'||person.id===me.actor.id)) ||
+     (me.actor.role === 'admin' && !['developer','owner'].includes(person.role)) ||
      (me.actor.role === 'manager' && person.role === 'employee' && person.unit_ids.every((id: string) => me.actor.unit_ids.includes(id))));
   const canAssignPerson = (person: any) => me?.permissions.manage &&
     (me.actor.role === 'developer' ||
@@ -564,7 +564,8 @@ export default function App() {
             { ...input, active: form.get("active") === "on", expectedRevision: dialog.staff.revision },
             "PATCH",
           );
-          notify("Employee updated. Their existing sessions were signed out.");
+          notify(dialog.staff.id===me.actor.id?"Your account was updated.":"Employee updated. Their existing sessions were signed out.");
+          if(dialog.staff.id===me.actor.id)await refreshEmployeeAssignments();
         } else {
           const temporary = form.get("onboarding") === "temporary";
           if (temporary && (form.get('temporaryPassword') !== form.get('temporaryPasswordConfirmation') || form.get('temporaryPin') !== form.get('temporaryPinConfirmation'))) throw new Error('The confirmation fields must match.');
@@ -593,7 +594,7 @@ export default function App() {
       } else if (dialog.type === "request") {
         const input = { kind: form.get("kind"), unitId: form.get("unitId"), startsOn: form.get("startsOn"), endsOn: form.get("endsOn"), note: form.get("note") };
         await api(dialog.request ? `/requests/${dialog.request.id}` : "/requests", { ...input, ...(dialog.request ? { expectedVersion: dialog.request.version } : {}) }, dialog.request ? "PATCH" : "POST");
-        notify(dialog.request ? "Your pending request was updated." : "Your request is ready for review.");
+        notify(dialog.request ? "Your pending request was updated." : ['developer','owner','admin'].includes(me.actor.role)?"Entry saved.":"Your request is ready for review.");
       } else if (dialog.type === "withdraw") {
         await api(`/requests/${dialog.request.id}/withdraw`, { expectedVersion: dialog.request.version, reason: form.get("reason") });
         notify("Request withdrawn. Its history is retained.");
@@ -1203,7 +1204,7 @@ export default function App() {
                   >
                     <div className="action-list">
                       {[
-                        ["pto", "Request time off"],
+                        ["pto", ['developer','owner','admin'].includes(me.actor.role)?"Record time off":"Request time off"],
                         ["schedule", "Request a schedule change"],
                         ["correction", "Review or correct recorded time"],
                       ].map(([kind, label]) => (
@@ -1281,7 +1282,7 @@ export default function App() {
                       {(canManagePerson(person) || ['developer','owner','admin','finance'].includes(me.actor.role)) && <div className="employee-secondary-actions">
                         {canManagePerson(person) && <>
                           <button className="text-link" onClick={() => setStaffTool({kind:'clock',person})}>Clock rules</button>
-                          {['developer','owner','admin'].includes(me.actor.role) && <button className="text-link" onClick={() => setStaffTool({kind:'credentials',person})}>Reset sign-in</button>}
+                          {['developer','owner','admin'].includes(me.actor.role) && <button className="text-link" onClick={() => person.id===me.actor.id?go('settings'):setStaffTool({kind:'credentials',person})}>{person.id===me.actor.id?'Change my sign-in':'Reset sign-in'}</button>}
                           {!person.requires_credential_change && <button className="text-link" onClick={() => void run(async () => {
                             const result = await api(`/staff/${person.id}/setup-link`, {});
                             if (sessionEpoch.current === workspaceEpoch) setPrivateLink(result.setupUrl);
@@ -1382,9 +1383,9 @@ export default function App() {
                           </Badge>
                         </td>
                         <td>
-                          {r.user_id === me.actor.id && r.status === "pending" ? <div className="row-actions"><button className="button secondary small" onClick={() => setDialog({ type: "request", request: r })}>Edit request</button><button className="button ghost small" onClick={() => setDialog({ type: "withdraw", request: r })}>Withdraw</button></div> : me.permissions.manage &&
+                          {r.user_id === me.actor.id && r.status === "pending" && !['developer','owner','admin'].includes(me.actor.role) ? <div className="row-actions"><button className="button secondary small" onClick={() => setDialog({ type: "request", request: r })}>Edit request</button><button className="button ghost small" onClick={() => setDialog({ type: "withdraw", request: r })}>Withdraw</button></div> : me.permissions.manage &&
                           r.status === "pending" &&
-                          r.user_id !== me.actor.id ? (
+                          (r.user_id !== me.actor.id || ['developer','owner','admin'].includes(me.actor.role)) ? (
                             <button
                               className="button secondary small"
                               onClick={() =>
@@ -1592,7 +1593,7 @@ export default function App() {
                   ? "Edit employee"
                   : "Add employee",
                 job: dialog.job ? "Edit job" : "Create a job",
-                request: dialog.request ? "Edit pending request" : "Create a request",
+                request: dialog.request ? "Edit pending request" : ['developer','owner','admin'].includes(me.actor.role)?"Record time off or a note":"Create a request",
                 withdraw: "Withdraw pending request",
                 review: "Review request",
               } as Record<string, string>

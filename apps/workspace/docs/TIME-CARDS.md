@@ -13,13 +13,13 @@ Lists show 100 cards per page, with totals across every matching page. Choose a 
 1. Choose **Edit time card** beside the employee’s shift. On **Open shifts**, choose **Edit clock-in & clock-out**. Recorded dates/times are already filled in. Users whose changes require independent review see **Request correction**.
 2. Change the **Clock-in date and time** and, when ending the card, **Clock-out date and time**. For a shift still running, **Keep this shift open** lets you correct its start without clocking the employee out; clear it to supply an actual missed clock-out. Expand job and break details when those entries also need correction. Times use the organization’s displayed timezone.
 3. Review the original and resulting hours and enter the reason for the change.
-4. An administrator, owner or developer editing another employee saves the correction immediately. The original punches, new revision, editor and reason remain in history. An employee's own correction and a scoped manager's proposal retain the independent approval workflow.
+4. An administrator, owner or developer saves corrections immediately, including their own cards. The original punches, new revision, editor and reason remain in history. Ordinary employees and scoped managers retain the independent approval workflow. Privileged users can also apply their own previously pending proposals.
 
 Only available recorded/currently assigned jobs can be used. A date/time correction must not overlap another shift or introduce future completed time. Repeated daylight-saving times require an explicit offset choice; nonexistent local times must be corrected. Unchanged original instants retain their full stored precision. Display rounding never rewrites recorded segments.
 
 ## Missing time and clock-outs
 
-The missing-shift entry supports dated work and break entries for an employee. The full open-card editor supports changing both dated punches together or just the start while the employee remains on the clock. The optional **Correct clock-out** shortcut remains available for a clock-out-only change. The same immediate administrator rule applies to another employee, while self-service and scoped-manager proposals remain independently reviewed. Saving a missed clock-out records the supplied time and preserves the original open-ended evidence.
+The missing-shift entry supports dated work and break entries for an employee. The full open-card editor supports changing both dated punches together or just the start while the employee remains on the clock. The optional **Correct clock-out** shortcut remains available for a clock-out-only change. The same immediate administrator rule applies to their own missing shifts and clock-outs. Ordinary employee and scoped-manager proposals remain independently reviewed. Saving a missed clock-out records the supplied time and preserves the original open-ended evidence.
 
 These controls do not estimate missing work or invent punches. Staff supply the actual intended date/time and a reason. Editing logged time is separate from editing the schedule or employee pay rate.
 

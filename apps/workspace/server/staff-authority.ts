@@ -82,16 +82,26 @@ export async function updateStaffAccount(db: Database, supplied: Actor, sessionH
       409, 'Clock out before changing this employee’s account or job assignments.');
     // An inactive PIN may now collide with a different active account. Preserve
     // its salted hash but require legacy uniqueness verification after reactivation.
+    await recheckReportSession(tx,actor,proof);
     await tx.query('UPDATE users SET name=$1,email=$2,role=$3,pin_lookup=CASE WHEN NOT active AND $4 THEN NULL ELSE pin_lookup END,pin_lookup_key_id=CASE WHEN NOT active AND $4 THEN NULL ELSE pin_lookup_key_id END,active=$4 WHERE id=$5 AND org_id=$6', [input.name, input.email, input.role, input.active, id, actor.org_id]);
     await tx.query('DELETE FROM user_jobs WHERE user_id=$1 AND org_id=$2', [id, actor.org_id]);
     await tx.query('DELETE FROM user_units WHERE user_id=$1 AND org_id=$2', [id, actor.org_id]);
     for (const unitId of [...new Set(input.unitIds)].sort()) await tx.query('INSERT INTO user_units(org_id,user_id,unit_id) VALUES($1,$2,$3)', [actor.org_id, id, unitId]);
     for (const jobId of [...new Set(input.jobIds)].sort()) await tx.query('INSERT INTO user_jobs(org_id,user_id,job_id) VALUES($1,$2,$3)', [actor.org_id, id, jobId]);
-    await tx.query('DELETE FROM sessions WHERE user_id=$1 AND org_id=$2', [id, actor.org_id]);
+    await tx.query('DELETE FROM sessions WHERE user_id=$1 AND org_id=$2 AND ($3::text IS NULL OR token_hash<>$3)', [id, actor.org_id, id===actor.id?proof:null]);
     await tx.query('UPDATE api_tokens SET revoked_at=now() WHERE user_id=$1 AND org_id=$2 AND revoked_at IS NULL', [id, actor.org_id]);
     await tx.query('DELETE FROM mfa_challenges WHERE user_id=$1 AND org_id=$2', [id, actor.org_id]);
     await tx.query('DELETE FROM credential_change_challenges WHERE user_id=$1 AND org_id=$2', [id, actor.org_id]);
     await audit(tx, actor, 'staff.updated', id, { before, after: input });
+    if(id===actor.id&&(!input.active||input.role!==before.role)) {
+      // Verify final password/MFA proof before intentionally retiring this session.
+      // The locked account's changed role/active state is the authorized result.
+      requireCondition((await tx.query(`SELECT s.token_hash FROM sessions s WHERE s.token_hash=$1 AND s.org_id=$2 AND s.user_id=$3
+        AND s.mode='password' AND s.expires_at>clock_timestamp()
+        AND (s.mfa_verified OR NOT EXISTS(SELECT 1 FROM mfa_factors f WHERE f.user_id=s.user_id AND f.enabled_at IS NOT NULL)) FOR SHARE OF s`,[proof,actor.org_id,actor.id])).rows.length,401,'Your session expired or changed. Sign in again.');
+      await tx.query('DELETE FROM sessions WHERE token_hash=$1 AND org_id=$2 AND user_id=$3',[proof,actor.org_id,actor.id]);
+      return {ok:true as const,requiresSignIn:true};
+    }
     return publish(tx, actor, proof, { ok: true as const });
   });
 }

@@ -33,3 +33,5 @@ For a new decision, add the next numbered file with date, status, context, decis
 - [0016: Weekly employee clock plans](0016-weekly-clock-plan-editor.md)
 
 - [0017: Full corrections for open employee time cards](0017-full-open-time-card-corrections.md)
+
+- [0018: Privileged direct authority](0018-privileged-direct-authority.md)

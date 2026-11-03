@@ -64,12 +64,12 @@ test('direct closure preserves precise original events, updates clocks/reports a
  const report=await getReport(db,p.actor,{start:'2025-11-02',end:'2025-11-02',group:'hour'});assert.equal(report.workMs,4800000);assert.equal(report.breakMs,600000);
 });
 
-test('direct saves enforce fresh administrator role, other-employee rule, password session and same authority on retry',async()=>{
+test('direct saves enforce fresh administrator role, self authority, password session and same authority on retry',async()=>{
  const p=await person(),admin=await person('admin'),manager=await person('manager'),finance=await person('finance');
  for(const actor of [p,manager,finance])await assert.rejects(applyDirectTimeAdjustment(db,actor.actor,actor.auth.hash,missing(p)),(e:any)=>e.status===403);
- await assert.rejects(applyDirectTimeAdjustment(db,admin.actor,admin.auth.hash,missing(admin)),/another employee/);
+ assert.equal((await applyDirectTimeAdjustment(db,admin.actor,admin.auth.hash,missing(admin))).result.status,'applied');
  assert.equal((await getTimeAdjustmentOptions(db,admin.actor,admin.auth.hash,{employeeId:p.actor.id})).allowedActions.applyDirect,true);
- assert.equal((await getTimeAdjustmentOptions(db,admin.actor,admin.auth.hash,{employeeId:admin.actor.id})).allowedActions.applyDirect,false);
+ assert.equal((await getTimeAdjustmentOptions(db,admin.actor,admin.auth.hash,{employeeId:admin.actor.id})).allowedActions.applyDirect,true);
  assert.equal((await getTimeAdjustmentOptions(db,manager.actor,manager.auth.hash,{employeeId:p.actor.id})).allowedActions.applyDirect,false);
  const input=missing(p),saved=await applyDirectTimeAdjustment(db,admin.actor,admin.auth.hash,input);assert.equal(saved.result.status,'applied');
  await db.query("UPDATE users SET role='manager' WHERE id=$1",[admin.actor.id]);await assert.rejects(applyDirectTimeAdjustment(db,admin.actor,admin.auth.hash,input),(e:any)=>e.status===403);
