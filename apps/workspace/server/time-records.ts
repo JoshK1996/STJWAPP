@@ -8,6 +8,7 @@ import {
   digest,
   manages,
   orgWide,
+  canAdminister,
   canReport,
   requireCondition,
   type Actor,
@@ -52,7 +53,7 @@ const comparableSegments=(values:Segment[])=>values.map(s=>[s.jobId,s.kind,timeM
 function reviewer(actor: Actor) {
   return manages(actor);
 }
-const directAdministrator = (actor: Actor) => actor.mode === 'password' && ['developer','owner','admin'].includes(actor.role);
+const directAdministrator = canAdminister;
 async function jobsFor(tx: Queryable, actor: Actor, ids: string[]) {
   return timeJobs(tx, actor, ids);
 }
@@ -179,7 +180,7 @@ export async function timeRecordDetail(
     sourceHash:sourceHash({shift,rows}),
     canPropose:
       shift.user_id === actor.id || reviewer(actor),
-    canAdjust: shift.user_id !== actor.id && directAdministrator(actor),
+    canAdjust: directAdministrator(actor),
   };
  });
 }
@@ -344,7 +345,7 @@ export async function proposeCorrection(
     return row;
   });
 }
-/** Explicit administrator action; self and scoped-manager edits retain independent review. */
+/** Administrative edits, including own time cards, save directly with immutable evidence. */
 export async function adjustTimeRecord(
   db: Database,
   suppliedActor: Actor,
@@ -358,7 +359,7 @@ export async function adjustTimeRecord(
     const identity = (await tx.query('SELECT user_id FROM shifts WHERE id=$1 AND org_id=$2', [shiftId,suppliedActor.org_id])).rows[0];
     requireCondition(identity,404,'Time record not found.');
     const actor = await currentTimeActor(tx,suppliedActor,sessionHash,identity.user_id,true);
-    requireCondition(directAdministrator(actor) && actor.id !== identity.user_id,403,'An administrator may directly adjust another employee\'s time card. Your own corrections require independent review.');
+    requireCondition(directAdministrator(actor),403,'An administrator, owner or developer is required to save a time card directly.');
     const fingerprint = digest(JSON.stringify({action:'administrative_adjustment',shiftId,inputRevision:input.sourceRevision,reason:input.reason,...(input.sourceHash?{sourceHash:input.sourceHash}:{}),
       segments:input.segments.map(segment=>({...segment,startedAt:canonicalBoundary(segment.startedAt),endedAt:canonicalBoundary(segment.endedAt)}))}));
     const previous = (await tx.query('SELECT * FROM time_corrections WHERE org_id=$1 AND proposed_by=$2 AND command_id=$3',[actor.org_id,actor.id,input.commandId])).rows[0];
@@ -409,7 +410,7 @@ export async function reviewCorrection(
     const actor = await currentTimeActor(tx, suppliedActor, sessionHash, observed.user_id, true);
     requireCondition(reviewer(actor), 403, "Manager review required.");
     requireCondition(
-      observed.proposed_by !== actor.id && observed.user_id !== actor.id,
+      canAdminister(actor) || (observed.proposed_by !== actor.id && observed.user_id !== actor.id),
       403,
       "A different manager must review this correction.",
     );

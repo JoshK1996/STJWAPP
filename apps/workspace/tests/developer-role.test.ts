@@ -84,10 +84,10 @@ test('developer can publish and review owner-only organization appearance; admin
   assert.equal((await send(admin,'/organization/branding',{...input,commandId:randomUUID(),expectedVersion:1})).status,403);
 });
 
-test('developer may create administrators, but no ordinary account/import path provisions owner or developer',async()=>{
+test('developer can provision every role while lower roles cannot provision owner or developer',async()=>{
   const input={name:'Synthetic top-role denial',email:randomUUID()+'@stjw.org',role:'admin',unitIds:[otherUnit],jobIds:[]};
   assert.equal((await send(developer,'/staff',input)).status,201);
-  for(const caller of [developer,owner,admin,manager])for(const role of ['developer','owner']){
+  for(const caller of [owner,admin,manager])for(const role of ['developer','owner']){
     const result=await send(caller,'/staff',{...input,email:randomUUID()+'@stjw.org',role});assert.equal(result.status,403,caller.actor.role+' -> '+role);
     const csv=`name,email,role,unitIds,jobIds\nSynthetic blocked,${randomUUID()}@stjw.org,${role},${unitId},`;
     assert.equal((await send(caller,'/imports/staff/preview',{csv})).status,403);
@@ -111,11 +111,12 @@ test('a supplied developer label cannot elevate an actual employee through curre
     reviewed:true,reason:'Synthetic forbidden stale-role change',settings:{...current.body.settings,displayName:'Must not publish'}}),denied);
 });
 
-test('developer can manage an existing external-email owner while preserving that account credentials and self-edit denial',async()=>{
+test('developer can manage an existing external-email owner while preserving credentials and exercising direct self administration',async()=>{
   const before=(await db.query('SELECT password_hash,pin_hash FROM users WHERE id=$1',[owner.actor.id])).rows[0];
   const saved=await send(developer,'/staff/'+owner.actor.id,body(owner,{name:'Synthetic reviewed owner',expectedRevision:await testStaffRevision(db,owner.actor.id)}),'patch');assert.equal(saved.status,200,saved.body.error);
   assert.deepEqual((await db.query('SELECT password_hash,pin_hash FROM users WHERE id=$1',[owner.actor.id])).rows[0],before);
-  assert.equal((await send(developer,'/staff/'+developer.actor.id,body(developer,{active:false,expectedRevision:await testStaffRevision(db,developer.actor.id)}),'patch')).status,403);
+  assert.equal((await send(developer,'/staff/'+developer.actor.id,body(developer,{name:'Synthetic developer self edit',expectedRevision:await testStaffRevision(db,developer.actor.id)}),'patch')).status,200);
+  assert.equal((await send(developer,'/me')).status,200);
   owner=await login(owner.actor.email,owner.password);
   assert.equal(owner.actor.role,'owner');assert.equal(owner.actor.email,'synthetic.role.owner@example.test');
 });

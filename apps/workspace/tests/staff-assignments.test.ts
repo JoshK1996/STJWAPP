@@ -54,7 +54,8 @@ test('administrators can assign themselves and peer administrators without chang
   assert.deepEqual((await db.query('SELECT name,email,role,active,password_hash,pin_hash,clock_authority_version FROM users WHERE id=$1',[b.actor.id])).rows[0],before);
   assert.equal((await request(app).get('/api/me').set('Cookie',a.cookie)).status,200);assert.equal((await request(app).get('/api/me').set('Cookie',b.cookie)).status,200);
   assert.deepEqual(new Set((await getAuthenticatedClock(db,b.actor,b.hash)).jobs.map(job=>job.id)),new Set([jobId,otherJob]));
-  await assert.rejects(issueManagedStaffSetupLink(db,a.actor,a.hash,a.actor.id,origin),status(403));await assert.rejects(issueManagedStaffSetupLink(db,a.actor,a.hash,b.actor.id,origin),status(403));
+  assert.ok((await issueManagedStaffSetupLink(db,a.actor,a.hash,a.actor.id,origin)).setupUrl.includes('#setup='));assert.ok((await issueManagedStaffSetupLink(db,a.actor,a.hash,b.actor.id,origin)).setupUrl.includes('#setup='));
+  assert.equal((await request(app).get('/api/me').set('Cookie',a.cookie)).status,200);
 });
 
 test('developer and owner self assignments work while higher-role and manager boundaries remain narrow',async()=>{

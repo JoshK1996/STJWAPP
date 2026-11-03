@@ -1,5 +1,6 @@
 import { z } from 'zod';
 export const roleSchema = z.enum(['developer','owner','admin','manager','finance','employee']);
+export const isAdministrativeRole = (role: string): boolean => ['developer','owner','admin'].includes(role);
 export const isDeveloperRole = (role: string): boolean => role === 'developer';
 export const isOwnerRole = (role: string): boolean => role === 'developer' || role === 'owner';
 export const staffInput = z.object({ name: z.string().trim().min(2).max(100), email: z.email().max(254).transform(s => s.toLowerCase()), role: roleSchema, unitIds: z.array(z.uuid()).min(1).max(30), jobIds: z.array(z.uuid()).max(40) }).strict();

@@ -1,5 +1,9 @@
 # Implementation status
 
+## Privileged direct authority - November 3, 2026
+
+Implemented for issue #44; validation and rollout are in progress. Developer/owner/administrator password sessions save their own time cards, missing shifts and missed clock-outs directly and can resolve their existing own proposals. Their own general entries are recorded directly; scheduled shifts use the direct editor. Developers may provision every role and manage their own account; administrators can manage peers and themselves. Migration 052 replaces unconditional self-review database checks with current privileged-role exceptions while preserving manager self-review denial and immutable evidence. Existing recorded rows are unchanged. Actual release receipts will follow deployment.
+
 ## Direct Overview time-card editing - November 2, 2026
 
 Authorized users can edit directly from Overview using **Edit clock-in & clock-out** on current activity, **Time cards & corrections** below an employee’s hours, or **Edit time cards** to search by employee and date. The existing full editor opens in place and saving refreshes Overview. Both dated punches, jobs and breaks remain editable with existing administrator/self/scoped-manager review, captured-source checks and audit history. Finance readers keep read-only Time records access. No backend or migration changes.

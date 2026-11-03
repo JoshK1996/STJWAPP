@@ -67,7 +67,7 @@ function parseRows(csv: string) {
 }
 type StaffRow = z.infer<typeof staffInput>;
 function capturedScope(actor: Actor, rows: StaffRow[]) {
-  requireCondition(rows.every(row => !["developer", "owner"].includes(row.role) && (actor.role !== "admin" || row.role !== "admin") &&
+  requireCondition(rows.every(row => (actor.role === "developer" || !["developer", "owner"].includes(row.role)) &&
     (actor.role !== "manager" || row.role === "employee" && row.unitIds.every(id => actor.unit_ids.includes(id)))), 403, "The complete staff import is outside your current management scope.");
 }
 async function lockedRows(tx: Queryable, actor: Actor, rows: StaffRow[], domain: string) {
@@ -179,7 +179,7 @@ export async function listStaffImports(db: Database, supplied: Actor, sessionHas
   return transaction(db, async tx => {
     const actor = await currentStaffImportActor(tx, identity, proof);
     const scope = `b.org_id=$1 AND b.actor_id=$2 AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(b.rows) r
-      WHERE r->>'role' IN ('developer','owner') OR ($3='admin' AND r->>'role'='admin') OR ($3='manager' AND
+      WHERE ($3<>'developer' AND r->>'role' IN ('developer','owner')) OR ($3='manager' AND
       (r->>'role'<>'employee' OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(r->'unitIds') u WHERE NOT (u=ANY($4::text[]))))))`;
     const params = [actor.org_id, actor.id, actor.role, actor.unit_ids];
     const counts = (await tx.query(`SELECT count(*)::text AS batches,count(applied_at)::text AS applied FROM import_batches b WHERE ${scope}`, params)).rows[0];

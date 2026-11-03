@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Database, Queryable } from './db';
-import { audit, assertUnit, digest, manages, orgWide, requireCondition, type Actor } from './security';
+import { canAdminister, audit, assertUnit, digest, manages, orgWide, requireCondition, type Actor } from './security';
 import { clockInput, requestInput, staffInput } from '../shared/contracts';
 import type { z } from 'zod';
 import { noTimeOverlap,timeMicroseconds } from './time-record-access';
@@ -81,13 +81,12 @@ export async function listStaff(db: Queryable, actor: Actor) {
 export async function validateStaff(tx: Queryable, actor: Actor, input: z.infer<typeof staffInput>, staffDomain: string,
   existing?: { role: string; email: string; retainedJobIds?: string[] }) {
   requireCondition(manages(actor),403,'Staff management access required.');
-  // Only the already-locked existing highest-role identity may retain that role.
-  // New developer/owner provisioning never enters ordinary staff/import creation.
-  requireCondition(!['developer','owner'].includes(input.role) ||
-    actor.role==='developer' && existing?.role===input.role,403,'Developer and owner provisioning requires a separate reviewed procedure.');
+  // Developers may provision every role; owners may retain their existing role.
+  // Other roles cannot assign higher-level owner or developer access.
+  requireCondition(!['developer','owner'].includes(input.role) || actor.role==='developer' ||
+    actor.role==='owner' && existing?.role==='owner' && input.role==='owner',403,'Only a developer can assign developer or owner access.');
   if (actor.role==='manager') requireCondition(input.role==='employee',403,'Managers can provision employee accounts only.');
-  if (actor.role==='admin') requireCondition(input.role!=='admin',403,'Only the owner can grant administrator access.');
-  requireCondition(input.email.split('@')[1]===staffDomain || actor.role==='developer' && existing !== undefined &&
+  requireCondition(input.email.split('@')[1]===staffDomain || canAdminister(actor) && existing !== undefined &&
     ['developer','owner'].includes(existing.role) && input.email===existing.email,400,`Staff accounts must use @${staffDomain}.`);
   const units = (await tx.query('SELECT id FROM units WHERE org_id=$1 AND id=ANY($2::uuid[])',[actor.org_id,input.unitIds])).rows;
   requireCondition(units.length===new Set(input.unitIds).size,400,'Unknown organizational unit.');
@@ -108,12 +107,11 @@ export async function assertManagePerson(tx: Queryable, actor: Actor, id: string
   requireCondition(manages(actor),403,'Staff management access required.');
   const target=(await tx.query('SELECT id,role FROM users WHERE id=$1 AND org_id=$2 FOR UPDATE',[id,actor.org_id])).rows[0];
   requireCondition(target,404,'Staff member not found.');
-  requireCondition(id!==actor.id && (!['developer','owner'].includes(target.role) || actor.role==='developer'),403,'This account cannot be changed here.');
+  requireCondition((id!==actor.id || canAdminister(actor)) && (target.role!=='developer' || actor.role==='developer') && (target.role!=='owner' || actor.role==='developer' || actor.role==='owner'&&target.id===actor.id),403,'This account cannot be changed here.');
   if (actor.role==='manager') {
     const units=(await tx.query('SELECT unit_id FROM user_units WHERE user_id=$1',[id])).rows;
     requireCondition(target.role==='employee' && units.length && units.every(x=>actor.unit_ids.includes(x.unit_id)),403,'This account is outside your management scope.');
   }
-  if (actor.role==='admin') requireCondition(target.role!=='admin',403,'Only the owner can manage administrators.');
   return target;
 }
 export async function listRequests(db: Queryable, actor: Actor) {
@@ -130,20 +128,33 @@ async function currentRequestActor(tx: Queryable, actor: Actor): Promise<Actor> 
   const units=(await tx.query('SELECT unit_id FROM user_units WHERE user_id=$1 AND org_id=$2 ORDER BY unit_id FOR SHARE',[actor.id,actor.org_id])).rows.map(row=>row.unit_id);
   return {...actor,role:current.role,unit_ids:units};
 }
-export async function createRequest(db: Database, actor: Actor, input: z.infer<typeof requestInput>) {
-  return db.transaction(async tx=>{
-    actor=await currentRequestActor(tx,actor);
-    requireCondition(actor.unit_ids.includes(input.unitId),403,'Select one of your assigned units.');
+async function recordRequestCreation(tx:Queryable,actor:Actor,input:z.infer<typeof requestInput>) {
+    requireCondition(canAdminister(actor)||actor.unit_ids.includes(input.unitId),403,'Select one of your assigned units.');
+    requireCondition((await tx.query('SELECT id FROM units WHERE id=$1 AND org_id=$2',[input.unitId,actor.org_id])).rows.length,400,'Select a community in this organization.');
     const id=randomUUID();
-    await tx.query('INSERT INTO requests(id,org_id,user_id,unit_id,kind,starts_on,ends_on,note) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[id,actor.org_id,actor.id,input.unitId,input.kind,input.startsOn,input.endsOn,input.note]);
-    await audit(tx,actor,'request.created',id,{ kind:input.kind, startsOn:input.startsOn, endsOn:input.endsOn }); return { id };
+    const direct=canAdminister(actor);
+    await tx.query("INSERT INTO requests(id,org_id,user_id,unit_id,kind,starts_on,ends_on,note,status,reviewer_id,review_note,reviewed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,CASE WHEN $10::uuid IS NULL THEN NULL ELSE clock_timestamp() END)",[id,actor.org_id,actor.id,input.unitId,input.kind,input.startsOn,input.endsOn,input.note,direct?'approved':'pending',direct?actor.id:null,direct?input.note:null]);
+    await audit(tx,actor,'request.created',id,{ kind:input.kind, startsOn:input.startsOn, endsOn:input.endsOn });
+    if(direct)await audit(tx,actor,'request.approved',id,{note:input.note,direct:true});
+    return { id };
+}
+/** Internal transaction helper retained for synthetic fixtures. HTTP uses session-bound creation. */
+export async function createRequest(db: Database, actor: Actor, input: z.infer<typeof requestInput>) {
+  return db.transaction(async tx=>recordRequestCreation(tx,await currentRequestActor(tx,actor),input));
+}
+export async function createAuthenticatedRequest(db:Database,supplied:Actor,sessionHash:string|undefined,input:z.infer<typeof requestInput>) {
+  requireCondition(typeof sessionHash==='string'&&/^[a-f0-9]{64}$/.test(sessionHash),401,'A current password session is required.');
+  return db.transaction(async tx=>{
+    const actor=await currentReportActor(tx,supplied,sessionHash);
+    const result=await recordRequestCreation(tx,actor,input);
+    await recheckReportSession(tx,actor,sessionHash);return result;
   });
 }
 async function recordRequestReview(tx: Queryable, actor: Actor, id: string, status: string, note: string, expectedVersion?: number) {
     requireCondition(manages(actor),403,'Request review access required.');
     const row=(await tx.query('SELECT * FROM requests WHERE id=$1 AND org_id=$2 FOR UPDATE',[id,actor.org_id])).rows[0];
     requireCondition(row,404,'Request not found.'); assertUnit(actor,row.unit_id);
-    requireCondition(row.user_id!==actor.id,403,'A different manager must review your request.');
+    requireCondition(canAdminister(actor)||row.user_id!==actor.id,403,'A different manager must review your request.');
     requireCondition(row.status==='pending',409,'This request has already been reviewed.');
     requireCondition(expectedVersion===undefined?row.version===1:row.version===expectedVersion,409,'This request changed. Reload it before reviewing the current details.');
     await tx.query('UPDATE requests SET status=$1,review_note=$2,reviewer_id=$3,reviewed_at=now(),version=version+1 WHERE id=$4',[status,note,actor.id,id]);

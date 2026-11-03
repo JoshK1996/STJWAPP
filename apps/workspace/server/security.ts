@@ -1,3 +1,4 @@
+import { isAdministrativeRole } from '../shared/contracts';
 import {
   randomBytes,
   scrypt,
@@ -65,6 +66,7 @@ export type Actor = {
   csrf?: string;
   preferences?: Row;
 };
+export const canAdminister = (actor: Actor) => actor.mode === 'password' && isAdministrativeRole(actor.role);
 export const orgWide = (actor: Actor) =>
   ["developer", "owner", "admin", "finance"].includes(actor.role);
 export const manages = (actor: Actor) =>

@@ -33,7 +33,7 @@ import { installPublicWeb } from './web-static';
 import type { Database } from './db';
 import { installAuth, type AppRequest } from './auth';
 import { audit, canReport, digest, manages, opaqueToken, orgWide, Problem, requireCondition } from './security';
-import { listStaff, listRequests, createRequest, reviewAuthenticatedRequest } from './workforce';
+import { listStaff, listRequests, createAuthenticatedRequest, reviewAuthenticatedRequest } from './workforce';
 import { getAuthenticatedClock, applyAuthenticatedClockCommand } from './clock-session';
 import { listPersonalTime } from './personal-time';
 import { createStaffAccount } from './temporary-credentials';
@@ -148,7 +148,7 @@ export function createApp(db: Database, config: AppConfig) {
     res.set('Cache-Control','private, no-store').json(await issueManagedStaffSetupLink(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),config.origin));
   });
   app.get('/api/requests',async(req,res)=>res.json({rows:await listRequests(db,actorOf(req))}));
-  app.post('/api/requests',async(req,res)=>res.status(201).json(await createRequest(db,actorOf(req),requestInput.parse(req.body))));
+  app.post('/api/requests',async(req,res)=>res.status(201).json(await createAuthenticatedRequest(db,actorOf(req),sessionHashOf(req),requestInput.parse(req.body))));
   app.patch('/api/requests/:id',async(req,res)=>res.set('Cache-Control','private, no-store').json(await editOwnRequest(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),req.body)));
   app.post('/api/requests/:id/withdraw',async(req,res)=>res.set('Cache-Control','private, no-store').json(await editOwnRequest(db,actorOf(req),sessionHashOf(req),idOf(req.params.id),req.body,true)));
   app.post('/api/requests/:id/review',async(req,res)=>{

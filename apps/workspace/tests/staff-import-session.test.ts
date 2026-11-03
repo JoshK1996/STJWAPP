@@ -106,7 +106,7 @@ test('normal owners, administrators and managers retain distinct provisioning ro
   const manager = await fixture(), admin = await fixture('admin');
   for (const [auth, role, units, expected] of [
     [ownerAuth, 'admin', [childId], 200], [ownerAuth, 'owner', [unitId], 403],
-    [admin.auth, 'manager', [childId], 200], [admin.auth, 'admin', [unitId], 403],
+    [admin.auth, 'manager', [childId], 200], [admin.auth, 'admin', [unitId], 200],
     [manager.auth, 'employee', [unitId], 200], [manager.auth, 'manager', [unitId], 403],
     [manager.auth, 'employee', [childId], 403], [manager.auth, 'employee', [unitId, childId], 403],
   ] as [Auth, string, string[], number][]) {
