@@ -1,3 +1,4 @@
+import { installShoppingReceipts } from './shopping-receipts';
 import { getStaffAssignments, saveStaffAssignments } from "./staff-assignments";
 import { installWorkforceImports } from "./workforce-imports";
 import { saveAllowanceSnapshot, listAllowanceSnapshots, getAllowanceSnapshot, exportAllowance } from "./workforce-allowance-reviews";
@@ -75,7 +76,7 @@ export function createApp(db: Database, config: AppConfig) {
   const app=express();
   app.disable('x-powered-by');
   app.set('trust proxy',false);
-  app.use(helmet({strictTransportSecurity:false,contentSecurityPolicy:{directives:{defaultSrc:["'self'"],scriptSrc:["'self'"],styleSrc:["'self'","'unsafe-inline'"],imgSrc:["'self'",'data:'],connectSrc:["'self'"],frameAncestors:["'none'"],upgradeInsecureRequests:config.production?[]:null}}}));
+  app.use(helmet({strictTransportSecurity:false,contentSecurityPolicy:{directives:{defaultSrc:["'self'"],scriptSrc:["'self'"],styleSrc:["'self'","'unsafe-inline'"],imgSrc:["'self'",'data:','blob:'],connectSrc:["'self'"],frameAncestors:["'none'"],upgradeInsecureRequests:config.production?[]:null}}}));
   app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');next();});
   app.get('/api/health',async(_req,res)=>{await db.query('SELECT 1');res.json({status:'ok',version:'0.1.0'});});
   app.get('/api/config',(_req,res)=>res.json({name:'St. Joseph the Worker',demo:config.demo}));
@@ -88,7 +89,8 @@ export function createApp(db: Database, config: AppConfig) {
   });
   const scheduleDocumentJson=express.json({limit:'3mb'});
   app.use((req,res,next)=>req.method==='POST'&&req.path==='/api/schedule-documents/inspect'?scheduleDocumentJson(req,res,next):next());
-  app.use(express.json({limit:'512kb'}));app.use(cookieParser());
+  const smallJson=express.json({limit:'512kb'});
+  app.use((req,res,next)=>req.method==='POST'&&req.path==='/api/shopping-receipts'?next():smallJson(req,res,next));app.use(cookieParser());
   installAuth(app,db,config.production);
   installAccountCredentials(app,db,config.production);
   app.get('/api/me',async(req,res)=>{
@@ -99,6 +101,7 @@ export function createApp(db: Database, config: AppConfig) {
   app.patch('/api/me/preferences',async(req,res)=>{
     res.set('Cache-Control','private, no-store').json(await savePersonalPreferences(db,actorOf(req),sessionHashOf(req),req.body));
   });
+  installShoppingReceipts(app,db);
   installOrganizationBranding(app,db);
   app.get('/api/clock',async(req,res)=>res.set('Cache-Control','private, no-store').json(await getAuthenticatedClock(db,actorOf(req),(req as AppRequest).sessionHash!)));
   app.post('/api/clock',async(req,res)=>res.set('Cache-Control','private, no-store').json(await applyAuthenticatedClockCommand(db,actorOf(req),(req as AppRequest).sessionHash!,req.body)));
@@ -128,7 +131,7 @@ export function createApp(db: Database, config: AppConfig) {
   app.get('/api/staff',async(req,res)=>{requireCondition(canReport(actorOf(req)),403,'Staff access required.');res.json({rows:await listStaff(db,actorOf(req))});});
   app.get('/api/jobs',async(req,res)=>{
     const actor=actorOf(req);
-    const rows=(await db.query('SELECT j.*,u.name AS unit_name FROM jobs j JOIN units u ON u.id=j.unit_id WHERE j.org_id=$1 AND ($2::boolean OR j.unit_id=ANY($3::uuid[])) ORDER BY u.name,j.title',[actor.org_id,orgWide(actor),actor.unit_ids])).rows;res.json({rows});
+    const rows=(await db.query('SELECT j.*,u.name AS unit_name,p.cafe_job_id AS requires_job_id FROM jobs j JOIN units u ON u.id=j.unit_id LEFT JOIN shopping_programs p ON p.org_id=j.org_id AND p.shopping_job_id=j.id WHERE j.org_id=$1 AND ($2::boolean OR j.unit_id=ANY($3::uuid[])) ORDER BY u.name,j.title',[actor.org_id,orgWide(actor),actor.unit_ids])).rows;res.json({rows});
   });
   app.post('/api/jobs',async(req,res)=>{
     res.set('Cache-Control','private, no-store').status(201).json(await createManagedJob(db,actorOf(req),sessionHashOf(req),req.body));

@@ -59,6 +59,27 @@ before(async () => {
 after(async () => {
   await db?.close();
 });
+test('runtime verifies receipt lifecycle, café membership guards and operator-only setup',async()=>{
+ for(const [table,trigger] of [['shopping_receipts','protected_shopping_receipt'],['shopping_receipt_events','immutable_receipt_event'],['shopping_receipt_commands','immutable_receipt_command'],['shopping_programs','immutable_shopping_program'],['user_jobs','shopping_job_membership'],['user_units','shopping_unit_membership'],['jobs','shopping_job_structure'],['shopping_programs','shopping_program_structure']]){
+  await db.query(`ALTER TABLE ${table} DISABLE TRIGGER ${trigger}`);
+  try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}
+  finally{await db.query(`ALTER TABLE ${table} ENABLE TRIGGER ${trigger}`);}
+ }
+ for(const permission of ['SELECT','INSERT','UPDATE']){
+  await db.query(`REVOKE ${permission} ON shopping_receipts FROM stjw_runtime`);
+  try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}
+  finally{await db.query(`GRANT ${permission} ON shopping_receipts TO stjw_runtime`);}
+ }
+ await db.query('GRANT EXECUTE ON FUNCTION provision_cafe_shopping(uuid,uuid,uuid,text) TO stjw_runtime');
+ try{await runtime(async()=>{await assert.rejects(assertRuntimeAccess(db),/restricted runtime-role/);});}
+ finally{await db.query('REVOKE EXECUTE ON FUNCTION provision_cafe_shopping(uuid,uuid,uuid,text) FROM stjw_runtime');}
+ await runtime(async()=>{
+  await assertRuntimeAccess(db);
+  await assert.rejects(db.query('SELECT provision_cafe_shopping($1,$2,$3,$4)',[owner.org_id,jobId,randomUUID(),'Synthetic forbidden setup']),/permission denied/);
+  await assert.rejects(db.query('DELETE FROM shopping_receipts'),/permission denied/);
+  await assert.rejects(db.query('DELETE FROM shopping_programs'),/permission denied/);
+ });
+});
 test('runtime accounting startup detects disabled evidence triggers and missing transition privileges',async()=>{
  for(const [table,privilege] of [['accounting_payroll_runs','UPDATE'],['accounting_budgets','UPDATE'],['accounting_journal_lines','DELETE'],['accounting_bank_matches','DELETE']]){
   await db.query(`REVOKE ${privilege} ON ${table} FROM stjw_runtime`);
@@ -132,7 +153,7 @@ test('runtime guards shared attention rules and their immutable history',async()
 });
 test("the restricted runtime identity can verify the schema without migration privileges", async () => {
   await runtime(async () => {
-    assert.equal(await verifySchema(db), 52);
+    assert.equal(await verifySchema(db), 53);
     const access = await assertRuntimeAccess(db);
     assert.equal(access.role, "stjw_runtime");
     assert.equal(access.login, "stjw_runtime");

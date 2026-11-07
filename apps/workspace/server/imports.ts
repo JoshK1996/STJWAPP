@@ -8,6 +8,7 @@ import type { Database, Queryable, Row } from "./db";
 import { audit, digest, manages, Problem, requireCondition, type Actor } from "./security";
 import { currentReportActor, recheckReportSession } from "./report-source-access";
 import { createStaff, validateStaff } from "./workforce";
+import { shoppingAssignmentIds, shoppingPrograms } from './shopping-jobs';
 import { toCsv } from "./reports";
 import { staffInput } from "../shared/contracts";
 import { staffImportColumns, staffImportLimits, staffImportRowsSchema, staffImportPreviewInput, staffImportApplyInput,
@@ -72,13 +73,17 @@ function capturedScope(actor: Actor, rows: StaffRow[]) {
 }
 async function lockedRows(tx: Queryable, actor: Actor, rows: StaffRow[], domain: string) {
   capturedScope(actor, rows);
-  const jobIds = [...new Set(rows.flatMap(row => row.jobIds))].sort();
+  // Validate effective grants without altering the retained CSV/source rows.
+  const effective:StaffRow[]=[];
+  for(const row of rows)effective.push({...row,unitIds:[...row.unitIds],jobIds:await shoppingAssignmentIds(tx,actor.org_id,row.jobIds)});
+  const shoppingIds=(await shoppingPrograms(tx,actor.org_id)).map(p=>p.shopping_job_id);
+  const jobIds = [...new Set(effective.flatMap(row => row.jobIds))].sort();
   const jobs = (await tx.query("SELECT id,unit_id,active FROM jobs WHERE org_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE", [actor.org_id, jobIds])).rows;
-  requireCondition(jobs.length === jobIds.length && jobs.every(job => job.active), 400, "Jobs must be current active jobs in the assigned units.");
+  requireCondition(jobs.length === jobIds.length && jobs.every(job => job.active||shoppingIds.includes(job.id)), 400, "Jobs must be current active jobs in the assigned units.");
   const unitIds = [...new Set([...rows.flatMap(row => row.unitIds), ...jobs.map(job => job.unit_id as string)])].sort();
   const units = (await tx.query("SELECT id FROM units WHERE org_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE", [actor.org_id, unitIds])).rows;
   requireCondition(units.length === unitIds.length, 400, "Unknown organizational unit.");
-  for (const row of rows) await validateStaff(tx, actor, row, domain);
+  for (const row of effective) await validateStaff(tx, actor, row, domain);
 }
 function retainedSource(row: Row) {
   requireCondition(row.evidence_version === 2 && typeof row.source_base64 === "string", 404, "Original source was not retained for this legacy import.");

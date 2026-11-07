@@ -1,3 +1,4 @@
+import { shoppingAssignmentIds, shoppingPrograms, shoppingJobFamily } from './shopping-jobs';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Database, Queryable } from './db';
@@ -55,7 +56,8 @@ async function lockAssignments(tx: Queryable, actor: Actor, input: z.infer<typeo
   const jobs = [...new Set(input.jobIds)].sort();
   const found = (await tx.query('SELECT id,unit_id,active FROM jobs WHERE org_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE', [actor.org_id, jobs])).rows;
   const retained=(await tx.query('SELECT job_id FROM user_jobs WHERE org_id=$1 AND user_id=$2',[actor.org_id,targetId])).rows.map(row=>row.job_id);
-  requireCondition(found.length === jobs.length && found.every(job => job.active || retained.includes(job.id)), 400, 'New assignments must use active jobs in the assigned units.');
+  const shoppingIds=(await shoppingPrograms(tx,actor.org_id)).map(p=>p.shopping_job_id);
+  requireCondition(found.length === jobs.length && found.every(job => job.active || retained.includes(job.id)||shoppingIds.includes(job.id)), 400, 'New assignments must use active jobs in the assigned units.');
   const units = [...new Set([...input.unitIds, ...found.map(job => job.unit_id as string)])].sort();
   const rows = (await tx.query('SELECT id FROM units WHERE org_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE', [actor.org_id, units])).rows;
   requireCondition(rows.length === units.length, 400, 'Unknown organizational unit.');
@@ -75,6 +77,7 @@ export async function updateStaffAccount(db: Database, supplied: Actor, sessionH
     before.jobIds = (await tx.query('SELECT job_id FROM user_jobs WHERE user_id=$1 AND org_id=$2 ORDER BY job_id', [id, actor.org_id])).rows.map(row => row.job_id);
     const revision = staffRecordRevision(actor.org_id, { id, name: before.name, email: before.email, role: before.role, active: before.active, unit_ids: before.unitIds, job_ids: before.jobIds });
     requireCondition(expectedRevision === revision, 409, 'This employee changed while the editor was open. Reload latest, review the current details and assignments, then save again.');
+    input.jobIds=await shoppingAssignmentIds(tx,actor.org_id,input.jobIds,before.jobIds);
     await lockAssignments(tx, actor, input, id);
     const retainedJobIds=(await tx.query('SELECT job_id FROM user_jobs WHERE org_id=$1 AND user_id=$2',[actor.org_id,id])).rows.map(row=>row.job_id);
     await validateStaff(tx, actor, input, staffDomain, { role: before.role, email: before.email, retainedJobIds });
@@ -133,6 +136,7 @@ export async function createManagedJob(db: Database, supplied: Actor, sessionHas
 export const managedJobUpdateInput = managedJobInput.extend({ active: z.boolean(), expectedVersion: z.number().int().positive(), reason: z.string().trim().min(3).max(1000) });
 async function jobHasReferences(tx: Queryable, orgId: string, jobId: string) {
   return (await tx.query(`SELECT
+    EXISTS(SELECT 1 FROM shopping_programs WHERE org_id=$1 AND (cafe_job_id=$2 OR shopping_job_id=$2)) OR
     EXISTS(SELECT 1 FROM user_jobs WHERE org_id=$1 AND job_id=$2) OR
     EXISTS(SELECT 1 FROM segments WHERE org_id=$1 AND job_id=$2) OR
     EXISTS(SELECT 1 FROM schedules WHERE org_id=$1 AND job_id=$2) OR
@@ -149,7 +153,12 @@ export async function updateManagedJob(db: Database, supplied: Actor, sessionHas
   return transaction(db,async tx=>{
     const actor=await currentActor(tx,identity,proof);
     // Clock-in/switch and assignment writers hold SHARE on this stable identity.
-    const before=(await tx.query('SELECT * FROM jobs WHERE id=$1 AND org_id=$2 FOR UPDATE',[id,actor.org_id])).rows[0];
+    const family=await shoppingJobFamily(tx,actor.org_id,id);
+    const locked=(await tx.query('SELECT * FROM jobs WHERE org_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR UPDATE',[actor.org_id,family])).rows;
+    const before=locked.find(job=>job.id===id);
+    const program=(await shoppingPrograms(tx,actor.org_id)).find(p=>p.shopping_job_id===id||p.cafe_job_id===id);
+    if(program&&id===program.cafe_job_id&&!input.active)requireCondition(!locked.find(j=>j.id===program.shopping_job_id)?.active,409,'Archive Shopping before archiving its café job.');
+    if(program&&id===program.shopping_job_id&&input.active)requireCondition(locked.find(j=>j.id===program.cafe_job_id)?.active,409,'Restore the café job before restoring Shopping.');
     requireCondition(before,404,'Job not found.'); assertUnit(actor,before.unit_id); assertUnit(actor,input.unitId);
     requireCondition(before.version===input.expectedVersion,409,'This job changed while you were editing. Close this editor, refresh the directory and review the latest version.');
     requireCondition((await tx.query('SELECT id FROM units WHERE id=$1 AND org_id=$2 FOR SHARE',[input.unitId,actor.org_id])).rows.length,404,'Community not found.');

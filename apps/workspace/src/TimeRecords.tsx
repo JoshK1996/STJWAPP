@@ -1,3 +1,4 @@
+import type { ReceiptTarget } from './ShoppingReceipts';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { DateTime } from 'luxon';
 import { ArrowLeft, ArrowRight, ArrowUpRight, BriefcaseBusiness, CalendarDays, Check, Clock3, Coffee, History, Pencil, RefreshCw, Search, SlidersHorizontal, Users, Wallet, X } from 'lucide-react';
@@ -17,9 +18,9 @@ const conciseTime = (value: string, zone: string) => DateTime.fromISO(value).set
 const recordSegments = (detail: any): Segment[] => detail.segments.map((row: any) => ({ jobId: row.job_id, kind: row.kind, startedAt: row.started_at, endedAt: row.ended_at }));
 const clockRange = (row: any, zone: string) => row.ended_at ? `${conciseTime(row.started_at, zone)} → ${conciseDate(row.started_at, zone) !== conciseDate(row.ended_at, zone) ? `${conciseDate(row.ended_at, zone)} · ` : ''}${conciseTime(row.ended_at, zone)}` : `${conciseTime(row.started_at, zone)} → On the clock`;
 
-export default function TimeRecords({ me, notify, onChanged, onDirty, onPendingChange, onNavigatePayroll, target, onTargetConsumed }: {
+export default function TimeRecords({ me, notify, onChanged, onDirty, onPendingChange, onNavigatePayroll, target, onTargetConsumed, onReceipts }: {
   me: any; notify: Notice; onChanged(): Promise<void>; onDirty?(dirty: boolean): void; onPendingChange?(pending: boolean): void;
-  onNavigatePayroll?(): void; target?: TimeRecordsTarget | null; onTargetConsumed?(): void;
+  onReceipts?:(target:Omit<ReceiptTarget,'nonce'>)=>void; onNavigatePayroll?(): void; target?: TimeRecordsTarget | null; onTargetConsumed?(): void;
 }) {
   const zone = me.organization.timezone, today = DateTime.now().setZone(zone);
   const [start, setStart] = useState(today.startOf('week').toISODate()!), [end, setEnd] = useState(today.toISODate()!);
@@ -160,6 +161,7 @@ export default function TimeRecords({ me, notify, onChanged, onDirty, onPendingC
       <Panel title={detail.shift.employee_name} detail={`${clockRange(detail.shift, zone)} · ${detail.shift.ended_at ? 'Completed time card' : 'Still clocked in'}`} action={(detail.canAdjust || detail.canPropose) ? <button type="button" className="button primary" disabled={disabled} onClick={() => setEditor(true)}><Pencil size={16}/>{detail.canAdjust ? 'Edit time card' : 'Request correction'}</button> : undefined}>
         <div className="records-detail-stats"><div><BriefcaseBusiness size={19}/><span>Recorded work<strong>{durationLabel(detailTotals!.work)}</strong><small>{detail.shift.ended_at ? 'Excludes breaks' : 'Finished entries only; current entry is still running'}</small></span></div><div><Coffee size={19}/><span>Recorded breaks<strong>{durationLabel(detailTotals!.break)}</strong><small>Work and breaks stay separate</small></span></div><div><History size={19}/><span>Time-card edits<strong>{detail.corrections.length}</strong><small>Revision {detail.shift.revision} · Other history below</small></span></div></div>
         <div className="time-record-summary"><Badge tone={detail.shift.ended_at ? 'neutral' : 'green'}>{detail.shift.ended_at ? 'Completed' : 'On the clock'}</Badge><p>{detail.canAdjust ? 'Save corrections immediately. Original times, reasons and editor names remain below.' : 'Requested corrections require an independent review. Original times remain in history.'}</p></div>
+        {onReceipts&&<div className="receipt-actions"><button className="button secondary" disabled={disabled} onClick={()=>onReceipts({view:me.permissions.report?'team':'mine',shiftId:detail.shift.id,userId:detail.shift.user_id})}>Linked shopping receipts</button>{detail.shift.user_id===me.actor.id&&<button className="text-link" disabled={disabled} onClick={()=>onReceipts({view:'mine',capture:true,shiftId:detail.shift.id})}>Add receipt to this time card</button>}</div>}
         <SegmentList segments={recordSegments(detail)} jobs={detail.jobs} zone={zone}/>
       </Panel>
       <Panel title="Changes & audit history" detail="Time-card edits appear below. Missing-card entries and clock-out corrections are in the linked history. Every change retains its original evidence." action={<button type="button" className="button secondary" disabled={disabled} onClick={() => setAdjustmentTarget({ kind: 'shift_requests', shiftId: detail.shift.id })}><History size={16}/>Missing card &amp; clock-out history</button>}>

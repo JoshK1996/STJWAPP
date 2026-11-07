@@ -35,3 +35,5 @@ For a new decision, add the next numbered file with date, status, context, decis
 - [0017: Full corrections for open employee time cards](0017-full-open-time-card-corrections.md)
 
 - [0018: Privileged direct authority](0018-privileged-direct-authority.md)
+
+- [0019 — Café Shopping and private receipt photos](0019-cafe-shopping-receipts.md)

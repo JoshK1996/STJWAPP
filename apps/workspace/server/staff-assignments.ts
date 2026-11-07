@@ -1,3 +1,4 @@
+import {shoppingAssignmentIds,shoppingPrograms} from './shopping-jobs';
 import {z} from 'zod';
 import type {Database,Queryable} from './db';
 import {audit,digest,manages,orgWide,requireCondition,type Actor} from './security';
@@ -31,15 +32,18 @@ async function authorized(tx:Queryable,actor:Actor,userId:string,current:Assigne
 async function inUse(tx:Queryable,orgId:string,userId:string){
   const rows=(await tx.query(`SELECT g.job_id,j.unit_id FROM shifts s JOIN segments g ON g.org_id=s.org_id AND g.shift_id=s.id AND g.revision=s.revision AND g.ended_at IS NULL
     JOIN jobs j ON j.org_id=g.org_id AND j.id=g.job_id WHERE s.org_id=$1 AND s.user_id=$2 AND s.ended_at IS NULL ORDER BY g.job_id`,[orgId,userId])).rows;
-  return {lockedJobIds:[...new Set<string>(rows.map(row=>row.job_id))].sort(),lockedUnitIds:[...new Set<string>(rows.map(row=>row.unit_id))].sort()};
+  const programs=await shoppingPrograms(tx,orgId);
+  const jobIds=rows.flatMap(row=>[row.job_id,...programs.filter(p=>p.shopping_job_id===row.job_id).map(p=>p.cafe_job_id)]);
+  return {lockedJobIds:[...new Set<string>(jobIds)].sort(),lockedUnitIds:[...new Set<string>(rows.map(row=>row.unit_id))].sort()};
 }
 async function snapshot(tx:Queryable,actor:Actor,userId:string,name:string,current:Assigned,changed:boolean):Promise<StaffAssignments>{
   const units=(await tx.query('SELECT id,name FROM units WHERE org_id=$1 AND ($2::boolean OR id=ANY($3::uuid[])) ORDER BY name,id LIMIT 1001',[actor.org_id,orgWide(actor),actor.unit_ids])).rows;
   const jobs=(await tx.query(`SELECT id,title,unit_id,active FROM jobs WHERE org_id=$1 AND ($2::boolean OR unit_id=ANY($3::uuid[]))
-    AND (active OR id=ANY($4::uuid[])) ORDER BY title,id LIMIT 5001`,[actor.org_id,orgWide(actor),actor.unit_ids,current.jobIds])).rows;
+    AND (active OR id=ANY($4::uuid[]) OR id IN(SELECT shopping_job_id FROM shopping_programs WHERE org_id=$1)) ORDER BY title,id LIMIT 5001`,[actor.org_id,orgWide(actor),actor.unit_ids,current.jobIds])).rows;
   requireCondition(units.length<=1000&&jobs.length<=5000,409,'This assignment catalog is too large to load safely. Contact your administrator.');
+  const programs=await shoppingPrograms(tx,actor.org_id);
   return staffAssignmentsSnapshot.parse({userId,employeeName:name,...current,revision:revision(actor.org_id,userId,current),...await inUse(tx,actor.org_id,userId),units,
-    jobs:jobs.map(row=>({id:row.id,title:row.title,unitId:row.unit_id,active:row.active})),changed});
+    jobs:jobs.map(row=>({id:row.id,title:row.title,unitId:row.unit_id,active:row.active,...(programs.find(p=>p.shopping_job_id===row.id)?{requiresJobId:programs.find(p=>p.shopping_job_id===row.id)!.cafe_job_id}:{} )})),changed});
 }
 async function publish<T>(tx:Queryable,actor:Actor,proof:string,value:T){await recheckReportSession(tx,actor,proof);return value;}
 
@@ -57,10 +61,12 @@ export async function saveStaffAssignments(db:Database,supplied:Actor,sessionHas
     // then sorted job identities, then community identities. No credential writes.
     const actor=await currentTimeActor(tx,identityActor,proof,id,true),before=await assigned(tx,actor.org_id,id),target=await authorized(tx,actor,id,before);
     requireCondition(orgWide(actor)||input.unitIds.every(unitId=>actor.unit_ids.includes(unitId)),403,'Choose only communities explicitly assigned to your management account.');
+    input.jobIds=await shoppingAssignmentIds(tx,actor.org_id,input.jobIds,before.jobIds);
+    const shoppingIds=(await shoppingPrograms(tx,actor.org_id)).map(p=>p.shopping_job_id);
     const lockedJobs=sorted([...new Set([...before.jobIds,...input.jobIds])]);
     const jobs=(await tx.query('SELECT id,title,unit_id,active FROM jobs WHERE org_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE',[actor.org_id,lockedJobs])).rows;
     const selected=jobs.filter(job=>input.jobIds.includes(job.id));
-    requireCondition(selected.length===input.jobIds.length&&selected.every(job=>job.active||before.jobIds.includes(job.id)),400,'New assignments must use available active jobs. Archived jobs can only be retained.');
+    requireCondition(selected.length===input.jobIds.length&&selected.every(job=>job.active||before.jobIds.includes(job.id)||shoppingIds.includes(job.id)),400,'New assignments must use available active jobs. Archived jobs can only be retained.');
     requireCondition(selected.every(job=>input.unitIds.includes(job.unit_id)),400,'Select the community for every assigned job.');
     const units=(await tx.query('SELECT id,name FROM units WHERE org_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE',[actor.org_id,sorted([...new Set([...before.unitIds,...input.unitIds,...jobs.map(job=>job.unit_id)])])])).rows;
     requireCondition(input.unitIds.every(unitId=>units.some(unit=>unit.id===unitId)),400,'Choose communities in this organization.');

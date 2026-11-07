@@ -10,7 +10,7 @@ export const staffAssignmentsSnapshot=z.object({
   userId:z.uuid(),employeeName:z.string(),unitIds:z.array(z.uuid()),jobIds:z.array(z.uuid()),
   revision:z.string().regex(/^[a-f0-9]{64}$/),lockedJobIds:z.array(z.uuid()),lockedUnitIds:z.array(z.uuid()),
   units:z.array(z.object({id:z.uuid(),name:z.string()}).strict()).max(1000),
-  jobs:z.array(z.object({id:z.uuid(),title:z.string(),unitId:z.uuid(),active:z.boolean()}).strict()).max(5000),
+  jobs:z.array(z.object({id:z.uuid(),title:z.string(),unitId:z.uuid(),active:z.boolean(),requiresJobId:z.uuid().optional()}).strict()).max(5000),
   changed:z.boolean(),
 }).strict();
 export type StaffAssignments=z.infer<typeof staffAssignmentsSnapshot>;
