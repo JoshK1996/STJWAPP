@@ -58064,6 +58064,773 @@
           }
         }
       }
+    },
+    "/shopping-receipts": {
+      "get": {
+        "operationId": "get__shopping_receipts",
+        "summary": "List own or permitted team shopping receipts",
+        "description": "Actual current password or PIN browser session; API bearer tokens are rejected. Server reloads the active account, role, community memberships, onboarding/MFA and expiry proof before publication. PIN is strictly self-only. Own history remains available after café assignment removal. Team view requires current password reporting access and current manager-community scope. Default purchase dates: last 30 days through today; explicit range at most 367 dates. A shiftId selects its linked receipts across dates. Active/archived/deleted/all filters; pages of 50. Metadata only; photos fetched separately. Eligible Shopping jobs require both active café/source and derived Shopping assignments. Storage totals appear only for organization administrators.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "mine",
+              "type": "string",
+              "enum": [
+                "mine",
+                "team"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "userId",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unitId",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "shiftId",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "active",
+              "type": "string",
+              "enum": [
+                "active",
+                "archived",
+                "deleted",
+                "all"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingReceiptList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid photo, fields, dates or optional own café time-card link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Mode, current membership, role, scope, Origin or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Receipt unavailable under current access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Duplicate photo, changed command, stale lifecycle version or capacity exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Photo deleted; retained metadata remains",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload or photo limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Upload admission rate exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Photo processor or transaction busy; retry the same command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post__shopping_receipts",
+        "summary": "Save an own café shopping receipt photo",
+        "description": "Actual current password or PIN browser session; API bearer tokens are rejected. Server reloads the active account, role, community memberships, onboarding/MFA and expiry proof before publication. PIN is strictly self-only. Exact configured Origin, application/json and current X-CSRF-Token required. Commands are actor-scoped UUIDs; exact retries return the original minimal result without another event. Off-clock uploads allowed. Requires current active café + derived Shopping assignments and community. Strict JPEG/PNG/WebP base64 source up to 8 MiB/50M pixels, still photo only; private normalized JPEG up to 4 MiB plus bounded thumbnail, metadata stripped. Future purchase dates rejected in organization timezone. Optional exact decimal total is stored as integer cents. Optional shift must belong to the actor with a café-community segment in its captured current revision. Logical organization storage defaults to 1 GiB, max operator-configured 10 GiB. Archive retains storage; deleting frees logical storage. No hours, payroll, reimbursement, ledger or OCR mutation.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful operation; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingReceiptCommandResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid photo, fields, dates or optional own café time-card link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Mode, current membership, role, scope, Origin or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Receipt unavailable under current access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Duplicate photo, changed command, stale lifecycle version or capacity exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Photo deleted; retained metadata remains",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload or photo limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Upload admission rate exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Photo processor or transaction busy; retry the same command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShoppingReceiptUpload"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shopping-receipts/{id}": {
+      "get": {
+        "operationId": "get__shopping_receipts__id_",
+        "summary": "Read receipt metadata and immutable action history",
+        "description": "Actual current password or PIN browser session; API bearer tokens are rejected. Server reloads the active account, role, community memberships, onboarding/MFA and expiry proof before publication. PIN is strictly self-only. Owner or password report reader in current community scope; immutable identity/job/community snapshots survive assignment changes. Deleted records retain dated metadata/history but omit photo and purchase details.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingReceiptDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid photo, fields, dates or optional own café time-card link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Mode, current membership, role, scope, Origin or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Receipt unavailable under current access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Duplicate photo, changed command, stale lifecycle version or capacity exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Photo deleted; retained metadata remains",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload or photo limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Upload admission rate exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Photo processor or transaction busy; retry the same command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shopping-receipts/{id}/photo": {
+      "get": {
+        "operationId": "get__shopping_receipts__id__photo",
+        "summary": "View or download a private receipt photo",
+        "description": "Actual current password or PIN browser session; API bearer tokens are rejected. Server reloads the active account, role, community memberships, onboarding/MFA and expiry proof before publication. PIN is strictly self-only. Current receipt visibility rechecked. JPEG only, private/no-store, nosniff; size=thumb or full (default), download=1 sends attachment with UUID-based filename. Deleted images return 410. No public image URL.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "full",
+                "thumb"
+              ],
+              "default": "full"
+            }
+          },
+          {
+            "in": "query",
+            "name": "download",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation; private, no-store.",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid photo, fields, dates or optional own café time-card link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Mode, current membership, role, scope, Origin or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Receipt unavailable under current access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Duplicate photo, changed command, stale lifecycle version or capacity exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Photo deleted; retained metadata remains",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload or photo limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Upload admission rate exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Photo processor or transaction busy; retry the same command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shopping-receipts/{id}/state": {
+      "post": {
+        "operationId": "post__shopping_receipts__id__state",
+        "summary": "Archive, restore or delete a receipt photo",
+        "description": "Actual current password or PIN browser session; API bearer tokens are rejected. Server reloads the active account, role, community memberships, onboarding/MFA and expiry proof before publication. PIN is strictly self-only. Exact configured Origin, application/json and current X-CSRF-Token required. Commands are actor-scoped UUIDs; exact retries return the original minimal result without another event. Password developer/owner/administrator or current scoped manager only, including own receipts without approval. expectedVersion must match. Archive/restore retains photo. Delete permanently clears photo, thumbnail, vendor, total and purchase note; dated identity/job/hash tombstone and immutable history/command/audit remain. Deleted receipts cannot restore. Photo deletion is a logical database deletion; existing disaster-recovery backups follow their separate retention.",
+        "security": [
+          {
+            "Session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingReceiptCommandResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid photo, fields, dates or optional own café time-card link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Mode, current membership, role, scope, Origin or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Receipt unavailable under current access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Duplicate photo, changed command, stale lifecycle version or capacity exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Photo deleted; retained metadata remains",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload or photo limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Upload admission rate exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Photo processor or transaction busy; retry the same command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShoppingReceiptState"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -111840,6 +112607,17 @@
           },
           "unit_name": {
             "type": "string"
+          },
+          "requires_job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -113008,6 +113786,11 @@
                 },
                 "active": {
                   "type": "boolean"
+                },
+                "requiresJobId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                 }
               },
               "required": [
@@ -117980,6 +118763,408 @@
         },
         "required": [
           "rows"
+        ],
+        "additionalProperties": false
+      },
+      "ShoppingReceipt": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobTitle": {
+            "type": "string"
+          },
+          "unitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unitName": {
+            "type": "string"
+          },
+          "purchasedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "amountMinor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shiftId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shiftRevision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "uploadedAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived",
+              "deleted"
+            ]
+          },
+          "version": {
+            "type": "integer"
+          },
+          "width": {
+            "type": "integer"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "photoSize": {
+            "type": "integer"
+          },
+          "canManage": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "employeeName",
+          "jobId",
+          "jobTitle",
+          "unitId",
+          "unitName",
+          "purchasedOn",
+          "vendor",
+          "amountMinor",
+          "note",
+          "shiftId",
+          "shiftRevision",
+          "uploadedAt",
+          "updatedAt",
+          "status",
+          "version",
+          "width",
+          "height",
+          "photoSize",
+          "canManage"
+        ],
+        "additionalProperties": false
+      },
+      "ShoppingReceiptList": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShoppingReceipt"
+            },
+            "maxItems": 50
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "hasOwnReceipts": {
+            "type": "boolean"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "today": {
+            "type": "string",
+            "format": "date"
+          },
+          "eligibleJobs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "unitId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "unitName": {
+                  "type": "string"
+                },
+                "cafeTitle": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "unitId",
+                "unitName",
+                "cafeTitle"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "canReview": {
+            "type": "boolean"
+          },
+          "canManage": {
+            "type": "boolean"
+          },
+          "storage": {
+            "type": "object",
+            "properties": {
+              "usedBytes": {
+                "type": "string"
+              },
+              "limitBytes": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "usedBytes",
+              "limitBytes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "rows",
+          "hasMore",
+          "hasOwnReceipts",
+          "timezone",
+          "today",
+          "eligibleJobs",
+          "canReview",
+          "canManage"
+        ],
+        "additionalProperties": false
+      },
+      "ShoppingReceiptDetail": {
+        "type": "object",
+        "properties": {
+          "receipt": {
+            "$ref": "#/components/schemas/ShoppingReceipt"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "actor_name": {
+                  "type": "string"
+                },
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "uploaded",
+                    "archived",
+                    "restored",
+                    "deleted"
+                  ]
+                },
+                "version": {
+                  "type": "integer"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "actor_name",
+                "action",
+                "version",
+                "note",
+                "created_at"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "receipt",
+          "events"
+        ],
+        "additionalProperties": false
+      },
+      "ShoppingReceiptCommandResult": {
+        "type": "object",
+        "properties": {
+          "receiptId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "uploaded",
+              "archived",
+              "restored",
+              "deleted"
+            ]
+          }
+        },
+        "required": [
+          "receiptId",
+          "version",
+          "action"
+        ],
+        "additionalProperties": false
+      },
+      "ShoppingReceiptUpload": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "purchasedOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "vendor": {
+            "default": "",
+            "type": "string",
+            "maxLength": 200
+          },
+          "total": {
+            "default": "",
+            "type": "string",
+            "pattern": "^(?:\\d{1,9}(?:\\.\\d{1,2})?)?$"
+          },
+          "note": {
+            "default": "",
+            "type": "string",
+            "maxLength": 2000
+          },
+          "shiftId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "imageBase64": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 11184812,
+            "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+          }
+        },
+        "required": [
+          "commandId",
+          "jobId",
+          "purchasedOn",
+          "imageBase64"
+        ],
+        "additionalProperties": false
+      },
+      "ShoppingReceiptState": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "expectedVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived",
+              "deleted"
+            ]
+          },
+          "note": {
+            "default": "",
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "commandId",
+          "expectedVersion",
+          "status"
         ],
         "additionalProperties": false
       }

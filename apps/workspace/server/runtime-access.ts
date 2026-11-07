@@ -52,7 +52,9 @@ DO $$ DECLARE immutable_table record; BEGIN
   EXECUTE format('REVOKE DELETE ON TABLE %I.%I FROM stjw_runtime',immutable_table.nspname,immutable_table.relname);
  END LOOP;
 END $$;
-REVOKE DELETE ON TABLE public.clock_employee_policies,public.staff_planning_definitions FROM stjw_runtime;
+REVOKE DELETE ON TABLE public.clock_employee_policies,public.staff_planning_definitions,public.shopping_receipts FROM stjw_runtime;
+REVOKE INSERT,UPDATE,DELETE ON TABLE public.shopping_programs FROM stjw_runtime;
+REVOKE EXECUTE ON FUNCTION public.provision_cafe_shopping(uuid,uuid,uuid,text) FROM stjw_runtime;
 `;
 }
 const accountingProtections = [
@@ -223,7 +225,19 @@ export async function inspectRuntimeAccess(db: Queryable) {
     NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
       JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace
       WHERE n.nspname='public' AND c.relname='timetable_revisions' AND NOT t.tgisinternal AND t.tgenabled IN('O','A')
-      AND t.tgtype=19 AND f.nspname='public' AND p.proname='protect_timetable_calendar_revision') AS unprotected_timetable_calendar_revision
+      AND t.tgtype=19 AND f.nspname='public' AND p.proname='protect_timetable_calendar_revision') AS unprotected_timetable_calendar_revision,
+    EXISTS(SELECT 1 FROM (VALUES ('shopping_receipt_commands','immutable_receipt_command','protect_audit_events',27,false),
+      ('shopping_receipt_events','immutable_receipt_event','protect_audit_events',27,false),('shopping_receipts','protected_shopping_receipt','protect_shopping_receipt',27,false),
+      ('shopping_programs','immutable_shopping_program','protect_audit_events',27,false),
+      ('user_jobs','shopping_job_membership','check_shopping_member',29,true),('user_units','shopping_unit_membership','check_shopping_member',29,true),
+      ('jobs','shopping_job_structure','check_shopping_jobs',17,true),('shopping_programs','shopping_program_structure','check_shopping_jobs',5,true)) expected(table_name,trigger_name,function_name,trigger_type,deferred)
+      WHERE NOT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+        JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace f ON f.oid=p.pronamespace WHERE n.nspname='public' AND c.relname=expected.table_name AND t.tgname=expected.trigger_name
+        AND f.nspname='public' AND p.proname=expected.function_name AND t.tgenabled IN('O','A') AND t.tgtype=expected.trigger_type
+        AND t.tgdeferrable=expected.deferred AND t.tginitdeferred=expected.deferred))
+      OR has_table_privilege('public.shopping_receipts','DELETE') OR has_table_privilege('public.shopping_programs','INSERT,UPDATE,DELETE')
+      OR EXISTS(SELECT 1 FROM unnest(ARRAY['SELECT','INSERT','UPDATE']) permission WHERE NOT has_table_privilege('public.shopping_receipts',permission))
+      OR has_function_privilege('public.provision_cafe_shopping(uuid,uuid,uuid,text)','EXECUTE') AS unprotected_shopping_receipts
   `)
   ).rows[0];
   return result;

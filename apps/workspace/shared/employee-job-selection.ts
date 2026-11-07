@@ -1,4 +1,4 @@
-export type EmployeeJobChoice = { id: string; title: string; unitId: string; active: boolean };
+export type EmployeeJobChoice = { id: string; title: string; unitId: string; active: boolean; requiresJobId?:string };
 export type EmployeeAssignmentSelection = { unitIds: string[]; jobIds: string[] };
 
 /** A job explicitly brings its community with it; unrelated selections are retained. */

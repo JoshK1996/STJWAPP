@@ -1,5 +1,9 @@
 # Implementation status
 
+## Café Shopping and private receipt photos - November 7, 2026
+
+Implemented locally for [issue #47](https://github.com/JoshK1996/STJWAPP/issues/47): café-derived Shopping job assignments, password/PIN own receipt capture/history, scoped team review, private photo downloads and direct archive/restore/delete with retained evidence. Migration 053 and explicit operator setup await reviewed rollout. See CAFE-SHOPPING-RECEIPTS and ADR0019.
+
 ## Privileged direct authority - November 3, 2026
 
 Developer, owner and administrator password sessions save their own completed/open time cards, missing shifts and missed clock-outs directly. Existing own time/schedule proposals can be resolved directly; their own general time-off/note entries are recorded immediately. Scheduled shifts use the direct editor. Developers can provision every valid role through the staff form and CSV and manage their own account. Administrators can manage peers and themselves. Same-role active self-account edits retain the current session; explicit self deactivation or role change ends old access. Ordinary employee/scoped-manager review remains. Server identity/role/session, organization boundaries, source/revision conflicts, exact retries, valid time/job rules and immutable evidence remain authoritative. See ADR0018, which supersedes the former privileged self-review/provisioning restrictions.

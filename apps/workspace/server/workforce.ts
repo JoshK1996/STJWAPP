@@ -1,3 +1,4 @@
+import { shoppingAssignmentIds, shoppingPrograms } from './shopping-jobs';
 import { randomUUID } from 'node:crypto';
 import type { Database, Queryable } from './db';
 import { canAdminister, audit, assertUnit, digest, manages, orgWide, requireCondition, type Actor } from './security';
@@ -81,6 +82,8 @@ export async function listStaff(db: Queryable, actor: Actor) {
 export async function validateStaff(tx: Queryable, actor: Actor, input: z.infer<typeof staffInput>, staffDomain: string,
   existing?: { role: string; email: string; retainedJobIds?: string[] }) {
   requireCondition(manages(actor),403,'Staff management access required.');
+  input.jobIds=await shoppingAssignmentIds(tx,actor.org_id,input.jobIds,existing?.retainedJobIds??[]);
+  const shoppingIds=(await shoppingPrograms(tx,actor.org_id)).map(p=>p.shopping_job_id);
   // Developers may provision every role; owners may retain their existing role.
   // Other roles cannot assign higher-level owner or developer access.
   requireCondition(!['developer','owner'].includes(input.role) || actor.role==='developer' ||
@@ -91,7 +94,7 @@ export async function validateStaff(tx: Queryable, actor: Actor, input: z.infer<
   const units = (await tx.query('SELECT id FROM units WHERE org_id=$1 AND id=ANY($2::uuid[])',[actor.org_id,input.unitIds])).rows;
   requireCondition(units.length===new Set(input.unitIds).size,400,'Unknown organizational unit.');
   input.unitIds.forEach(id=>assertUnit(actor,id));
-  const jobs = (await tx.query('SELECT id,unit_id FROM jobs WHERE org_id=$1 AND (active=true OR id=ANY($3::uuid[])) AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE',[actor.org_id,input.jobIds,existing?.retainedJobIds??[]])).rows;
+  const jobs = (await tx.query('SELECT id,unit_id FROM jobs WHERE org_id=$1 AND (active=true OR id=ANY($3::uuid[]) OR id=ANY($4::uuid[])) AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE',[actor.org_id,input.jobIds,existing?.retainedJobIds??[],shoppingIds])).rows;
   requireCondition(jobs.length===new Set(input.jobIds).size && jobs.every(j=>input.unitIds.includes(j.unit_id)),400,'Jobs must belong to the assigned units.');
 }
 export async function createStaff(tx: Queryable, actor: Actor, input: z.infer<typeof staffInput>, staffDomain: string) {

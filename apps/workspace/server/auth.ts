@@ -316,6 +316,8 @@ export function installAuth(app: Express, db: Database, secure: boolean) {
       requireCondition(
         ["/me", "/clock", "/auth/logout"].includes(req.path) ||
           (req.method === "GET" && req.path === "/clock/history") ||
+          (req.method==='GET' && /^\/shopping-receipts(?:\/[0-9a-f-]{36}(?:\/photo)?)?$/i.test(req.path)) ||
+          (req.method==='POST' && req.path==='/shopping-receipts') ||
           (req.method === "POST" && /^\/clock\/preclock\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/cancel$/i.test(req.path)),
         403,
         "Sign in with your password to open this area.",

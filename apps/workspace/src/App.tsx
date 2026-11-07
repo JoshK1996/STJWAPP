@@ -1,3 +1,4 @@
+import { ReceiptHub, ShoppingReceiptEntry, type ReceiptTarget } from './ShoppingReceipts';
 import WorkforceImport from "./WorkforceImport";
 import StaffCredentials from "./StaffCredentials";
 import { EmployeeForm } from "./EmployeeForm";
@@ -162,16 +163,18 @@ export default function App() {
   const clockPendingRef = useRef(false);
   const [timeCardPending,setTimeCardPending]=useState(false);
   const timeCardPendingRef=useRef(false);
+  const [receiptPending,setReceiptPending]=useState(false),receiptPendingRef=useRef(false);
+  const [receiptTarget,setReceiptTarget]=useState<ReceiptTarget|null>(null),[receiptRevision,setReceiptRevision]=useState(0);
   useEffect(() => {
     const prevent = (event: BeforeUnloadEvent) => {
-      if (unsavedChanges || clockPending || timeCardPending) {
+      if (unsavedChanges || clockPending || timeCardPending || receiptPending) {
         event.preventDefault();
         event.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", prevent);
     return () => window.removeEventListener("beforeunload", prevent);
-  }, [unsavedChanges, clockPending, timeCardPending]);
+  }, [unsavedChanges, clockPending, timeCardPending, receiptPending]);
   const [me, setMe] = useState<any>(null),
     [loading, setLoading] = useState(true),
     [page, setPage] = useState<Page>("overview"),
@@ -267,6 +270,7 @@ export default function App() {
     setUnsavedChanges(false); setBusy(false); setToast(null); setMobile(false);
     clockPendingRef.current = false; setClockPending(false);
     timeCardPendingRef.current=false;setTimeCardPending(false);
+    receiptPendingRef.current=false;setReceiptPending(false);setReceiptTarget(null);
     setScope(""); setSearch(""); setIncludeInactiveStaff(false);
     setScheduleWeek(day().startOf("week").toISODate()!);
     setSchedulePlanningTarget(null);setScheduleRequestTarget(null);setTimeRecordsTarget(null);
@@ -307,6 +311,14 @@ export default function App() {
     if(sessionEpoch.current!==workspaceEpoch)return;
     timeCardPendingRef.current=pending;setTimeCardPending(pending);
   },[workspaceEpoch]);
+  const receiptPendingChanged=useCallback((value:boolean)=>{
+    if(sessionEpoch.current!==workspaceEpoch)return;
+    receiptPendingRef.current=value;setReceiptPending(value);
+  },[workspaceEpoch]);
+  const openReceipts=useCallback((target:Omit<ReceiptTarget,'nonce'>)=>{
+    if(sessionEpoch.current===workspaceEpoch)setReceiptTarget({...target,nonce:Date.now()});
+  },[workspaceEpoch]);
+  const receiptsChanged=useCallback(()=>{if(sessionEpoch.current===workspaceEpoch)setReceiptRevision(value=>value+1);},[workspaceEpoch]);
   const notify = useCallback(
     (text: string, error = false) => {
       if (sessionEpoch.current === workspaceEpoch) setToast({ text, error });
@@ -451,13 +463,13 @@ export default function App() {
       return JSON.stringify(Array.from(control.selectedOptions).map(option => option.value)) !== JSON.stringify(expected);
     });
     const workflowOpen = Array.from(document.querySelectorAll('dialog[open],[aria-modal="true"]')).some(dialog => !dialog.querySelector('.install-guide'));
-    const reason = updateBlockReason({ pendingWrites: getPendingWriteCount()+Number(timeCardPendingRef.current), clockPending: clockPendingRef.current, unsavedChanges, busy, workflowOpen, formHasChanges, accountSetup: Boolean(document.querySelector('.auth-layout[data-account-workflow="true"]')) });
+    const reason = updateBlockReason({ pendingWrites: getPendingWriteCount()+Number(timeCardPendingRef.current)+Number(receiptPendingRef.current), clockPending: clockPendingRef.current, unsavedChanges, busy, workflowOpen, formHasChanges, accountSetup: Boolean(document.querySelector('.auth-layout[data-account-workflow="true"]')) });
     if (reason) return reason;
     if (!navigator.onLine) return 'Reconnect to the internet before updating.';
     if (!appUpdate.available) return 'Check for updates again before reloading.';
     window.location.reload();
   }
-  const updateNotice = <InstallExperience compact={Boolean(me && compactClock && page === "clock")} experience={installExperience} update={appUpdate} onReload={reloadForUpdate} onCheckForUpdate={() => { void updateMonitor.current?.check(); }} reloadBlockedReason={updateBlockReason({ pendingWrites:pendingWrites+Number(timeCardPending), clockPending, unsavedChanges, busy, workflowOpen: false, formHasChanges: false, accountSetup: false })} />;
+  const updateNotice = <InstallExperience compact={Boolean(me && compactClock && page === "clock")} experience={installExperience} update={appUpdate} onReload={reloadForUpdate} onCheckForUpdate={() => { void updateMonitor.current?.check(); }} reloadBlockedReason={updateBlockReason({ pendingWrites:pendingWrites+Number(timeCardPending)+Number(receiptPending), clockPending, unsavedChanges, busy, workflowOpen: false, formHasChanges: false, accountSetup: false })} />;
   function go(next: Page) {
     if (me?.actor.mode === "pin" && next !== "clock" && next !== "time-records") return false;
     if (next === page) { if (mobile) setMobile(false); return true; }
@@ -814,6 +826,7 @@ export default function App() {
                 const warning = clockPendingRef.current
                   ? `Your clock request may already be recorded. ${unsavedChanges ? "Other unsaved changes will be discarded. " : ""}Sign out and check your clock after signing in again?`
                   : timeCardPendingRef.current ? "Your time-card change may already be saved. Sign out and check its history after signing in again?"
+                  : receiptPendingRef.current ? "A receipt photo is unsaved or its save needs checking. Signing out discards the local photo. If a save was sent, check My receipts after signing in again. Sign out?"
                   : unsavedChanges ? "Discard unsaved changes and sign out?" : "";
                 if (warning && !window.confirm(warning)) return;
                 try { await api("/auth/logout", {}); }
@@ -900,6 +913,7 @@ export default function App() {
           </div>
         )}
         <main id="workspace-main" ref={mainRef} tabIndex={-1} aria-labelledby={page === "overview" && me.permissions.report ? "workforce-heading" : "workspace-heading"}>
+          <ReceiptHub key={me.actor.org_id+':'+me.actor.id+':'+me.actor.mode+':'+me.actor.role+':'+me.actor.csrf+':'+JSON.stringify(me.actor.unit_ids)+':'+workspaceEpoch} target={receiptTarget} staff={staff} onPendingChange={receiptPendingChanged} onChanged={receiptsChanged} notify={notify}/>
           {!(page === "overview" && me.permissions.report) && <div className="page-heading">
             <div>
               <div className="eyebrow">
@@ -959,7 +973,7 @@ export default function App() {
             />
           )}
           {page === "overview" && me.permissions.report && <>
-            <WorkforceDashboard key={me.actor.id} me={me} board={board} boardState={boardState} onNavigate={go} onRefresh={refresh} onNavigateRecords={openTimeRecords} onDirty={workspaceDirty} onPendingChange={timeCardPendingChanged} notify={notify} onFlagSettings={()=>{if(go('settings'))setSettingsSection('organization');}}/>
+            <WorkforceDashboard key={me.actor.id} me={me} board={board} boardState={boardState} onNavigate={go} onRefresh={refresh} onNavigateRecords={openTimeRecords} onReceipts={openReceipts} onDirty={workspaceDirty} onPendingChange={timeCardPendingChanged} notify={notify} onFlagSettings={()=>{if(go('settings'))setSettingsSection('organization');}}/>
             <button className="workforce-personal-toggle" onClick={() => setShowPersonalCards(value => !value)} aria-expanded={showPersonalCards}><SlidersHorizontal size={17}/>{showPersonalCards ? "Hide personal workspace cards" : "Show personal workspace cards"}<ChevronDown size={17}/></button>
           </>}
           {page === "overview" && (!me.permissions.report || showPersonalCards) && (
@@ -1176,11 +1190,12 @@ export default function App() {
                 onPendingChange={clockPendingChanged}
                 large
               />
+              <ShoppingReceiptEntry key={me.actor.id+me.actor.mode} revision={String(receiptRevision)+String(clock?.serverTime)} onOpen={openReceipts}/>
               {compactClock && toastNotice}
               {compactClock && workforceNavigation}
               {me.actor.mode === "pin" && <div className="pin-history-entry">
                 <button type="button" className="button secondary" onClick={() => go("time-records")}><History size={18}/><span>My hours & clock records</span><ArrowRight size={18}/></button>
-                <p className="panel-note"><ShieldCheck size={16} /> PIN session · Your clock and personal hours. Use Password for your full workspace.</p>
+                <p className="panel-note"><ShieldCheck size={16} /> PIN session · Your clock, personal hours and shopping receipts. Use Password for your full workspace.</p>
               </div>}
               {me.actor.mode !== "pin" && (
                 <div className="two-columns">
@@ -1273,7 +1288,7 @@ export default function App() {
                         {!person.job_ids.length && <span className="employee-no-jobs">No jobs assigned · cannot clock in yet</span>}
                       </dd></div><div><dt>Communities</dt><dd>{communityNames.join(', ') || 'No community listed'}</dd></div></dl>
                       <div className="employee-card-actions">
-                        {me.permissions.report && <button className="button secondary small" onClick={() => openTimeRecords({userId:person.id})}>Time cards</button>}
+                        {me.permissions.report && <><button className="button secondary small" onClick={() => openTimeRecords({userId:person.id})}>Time cards</button><button className="button secondary small" onClick={()=>openReceipts({view:"team",userId:person.id})}>Shopping receipts</button></>}
                         {me.permissions.manage && person.active && <button className="button secondary small" onClick={() => { if(go("schedule"))setSchedulePlanningTarget({userId:person.id,mode:"assigned"}); }}>Schedule</button>}
                         {canAssignPerson(person) && <button className="button primary small" onClick={() => setStaffTool({kind:'assignments',person})}>Manage jobs</button>}
                         {canManagePerson(person) && <button className="button secondary small" onClick={() => setDialog({type:'staff',staff:person})}>Edit employee</button>}
@@ -1433,7 +1448,7 @@ export default function App() {
           )}
           {page === "time-records" && me.actor.mode === "pin" && <PersonalTime key={me.actor.id+":"+workspaceEpoch} timezone={me.organization.timezone} onSessionExpired={sessionExpired} onBack={() => go("clock")}/>}
           {page === "time-records" && me.actor.mode !== "pin" && (
-            <TimeRecords key={me.actor.id+":"+workspaceEpoch} me={me} notify={notify} onChanged={refresh} onDirty={workspaceDirty} target={timeRecordsTarget} onTargetConsumed={consumeTimeRecordsTarget} onPendingChange={timeCardPendingChanged} onNavigatePayroll={me.permissions.report ? () => go("payroll") : undefined}/>
+            <TimeRecords key={me.actor.id+":"+workspaceEpoch} me={me} notify={notify} onChanged={refresh} onDirty={workspaceDirty} target={timeRecordsTarget} onTargetConsumed={consumeTimeRecordsTarget} onReceipts={openReceipts} onPendingChange={timeCardPendingChanged} onNavigatePayroll={me.permissions.report ? () => go("payroll") : undefined}/>
           )}
           {page === "payroll" && me.actor.mode !== "pin" && me.permissions.report && <Payroll key={me.actor.id+':'+workspaceEpoch} me={me} staff={staff} notify={notify} onDirty={workspaceDirty} onNavigateRecords={openTimeRecords} onSaveExportDefaults={value=>savePersonalDefaults({payrollExport:value})}/>}
           {page === "audit" && (

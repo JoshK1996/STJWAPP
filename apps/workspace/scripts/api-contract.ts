@@ -336,4 +336,5 @@ await import('./api-accounting');
 await import('./api-editing');
 await import('./api-workforce-live');
 await import('./api-staff-planning');
+await import('./api-shopping-receipts');
 const complete=JSON.parse(await readFile('docs/openapi.json','utf8')); console.log('Complete API inventory: '+Object.keys(complete.paths).length+' paths.');
