@@ -14,10 +14,14 @@ PowerShell/OpenSSH scripts are operator tooling, not request handlers or CI. Ide
 
 ## Invariants
 
-- Deployed migrations 001-052 are immutable. Add new numbered migrations instead of rewriting history.
+- Deployed migrations 001-053 are immutable. Add new numbered migrations instead of rewriting history.
 - The web role never receives superuser, create-database/create-role or bypass-row-security privileges for migrations, tests or rollback.
 - Time transitions and audits commit together. Historical revisions, finalized evidence and audits persist.
 - Academic scheduling acquires `lockAcademics` before domain locks, validates the resulting timetable and advances its revision in the same transaction.
 - Reports preserve captured identity/code snapshots and exact timestamps. Missing/draft attendance is not recorded absence.
 
 Backups, retention, restore drills and response procedures need operational ownership. Schema checks do not establish restoration acceptance. See [deployment](DEPLOYMENT.md) and [development](DEVELOPMENT.md).
+
+## Café Shopping setup after schema 053
+
+Deploy the reviewed 053 web source before enabling the catalog mapping. In the explicit setup transaction, set local lock/statement timeouts and acquire `LOCK TABLE users IN EXCLUSIVE MODE` before calling `provision_cafe_shopping`. This drains existing account-locking requests before the function takes catalog/membership locks and prevents an account/job lock inversion with concurrent clock or assignment writes. Check that the extra Shopping grant fits the existing 40-job assignment limit. Keep the transaction short, force deferred constraints before commit, and retry the identical transaction if the lock window is busy. Dry-run first with rollback; commit the same reviewed setup and verify aggregate source/Shopping membership closure. The web role cannot run setup. No customer credential or account is needed for acceptance. To pause future Shopping use, archive the Shopping job after its active clock segments are finished or switched, preserving receipt history.

@@ -2,11 +2,7 @@
 
 ## Café Shopping and private receipt photos - November 7, 2026
 
-Implemented locally for [issue #47](https://github.com/JoshK1996/STJWAPP/issues/47): café-derived Shopping job assignments, password/PIN own receipt capture/history, scoped team review, private photo downloads and direct archive/restore/delete with retained evidence. Migration 053 and explicit operator setup await reviewed rollout. See CAFE-SHOPPING-RECEIPTS and ADR0019.
-
-The active milestone is simple live employee timekeeping, staff roles and accountant-ready administrative reporting. The owner approved removing demonstration operational records while retaining three real accounts; synthetic data is now for isolated tests only. The school, parish and early-childhood programs share configurable organization structure. Managers require explicit subgroup assignments. PIN sessions provide the clock and read-only personal time history; passwords open the permitted workspace.
-
-The visual direction is a colorful dimensional dashboard with interactive charts, useful indicators and illustrations. Responsive layouts, keyboard use, contrast and motion/depth preferences remain supported. Color and animation supplement text and shape.
+Delivered live under PR #48 (issue #47). Shopping follows the configured Cafeteria staff job automatically through employee creation, full edits, assignment changes and staff imports. Eligible staff add receipt photos from My time clock with a password or Quick PIN, on or off the clock; optional store, total, note and an own time-card link are supported. Overview, employee cards and time-card details open permitted review. Staff retain own photo/history access; PIN stays self-only. Password developers, owners, administrators and scoped managers download, archive, restore or delete directly, including own receipts; finance readers download only. Private bounded JPEG photos live in PostgreSQL with logical capacity limits, current session/scope checks and atomic immutable evidence. Unconfirmed saves retain exact retry while the clock stays available. See CAFE-SHOPPING-RECEIPTS and ADR0019. See STATUS/VALIDATION for actual receipts.
 
 ## Privileged direct authority - November 3, 2026
 
